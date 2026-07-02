@@ -3,8 +3,9 @@
 #
 # Setup once:
 #   cp scripts/deploy-remote.example.sh scripts/deploy-remote.sh
+#   cp .env.example .env
 #   chmod +x scripts/deploy-remote.sh
-#   # edit SSH_TARGET in deploy-remote.sh
+#   # fill SSH_TARGET and secrets in .env
 #
 # Usage (after changes are merged to main on GitHub):
 #   ./scripts/deploy-remote.sh
@@ -20,6 +21,13 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+if [[ -f "$ROOT/.env" ]]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "$ROOT/.env"
+  set +a
+fi
+
 SSH_TARGET="${SSH_TARGET:-root@YOUR_SERVER_IP}"
 REMOTE_DIR="${REMOTE_DIR:-/opt/HourDen}"
 REPO_URL="${REPO_URL:-https://github.com/HaDuve/HourDen.git}"
@@ -28,7 +36,7 @@ DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
 VERIFY_PRODUCTION="${VERIFY_PRODUCTION:-0}"
 
 if [[ "$SSH_TARGET" == *"YOUR_SERVER_IP"* ]]; then
-  echo "Set SSH_TARGET (e.g. export SSH_TARGET=root@YOUR_IP) or edit deploy-remote.sh." >&2
+  echo "Set SSH_TARGET in .env (e.g. SSH_TARGET=root@YOUR_IP)." >&2
   exit 1
 fi
 
