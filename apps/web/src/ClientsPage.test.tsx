@@ -3,6 +3,23 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ClientsPage from "./ClientsPage.js";
 
 describe("ClientsPage", () => {
+  const bandaoClient = {
+    id: "c0000000-0000-4000-8000-000000000001",
+    name: "Bandao",
+    defaultRate: 60,
+    legalName: null,
+    addressLine1: null,
+    addressLine2: null,
+  };
+  const hannahClient = {
+    id: "c0000000-0000-4000-8000-000000000002",
+    name: "Hannah",
+    defaultRate: 80,
+    legalName: null,
+    addressLine1: null,
+    addressLine2: null,
+  };
+
   it("shows an empty state when there are no Clients", async () => {
     vi.stubGlobal(
       "fetch",
@@ -177,28 +194,11 @@ describe("ClientsPage", () => {
   });
 
   it("deletes the Client chosen when the dialog opened, even if another row Delete is clicked", async () => {
-    const firstClient = {
-      id: "c0000000-0000-4000-8000-000000000001",
-      name: "Bandao",
-      defaultRate: 60,
-      legalName: null,
-      addressLine1: null,
-      addressLine2: null,
-    };
-    const secondClient = {
-      id: "c0000000-0000-4000-8000-000000000002",
-      name: "Hannah",
-      defaultRate: 80,
-      legalName: null,
-      addressLine1: null,
-      addressLine2: null,
-    };
-
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ clients: [firstClient, secondClient] }),
+        json: async () => ({ clients: [bandaoClient, hannahClient] }),
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -206,7 +206,7 @@ describe("ClientsPage", () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ clients: [firstClient] }),
+        json: async () => ({ clients: [bandaoClient] }),
       });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -232,35 +232,18 @@ describe("ClientsPage", () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        `/api/clients/${secondClient.id}`,
+        `/api/clients/${hannahClient.id}`,
         expect.objectContaining({ method: "DELETE" }),
       );
     });
   });
 
   it("deletes the chosen Client when multiple Clients exist", async () => {
-    const firstClient = {
-      id: "c0000000-0000-4000-8000-000000000001",
-      name: "Bandao",
-      defaultRate: 60,
-      legalName: null,
-      addressLine1: null,
-      addressLine2: null,
-    };
-    const secondClient = {
-      id: "c0000000-0000-4000-8000-000000000002",
-      name: "Hannah",
-      defaultRate: 80,
-      legalName: null,
-      addressLine1: null,
-      addressLine2: null,
-    };
-
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ clients: [firstClient, secondClient] }),
+        json: async () => ({ clients: [bandaoClient, hannahClient] }),
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -268,7 +251,7 @@ describe("ClientsPage", () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ clients: [firstClient] }),
+        json: async () => ({ clients: [bandaoClient] }),
       });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -296,7 +279,7 @@ describe("ClientsPage", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      `/api/clients/${secondClient.id}`,
+      `/api/clients/${hannahClient.id}`,
       expect.objectContaining({ method: "DELETE" }),
     );
   });

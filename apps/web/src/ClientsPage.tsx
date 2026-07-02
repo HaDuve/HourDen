@@ -1,5 +1,6 @@
 import type { Client } from "@hourden/domain";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useDeleteDialog } from "./useDeleteDialog.js";
 
 type ClientFormData = {
   name: string;
@@ -42,20 +43,14 @@ export default function ClientsPage() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Client | "new" | null>(null);
   const [form, setForm] = useState<ClientFormData>(emptyForm);
-  const [pendingDelete, setPendingDelete] = useState<Client | null>(null);
   const [saving, setSaving] = useState(false);
-  const deleteTargetIdRef = useRef<string | null>(null);
-
-  const openDeleteDialog = (client: Client) => {
-    if (deleteTargetIdRef.current) return;
-    deleteTargetIdRef.current = client.id;
-    setPendingDelete(client);
-  };
-
-  const closeDeleteDialog = () => {
-    deleteTargetIdRef.current = null;
-    setPendingDelete(null);
-  };
+  const {
+    pendingDelete,
+    isDeleteDialogOpen,
+    openDeleteDialog,
+    closeDeleteDialog,
+    getDeleteTargetId,
+  } = useDeleteDialog<Client>();
 
   const loadClients = useCallback(async () => {
     setLoading(true);
@@ -129,7 +124,7 @@ export default function ClientsPage() {
   };
 
   const confirmDelete = async () => {
-    const id = deleteTargetIdRef.current;
+    const id = getDeleteTargetId();
     if (!id) return;
 
     setSaving(true);
@@ -187,7 +182,7 @@ export default function ClientsPage() {
       ) : (
         <ul
           className={`divide-y divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white${
-            pendingDelete ? " pointer-events-none" : ""
+            isDeleteDialogOpen ? " pointer-events-none" : ""
           }`}
         >
           {clients.map((client) => (
