@@ -41,4 +41,11 @@ describe("migration definitions", () => {
     expect(migration?.sql).toContain("amount");
     expect(migration?.sql).toContain("ended_at IS NULL");
   });
+
+  it("adds import fingerprints for idempotent Clockify imports", () => {
+    const migration = MIGRATIONS.find((m) => m.id === "005_clockify_import_fingerprint");
+    expect(migration).toBeDefined();
+    expect(migration?.sql).toContain("import_fingerprint");
+    expect(migration?.sql).toContain("workspace_id, import_fingerprint");
+  });
 });
