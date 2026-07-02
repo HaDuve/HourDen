@@ -1,3 +1,4 @@
+import "../load-env.js";
 import { Pool } from "pg";
 import { runMigrations } from "./migrate.js";
 
