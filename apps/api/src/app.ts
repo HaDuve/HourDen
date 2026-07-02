@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Pool } from "pg";
 import { createClientsRouter } from "./clients.js";
+import { createProjectsRouter } from "./projects.js";
 import { pool } from "./db/pool.js";
 import { healthPayload } from "./health.js";
 import { apiKeyAuth } from "./middleware/api-key.js";
@@ -19,6 +20,7 @@ export function createApp(options: AppOptions = {}) {
   const api = new Hono();
   api.get("/health", (c) => c.json(healthPayload()));
   api.route("/clients", createClientsRouter(db));
+  api.route("/projects", createProjectsRouter(db));
 
   app.route("/api", api);
 

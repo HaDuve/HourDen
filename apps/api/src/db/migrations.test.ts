@@ -18,4 +18,13 @@ describe("migration definitions", () => {
     expect(clientsMigration?.sql).toContain("address_line1");
     expect(clientsMigration?.sql).toContain("address_line2");
   });
+
+  it("creates the projects table scoped to workspace and client", () => {
+    const projectsMigration = MIGRATIONS.find((m) => m.id === "003_projects");
+    expect(projectsMigration).toBeDefined();
+    expect(projectsMigration?.sql).toContain("workspace_id");
+    expect(projectsMigration?.sql).toContain("client_id");
+    expect(projectsMigration?.sql).toContain("color");
+    expect(projectsMigration?.sql).toContain("ON DELETE RESTRICT");
+  });
 });

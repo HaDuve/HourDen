@@ -1,29 +1,20 @@
-import type { Client } from "@hourden/domain";
+import type { Client, Project } from "@hourden/domain";
 import { useCallback, useEffect, useState } from "react";
 
-type ClientFormData = {
+type ProjectFormData = {
   name: string;
-  defaultRate: string;
-  legalName: string;
-  addressLine1: string;
-  addressLine2: string;
+  color: string;
 };
 
-const emptyForm: ClientFormData = {
+const emptyForm: ProjectFormData = {
   name: "",
-  defaultRate: "",
-  legalName: "",
-  addressLine1: "",
-  addressLine2: "",
+  color: "",
 };
 
-function clientToForm(client: Client): ClientFormData {
+function projectToForm(project: Project): ProjectFormData {
   return {
-    name: client.name,
-    defaultRate: String(client.defaultRate),
-    legalName: client.legalName ?? "",
-    addressLine1: client.addressLine1 ?? "",
-    addressLine2: client.addressLine2 ?? "",
+    name: project.name,
+    color: project.color ?? "",
   };
 }
 
@@ -36,24 +27,53 @@ async function fetchClients(): Promise<Client[]> {
   return data.clients;
 }
 
-export default function ClientsPage() {
+async function fetchProjects(clientId: string): Promise<Project[]> {
+  const res = await fetch(`/api/projects?clientId=${encodeURIComponent(clientId)}`);
+  if (!res.ok) {
+    throw new Error(`Failed to load projects (${res.status})`);
+  }
+  const data = (await res.json()) as { projects: Project[] };
+  return data.projects;
+}
+
+export default function ProjectsPage() {
   const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [selectedClientId, setSelectedClientId] = useState("");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loadingClients, setLoadingClients] = useState(true);
+  const [loadingProjects, setLoadingProjects] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [editing, setEditing] = useState<Client | "new" | null>(null);
-  const [form, setForm] = useState<ClientFormData>(emptyForm);
-  const [pendingDelete, setPendingDelete] = useState<Client | null>(null);
+  const [editing, setEditing] = useState<Project | "new" | null>(null);
+  const [form, setForm] = useState<ProjectFormData>(emptyForm);
+  const [pendingDelete, setPendingDelete] = useState<Project | null>(null);
   const [saving, setSaving] = useState(false);
 
   const loadClients = useCallback(async () => {
-    setLoading(true);
+    setLoadingClients(true);
     setError(null);
     try {
       setClients(await fetchClients());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load clients");
     } finally {
-      setLoading(false);
+      setLoadingClients(false);
+    }
+  }, []);
+
+  const loadProjects = useCallback(async (clientId: string) => {
+    if (!clientId) {
+      setProjects([]);
+      return;
+    }
+
+    setLoadingProjects(true);
+    setError(null);
+    try {
+      setProjects(await fetchProjects(clientId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load projects");
+    } finally {
+      setLoadingProjects(false);
     }
   }, []);
 
@@ -61,14 +81,20 @@ export default function ClientsPage() {
     void loadClients();
   }, [loadClients]);
 
+  useEffect(() => {
+    void loadProjects(selectedClientId);
+  }, [loadProjects, selectedClientId]);
+
+  const selectedClient = clients.find((c) => c.id === selectedClientId);
+
   const openCreate = () => {
     setEditing("new");
     setForm(emptyForm);
   };
 
-  const openEdit = (client: Client) => {
-    setEditing(client);
-    setForm(clientToForm(client));
+  const openEdit = (project: Project) => {
+    setEditing(project);
+    setForm(projectToForm(project));
   };
 
   const closeForm = () => {
@@ -76,27 +102,30 @@ export default function ClientsPage() {
     setForm(emptyForm);
   };
 
-  const saveClient = async (event: React.FormEvent) => {
+  const saveProject = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!selectedClientId) return;
+
     setSaving(true);
     setError(null);
 
     const payload = {
       name: form.name.trim(),
-      defaultRate: Number(form.defaultRate),
-      legalName: form.legalName.trim() || null,
-      addressLine1: form.addressLine1.trim() || null,
-      addressLine2: form.addressLine2.trim() || null,
+      color: form.color.trim() || null,
     };
 
     try {
       const isNew = editing === "new";
       const res = await fetch(
-        isNew ? "/api/clients" : `/api/clients/${(editing as Client).id}`,
+        isNew
+          ? "/api/projects"
+          : `/api/projects/${(editing as Project).id}`,
         {
           method: isNew ? "POST" : "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(
+            isNew ? { ...payload, clientId: selectedClientId } : payload,
+          ),
         },
       );
 
@@ -108,33 +137,30 @@ export default function ClientsPage() {
       }
 
       closeForm();
-      await loadClients();
+      await loadProjects(selectedClientId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save client");
+      setError(err instanceof Error ? err.message : "Failed to save project");
     } finally {
       setSaving(false);
     }
   };
 
   const confirmDelete = async () => {
-    if (!pendingDelete) return;
+    if (!pendingDelete || !selectedClientId) return;
 
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/clients/${pendingDelete.id}`, {
+      const res = await fetch(`/api/projects/${pendingDelete.id}`, {
         method: "DELETE",
       });
       if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as
-          | { error?: string }
-          | null;
-        throw new Error(body?.error ?? `Delete failed (${res.status})`);
+        throw new Error(`Delete failed (${res.status})`);
       }
       setPendingDelete(null);
-      await loadClients();
+      await loadProjects(selectedClientId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete client");
+      setError(err instanceof Error ? err.message : "Failed to delete project");
     } finally {
       setSaving(false);
     }
@@ -144,19 +170,38 @@ export default function ClientsPage() {
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 p-8">
       <header className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Clients</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Projects</h1>
           <p className="text-neutral-600">
-            Billable organizations and their default rates.
+            Work streams under a Client for time tracking.
           </p>
         </div>
         <button
           type="button"
           onClick={openCreate}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+          disabled={!selectedClientId}
+          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          New client
+          New project
         </button>
       </header>
+
+      <label className="grid max-w-sm gap-1 text-sm" htmlFor="project-client-select">
+        <span>Client</span>
+        <select
+          id="project-client-select"
+          value={selectedClientId}
+          onChange={(e) => setSelectedClientId(e.target.value)}
+          disabled={loadingClients}
+          className="rounded-md border border-neutral-300 px-3 py-2"
+        >
+          <option value="">Select a client…</option>
+          {clients.map((client) => (
+            <option key={client.id} value={client.id}>
+              {client.name}
+            </option>
+          ))}
+        </select>
+      </label>
 
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -164,42 +209,45 @@ export default function ClientsPage() {
         </p>
       )}
 
-      {loading ? (
-        <p className="text-neutral-500">Loading clients…</p>
-      ) : clients.length === 0 ? (
+      {!selectedClientId ? (
         <p className="rounded-lg border border-dashed border-neutral-300 bg-white px-4 py-8 text-center text-neutral-500">
-          No clients yet. Create your first client to start tracking billable
-          work.
+          Select a client to view and manage their projects.
+        </p>
+      ) : loadingProjects ? (
+        <p className="text-neutral-500">Loading projects…</p>
+      ) : projects.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-neutral-300 bg-white px-4 py-8 text-center text-neutral-500">
+          No projects yet for {selectedClient?.name ?? "this client"}. Create
+          the first project to start logging time.
         </p>
       ) : (
         <ul className="divide-y divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white">
-          {clients.map((client) => (
+          {projects.map((project) => (
             <li
-              key={client.id}
+              key={project.id}
               className="flex items-start justify-between gap-4 px-4 py-4"
             >
-              <div>
-                <p className="font-medium">{client.name}</p>
-                <p className="text-sm text-neutral-600">
-                  {client.defaultRate} €/h
-                </p>
-                {client.legalName && (
-                  <p className="mt-1 text-xs text-neutral-500">
-                    Recipient: {client.legalName}
-                  </p>
+              <div className="flex items-center gap-3">
+                {project.color && (
+                  <span
+                    className="inline-block h-3 w-3 rounded-full"
+                    style={{ backgroundColor: project.color }}
+                    aria-hidden
+                  />
                 )}
+                <p className="font-medium">{project.name}</p>
               </div>
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => openEdit(client)}
+                  onClick={() => openEdit(project)}
                   className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
                 >
                   Edit
                 </button>
                 <button
                   type="button"
-                  onClick={() => setPendingDelete(client)}
+                  onClick={() => setPendingDelete(project)}
                   className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
                 >
                   Delete
@@ -213,12 +261,17 @@ export default function ClientsPage() {
       {editing && (
         <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4">
           <form
-            onSubmit={saveClient}
+            onSubmit={saveProject}
             className="w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-6 shadow-lg"
           >
             <h2 className="text-lg font-semibold">
-              {editing === "new" ? "New client" : "Edit client"}
+              {editing === "new" ? "New project" : "Edit project"}
             </h2>
+            {selectedClient && (
+              <p className="mt-1 text-sm text-neutral-600">
+                Client: {selectedClient.name}
+              </p>
+            )}
 
             <div className="mt-4 grid gap-3">
               <label className="grid gap-1 text-sm">
@@ -234,67 +287,19 @@ export default function ClientsPage() {
               </label>
 
               <label className="grid gap-1 text-sm">
-                <span>Default rate (€/h)</span>
+                <span>Color (optional)</span>
                 <input
-                  required
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.defaultRate}
+                  type="color"
+                  value={form.color || "#3b82f6"}
                   onChange={(e) =>
                     setForm((current) => ({
                       ...current,
-                      defaultRate: e.target.value,
+                      color: e.target.value,
                     }))
                   }
-                  className="rounded-md border border-neutral-300 px-3 py-2"
+                  className="h-10 w-full cursor-pointer rounded-md border border-neutral-300"
                 />
               </label>
-
-              <fieldset className="grid gap-3 rounded-md border border-neutral-200 p-3">
-                <legend className="px-1 text-sm font-medium">
-                  Recipient (optional)
-                </legend>
-                <label className="grid gap-1 text-sm">
-                  <span>Legal name</span>
-                  <input
-                    value={form.legalName}
-                    onChange={(e) =>
-                      setForm((current) => ({
-                        ...current,
-                        legalName: e.target.value,
-                      }))
-                    }
-                    className="rounded-md border border-neutral-300 px-3 py-2"
-                  />
-                </label>
-                <label className="grid gap-1 text-sm">
-                  <span>Address line 1</span>
-                  <input
-                    value={form.addressLine1}
-                    onChange={(e) =>
-                      setForm((current) => ({
-                        ...current,
-                        addressLine1: e.target.value,
-                      }))
-                    }
-                    className="rounded-md border border-neutral-300 px-3 py-2"
-                  />
-                </label>
-                <label className="grid gap-1 text-sm">
-                  <span>Address line 2</span>
-                  <input
-                    value={form.addressLine2}
-                    onChange={(e) =>
-                      setForm((current) => ({
-                        ...current,
-                        addressLine2: e.target.value,
-                      }))
-                    }
-                    className="rounded-md border border-neutral-300 px-3 py-2"
-                  />
-                </label>
-              </fieldset>
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
@@ -320,9 +325,10 @@ export default function ClientsPage() {
       {pendingDelete && (
         <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4">
           <div className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 shadow-lg">
-            <h2 className="text-lg font-semibold">Delete client?</h2>
+            <h2 className="text-lg font-semibold">Delete project?</h2>
             <p className="mt-2 text-sm text-neutral-600">
-              This will permanently delete <strong>{pendingDelete.name}</strong>.
+              This will permanently delete{" "}
+              <strong>{pendingDelete.name}</strong>.
             </p>
             <div className="mt-6 flex justify-end gap-2">
               <button
