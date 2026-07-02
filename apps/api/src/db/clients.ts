@@ -124,10 +124,26 @@ export async function deleteClient(
   pool: Pool,
   workspaceId: string,
   clientId: string,
-): Promise<boolean> {
-  const result = await pool.query(
+): Promise<"deleted" | "not_found" | "has_projects"> {
+  const existing = await pool.query(
+    "SELECT id FROM clients WHERE id = $1 AND workspace_id = $2",
+    [clientId, workspaceId],
+  );
+  if (!existing.rows[0]) {
+    return "not_found";
+  }
+
+  const projects = await pool.query(
+    "SELECT 1 FROM projects WHERE client_id = $1 LIMIT 1",
+    [clientId],
+  );
+  if (projects.rows.length > 0) {
+    return "has_projects";
+  }
+
+  await pool.query(
     "DELETE FROM clients WHERE id = $1 AND workspace_id = $2",
     [clientId, workspaceId],
   );
-  return (result.rowCount ?? 0) > 0;
+  return "deleted";
 }

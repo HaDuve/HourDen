@@ -76,14 +76,20 @@ export function createClientsRouter(pool: Pool) {
   });
 
   router.delete("/:id", async (c) => {
-    const deleted = await deleteClient(
+    const result = await deleteClient(
       pool,
       getCurrentWorkspaceId(),
       c.req.param("id"),
     );
 
-    if (!deleted) {
+    if (result === "not_found") {
       return c.json({ error: "Client not found" }, 404);
+    }
+    if (result === "has_projects") {
+      return c.json(
+        { error: "Cannot delete Client with existing Projects" },
+        409,
+      );
     }
 
     return c.body(null, 204);

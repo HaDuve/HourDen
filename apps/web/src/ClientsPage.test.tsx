@@ -220,4 +220,45 @@ describe("ClientsPage", () => {
       expect.objectContaining({ method: "DELETE" }),
     );
   });
+
+  it("shows an error when deleting a Client that has Projects", async () => {
+    const client = {
+      id: "c0000000-0000-4000-8000-000000000001",
+      name: "Bandao",
+      defaultRate: 60,
+      legalName: null,
+      addressLine1: null,
+      addressLine2: null,
+    };
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ clients: [client] }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        json: async () => ({
+          error: "Cannot delete Client with existing Projects",
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<ClientsPage />);
+    await waitFor(() => {
+      expect(screen.getByText("Bandao")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
+    const confirmButtons = screen.getAllByRole("button", { name: /^delete$/i });
+    fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/cannot delete client with existing projects/i),
+      ).toBeInTheDocument();
+    });
+  });
 });

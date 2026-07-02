@@ -4,3 +4,8 @@ export type {
   CreateClientInput,
   UpdateClientInput,
 } from "./client.js";
+export type {
+  Project,
+  CreateProjectInput,
+  UpdateProjectInput,
+} from "./project.js";
