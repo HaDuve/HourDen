@@ -1,5 +1,6 @@
 import type { Client, Project } from "@hourden/domain";
 import { useCallback, useEffect, useState } from "react";
+import { useDeleteDialog } from "./useDeleteDialog.js";
 
 type ProjectFormData = {
   name: string;
@@ -47,8 +48,14 @@ export default function ProjectsPage() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Project | "new" | null>(null);
   const [form, setForm] = useState<ProjectFormData>(emptyForm);
-  const [pendingDelete, setPendingDelete] = useState<Project | null>(null);
   const [saving, setSaving] = useState(false);
+  const {
+    pendingDelete,
+    isDeleteDialogOpen,
+    openDeleteDialog,
+    closeDeleteDialog,
+    getDeleteTargetId,
+  } = useDeleteDialog<Project>();
 
   const loadClients = useCallback(async () => {
     setLoadingClients(true);
@@ -148,18 +155,19 @@ export default function ProjectsPage() {
   };
 
   const confirmDelete = async () => {
-    if (!pendingDelete || !selectedClientId) return;
+    const id = getDeleteTargetId();
+    if (!id || !selectedClientId) return;
 
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/projects/${pendingDelete.id}`, {
+      const res = await fetch(`/api/projects/${id}`, {
         method: "DELETE",
       });
       if (!res.ok) {
         throw new Error(`Delete failed (${res.status})`);
       }
-      setPendingDelete(null);
+      closeDeleteDialog();
       await loadProjects(selectedClientId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete project");
@@ -223,7 +231,11 @@ export default function ProjectsPage() {
           the first project to start logging time.
         </p>
       ) : (
-        <ul className="divide-y divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white">
+        <ul
+          className={`divide-y divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white${
+            isDeleteDialogOpen ? " pointer-events-none" : ""
+          }`}
+        >
           {projects.map((project) => (
             <li
               key={project.id}
@@ -249,7 +261,7 @@ export default function ProjectsPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setPendingDelete(project)}
+                  onClick={() => openDeleteDialog(project)}
                   className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
                 >
                   Delete
@@ -325,9 +337,16 @@ export default function ProjectsPage() {
       )}
 
       {pendingDelete && (
-        <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-project-title"
+          className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4"
+        >
           <div className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 shadow-lg">
-            <h2 className="text-lg font-semibold">Delete project?</h2>
+            <h2 id="delete-project-title" className="text-lg font-semibold">
+              Delete project?
+            </h2>
             <p className="mt-2 text-sm text-neutral-600">
               This will permanently delete{" "}
               <strong>{pendingDelete.name}</strong>.
@@ -335,7 +354,7 @@ export default function ProjectsPage() {
             <div className="mt-6 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setPendingDelete(null)}
+                onClick={closeDeleteDialog}
                 className="rounded-md border border-neutral-300 px-4 py-2 text-sm"
               >
                 Cancel
@@ -346,7 +365,7 @@ export default function ProjectsPage() {
                 disabled={saving}
                 className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
               >
-                {saving ? "Deleting…" : "Delete"}
+                {saving ? "Deleting…" : "Confirm delete"}
               </button>
             </div>
           </div>

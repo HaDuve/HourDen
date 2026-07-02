@@ -3,6 +3,23 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ClientsPage from "./ClientsPage.js";
 
 describe("ClientsPage", () => {
+  const bandaoClient = {
+    id: "c0000000-0000-4000-8000-000000000001",
+    name: "Bandao",
+    defaultRate: 60,
+    legalName: null,
+    addressLine1: null,
+    addressLine2: null,
+  };
+  const hannahClient = {
+    id: "c0000000-0000-4000-8000-000000000002",
+    name: "Hannah",
+    defaultRate: 80,
+    legalName: null,
+    addressLine1: null,
+    addressLine2: null,
+  };
+
   it("shows an empty state when there are no Clients", async () => {
     vi.stubGlobal(
       "fetch",
@@ -176,6 +193,97 @@ describe("ClientsPage", () => {
     );
   });
 
+  it("deletes the Client chosen when the dialog opened, even if another row Delete is clicked", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ clients: [bandaoClient, hannahClient] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ clients: [bandaoClient] }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<ClientsPage />);
+    await waitFor(() => {
+      expect(screen.getByText("Hannah")).toBeInTheDocument();
+    });
+
+    const listDeleteButtons = screen.getAllByRole("button", { name: /^delete$/i });
+    fireEvent.click(listDeleteButtons[1]!);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/this will permanently delete/i).closest("div"),
+      ).toHaveTextContent("Hannah");
+    });
+
+    // Simulate a stray activation of the first row's Delete while the dialog is open.
+    fireEvent.click(listDeleteButtons[0]!);
+
+    const confirmButtons = screen.getAllByRole("button", { name: /^confirm delete$/i });
+    fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/clients/${hannahClient.id}`,
+        expect.objectContaining({ method: "DELETE" }),
+      );
+    });
+  });
+
+  it("deletes the chosen Client when multiple Clients exist", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ clients: [bandaoClient, hannahClient] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ clients: [bandaoClient] }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<ClientsPage />);
+    await waitFor(() => {
+      expect(screen.getByText("Bandao")).toBeInTheDocument();
+      expect(screen.getByText("Hannah")).toBeInTheDocument();
+    });
+
+    const listDeleteButtons = screen.getAllByRole("button", { name: /^delete$/i });
+    fireEvent.click(listDeleteButtons[1]!);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/this will permanently delete/i).closest("div"),
+      ).toHaveTextContent("Hannah");
+    });
+
+    const confirmButtons = screen.getAllByRole("button", { name: /^confirm delete$/i });
+    fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
+
+    await waitFor(() => {
+      expect(screen.queryByText("Hannah")).not.toBeInTheDocument();
+      expect(screen.getByText("Bandao")).toBeInTheDocument();
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/clients/${hannahClient.id}`,
+      expect.objectContaining({ method: "DELETE" }),
+    );
+  });
+
   it("deletes a Client after confirmation", async () => {
     const client = {
       id: "c0000000-0000-4000-8000-000000000001",
@@ -208,7 +316,7 @@ describe("ClientsPage", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
-    const confirmButtons = screen.getAllByRole("button", { name: /^delete$/i });
+    const confirmButtons = screen.getAllByRole("button", { name: /^confirm delete$/i });
     fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
 
     await waitFor(() => {
@@ -252,7 +360,7 @@ describe("ClientsPage", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
-    const confirmButtons = screen.getAllByRole("button", { name: /^delete$/i });
+    const confirmButtons = screen.getAllByRole("button", { name: /^confirm delete$/i });
     fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
 
     await waitFor(() => {

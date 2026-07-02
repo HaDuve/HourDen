@@ -1,5 +1,6 @@
 import type { Client } from "@hourden/domain";
 import { useCallback, useEffect, useState } from "react";
+import { useDeleteDialog } from "./useDeleteDialog.js";
 
 type ClientFormData = {
   name: string;
@@ -42,8 +43,14 @@ export default function ClientsPage() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Client | "new" | null>(null);
   const [form, setForm] = useState<ClientFormData>(emptyForm);
-  const [pendingDelete, setPendingDelete] = useState<Client | null>(null);
   const [saving, setSaving] = useState(false);
+  const {
+    pendingDelete,
+    isDeleteDialogOpen,
+    openDeleteDialog,
+    closeDeleteDialog,
+    getDeleteTargetId,
+  } = useDeleteDialog<Client>();
 
   const loadClients = useCallback(async () => {
     setLoading(true);
@@ -117,12 +124,13 @@ export default function ClientsPage() {
   };
 
   const confirmDelete = async () => {
-    if (!pendingDelete) return;
+    const id = getDeleteTargetId();
+    if (!id) return;
 
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/clients/${pendingDelete.id}`, {
+      const res = await fetch(`/api/clients/${id}`, {
         method: "DELETE",
       });
       if (!res.ok) {
@@ -131,7 +139,7 @@ export default function ClientsPage() {
           | null;
         throw new Error(body?.error ?? `Delete failed (${res.status})`);
       }
-      setPendingDelete(null);
+      closeDeleteDialog();
       await loadClients();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete client");
@@ -172,7 +180,11 @@ export default function ClientsPage() {
           work.
         </p>
       ) : (
-        <ul className="divide-y divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white">
+        <ul
+          className={`divide-y divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white${
+            isDeleteDialogOpen ? " pointer-events-none" : ""
+          }`}
+        >
           {clients.map((client) => (
             <li
               key={client.id}
@@ -199,7 +211,7 @@ export default function ClientsPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setPendingDelete(client)}
+                  onClick={() => openDeleteDialog(client)}
                   className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
                 >
                   Delete
@@ -318,16 +330,23 @@ export default function ClientsPage() {
       )}
 
       {pendingDelete && (
-        <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-client-title"
+          className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4"
+        >
           <div className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 shadow-lg">
-            <h2 className="text-lg font-semibold">Delete client?</h2>
+            <h2 id="delete-client-title" className="text-lg font-semibold">
+              Delete client?
+            </h2>
             <p className="mt-2 text-sm text-neutral-600">
               This will permanently delete <strong>{pendingDelete.name}</strong>.
             </p>
             <div className="mt-6 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setPendingDelete(null)}
+                onClick={closeDeleteDialog}
                 className="rounded-md border border-neutral-300 px-4 py-2 text-sm"
               >
                 Cancel
@@ -338,7 +357,7 @@ export default function ClientsPage() {
                 disabled={saving}
                 className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
               >
-                {saving ? "Deleting…" : "Delete"}
+                {saving ? "Deleting…" : "Confirm delete"}
               </button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 import type { Project, TimeEntry } from "@hourden/domain";
 import { useCallback, useEffect, useState } from "react";
 import { todayLocalDate } from "./today-date.js";
+import { useDeleteDialog } from "./useDeleteDialog.js";
 
 type ManualFormData = {
   description: string;
@@ -73,7 +74,13 @@ export default function TodayPage() {
   const [showManualForm, setShowManualForm] = useState(false);
   const [manualForm, setManualForm] = useState<ManualFormData>(emptyManualForm);
   const [saving, setSaving] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<TimeEntry | null>(null);
+  const {
+    pendingDelete,
+    isDeleteDialogOpen,
+    openDeleteDialog,
+    closeDeleteDialog,
+    getDeleteTargetId,
+  } = useDeleteDialog<TimeEntry>();
   const [editing, setEditing] = useState<TimeEntry | null>(null);
   const [editForm, setEditForm] = useState<EditFormData>({
     description: "",
@@ -218,18 +225,19 @@ export default function TodayPage() {
   };
 
   const confirmDelete = async () => {
-    if (!pendingDelete) return;
+    const id = getDeleteTargetId();
+    if (!id) return;
 
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/time-entries/${pendingDelete.id}`, {
+      const res = await fetch(`/api/time-entries/${id}`, {
         method: "DELETE",
       });
       if (!res.ok) {
         throw new Error(`Delete failed (${res.status})`);
       }
-      setPendingDelete(null);
+      closeDeleteDialog();
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete entry");
@@ -299,7 +307,11 @@ export default function TodayPage() {
           No time logged today yet. Start a timer or add a manual entry.
         </p>
       ) : (
-        <ul className="divide-y divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white">
+        <ul
+          className={`divide-y divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white${
+            isDeleteDialogOpen ? " pointer-events-none" : ""
+          }`}
+        >
           {entries.map((entry) => (
             <li
               key={entry.id}
@@ -329,7 +341,7 @@ export default function TodayPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setPendingDelete(entry)}
+                    onClick={() => openDeleteDialog(entry)}
                     className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
                   >
                     Delete
@@ -509,16 +521,23 @@ export default function TodayPage() {
       )}
 
       {pendingDelete && (
-        <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-entry-title"
+          className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4"
+        >
           <div className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 shadow-lg">
-            <h2 className="text-lg font-semibold">Delete entry?</h2>
+            <h2 id="delete-entry-title" className="text-lg font-semibold">
+              Delete entry?
+            </h2>
             <p className="mt-2 text-sm text-neutral-600">
               This will permanently delete this time entry.
             </p>
             <div className="mt-6 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setPendingDelete(null)}
+                onClick={closeDeleteDialog}
                 className="rounded-md border border-neutral-300 px-4 py-2 text-sm"
               >
                 Cancel
@@ -529,7 +548,7 @@ export default function TodayPage() {
                 disabled={saving}
                 className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
               >
-                {saving ? "Deleting…" : "Delete"}
+                {saving ? "Deleting…" : "Confirm delete"}
               </button>
             </div>
           </div>

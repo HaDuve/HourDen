@@ -228,8 +228,7 @@ describe("ProjectsPage", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
-    const confirmButtons = screen.getAllByRole("button", { name: /^delete$/i });
-    fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
+    fireEvent.click(screen.getByRole("button", { name: /^confirm delete$/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/no projects yet/i)).toBeInTheDocument();
@@ -239,5 +238,71 @@ describe("ProjectsPage", () => {
       `/api/projects/${project.id}`,
       expect.objectContaining({ method: "DELETE" }),
     );
+  });
+
+  it("deletes the Project chosen when the dialog opened, even if another row Delete is clicked", async () => {
+    const firstProject = {
+      id: "p0000000-0000-4000-8000-000000000001",
+      clientId: bandaoClient.id,
+      name: "Coaching",
+      color: null,
+    };
+    const secondProject = {
+      id: "p0000000-0000-4000-8000-000000000002",
+      clientId: bandaoClient.id,
+      name: "Ondojo",
+      color: "#3b82f6",
+    };
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ clients: [bandaoClient] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ projects: [firstProject, secondProject] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ projects: [firstProject] }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<ProjectsPage />);
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^client$/i)).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText(/^client$/i), {
+      target: { value: bandaoClient.id },
+    });
+    await waitFor(() => {
+      expect(screen.getByText("Ondojo")).toBeInTheDocument();
+    });
+
+    const listDeleteButtons = screen.getAllByRole("button", { name: /^delete$/i });
+    fireEvent.click(listDeleteButtons[1]!);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/this will permanently delete/i).closest("div"),
+      ).toHaveTextContent("Ondojo");
+    });
+
+    fireEvent.click(listDeleteButtons[0]!);
+    fireEvent.click(screen.getByRole("button", { name: /^confirm delete$/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/projects/${secondProject.id}`,
+        expect.objectContaining({ method: "DELETE" }),
+      );
+    });
   });
 });
