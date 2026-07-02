@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Pool } from "pg";
 import { createImportRouter } from "./import.js";
 import { createClientsRouter } from "./clients.js";
+import { createInvoicesRouter } from "./invoices.js";
 import { createProjectsRouter } from "./projects.js";
 import { createReportsRouter } from "./reports.js";
 import { createTimeEntriesRouter } from "./time-entries.js";
@@ -26,6 +27,7 @@ export function createApp(options: AppOptions = {}) {
   api.route("/import", createImportRouter(db));
   api.route("/projects", createProjectsRouter(db));
   api.route("/reports", createReportsRouter(db));
+  api.route("/invoices", createInvoicesRouter(db));
   api.route("/time-entries", createTimeEntriesRouter(db));
 
   app.route("/api", api);

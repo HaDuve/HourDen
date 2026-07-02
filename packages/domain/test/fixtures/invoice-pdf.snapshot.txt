@@ -1,0 +1,26 @@
+Rechnung / Invoice
+Absender: Empfänger:
+Hannes Duve BANDAO Guidance GmbH
+Am Deichfleet 116 Schloßbergstraße 1
+28357 Bremen 82319 Starnberg
+Steuernummer: 06044/47008
+Rechnungsnummer: <INVOICE_NUMBER>
+Rechnungsdatum: 30.06.2026
+Leistungszeitraum: 01.06.2026 - 30.06.2026
+Gesamtbetrag Brutto: 204.00 EUR
+Zahlungsinformationen:
+Bankname: Deutsche Kreditbank
+IBAN: DE74 120300001060924758
+BIC: BYLADEM1001
+Fälligkeitsdatum: 14.07.2026
+Zahlungsbedingungen: Zahlbar innerhalb von 14 Tagen ohne Abzug.
+Mail: hannes.duve@outlook.com
+Tel.: +49 15734521445
+Leistungsnachweis
+Datum Beschreibung Dauer (Min) Betrag (EUR)
+01.06.2026 Development Call 75 75.00
+03.06.2026 App Development 129 129.00
+Gesamtdauer: 3.4 Std.
+Gesamtbetrag Netto: 204.00 EUR
+Gesamtbetrag Brutto: 204.00 EUR
+Gemäß § 19 UStG enthält der ausgewiesene Betrag keine Umsatzsteuer.

@@ -8,6 +8,11 @@
       "types": "./src/index.ts",
       "development": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./invoice-pdf": {
+      "types": "./src/invoice-pdf.ts",
+      "development": "./src/invoice-pdf.ts",
+      "default": "./dist/invoice-pdf.js"
     }
   },
   "scripts": {
@@ -16,6 +21,11 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@types/pdfkit": "^0.17.6",
+    "pdf-parse": "^2.4.5",
     "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "pdfkit": "^0.19.1"
   }
 }

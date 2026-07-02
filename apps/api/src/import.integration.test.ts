@@ -23,6 +23,7 @@ describe.skipIf(!databaseUrl)("Clockify import API", () => {
 
   beforeEach(async () => {
     await pool.query("DELETE FROM time_entries");
+    await pool.query("DELETE FROM invoices");
     await pool.query("DELETE FROM projects");
     await pool.query("DELETE FROM clients");
   });
