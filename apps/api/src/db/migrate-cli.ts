@@ -3,7 +3,7 @@ import { runMigrations } from "./migrate.js";
 
 const databaseUrl =
   process.env.DATABASE_URL ??
-  "postgresql://hourden:hourden@localhost:5432/hourden";
+  "postgresql://hourden:hourden@localhost:5433/hourden";
 
 const pool = new Pool({ connectionString: databaseUrl });
 

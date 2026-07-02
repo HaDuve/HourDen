@@ -1,0 +1,8 @@
+node_modules
+.git
+.local
+coverage
+apps/web/dist
+**/*.test.ts
+**/*.integration.test.ts
+**/*.integration.test.tsx

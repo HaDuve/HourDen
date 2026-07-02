@@ -6,8 +6,9 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build -w @hourden/domain && npm run build -w @hourden/api && npm run build -w @hourden/web",
     "test": "vitest run",
+    "verify:build": "node scripts/verify-built-api.mjs",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "dev:api": "npm run dev -w @hourden/api",

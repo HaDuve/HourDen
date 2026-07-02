@@ -46,6 +46,8 @@ jobs:
 
       - run: npm run build
 
+      - run: npm run verify:build
+
   docker-smoke:
     runs-on: ubuntu-latest
 
