@@ -1,0 +1,29 @@
+# Add this to Portfolio's /opt/Portfolio/caddy/Caddyfile on VM1
+# After the hannesduve.com block, add:
+
+hourden.hannesduve.com {
+    basicauth {
+        operator $2a$14$Hhcab4yh26gYSIWyztWgPuU0kfsJ2kx9D46jDfXRJjESEPaUtGgyS
+    }
+
+    root * /var/www/hourden
+    encode gzip zstd
+    try_files {path} /index.html
+    file_server
+
+    handle_path /api/* {
+        reverse_proxy localhost:3001
+    }
+
+    log {
+        output file /var/log/caddy/hourden-access.log {
+            roll_size 50mb
+            roll_keep 12
+            roll_keep_for 8760h
+        }
+        format json
+    }
+}
+
+# After adding, reload Caddy:
+# docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile

@@ -56,6 +56,31 @@ The API listens on `http://localhost:3001`. Migrations run on container start an
 
 Postgres is published on host port **5433** (not 5432) to avoid clashing with a local Postgres install. The API container still talks to Postgres on the internal Docker network.
 
+### Data persistence (important!)
+
+Your Postgres data lives in a Docker volume (`hourden_postgres_data`) that **survives container rebuilds**. To avoid accidentally losing data:
+
+**✅ Safe commands (data persists):**
+```bash
+docker compose up --build      # rebuild API, keep Postgres data
+docker compose stop            # stop containers, keep data
+docker compose start           # restart stopped containers
+docker compose restart         # quick restart
+```
+
+**⚠️ Dangerous commands (can lose data):**
+```bash
+docker compose down -v         # DELETES the volume and all data
+docker volume prune            # deletes unused volumes (if containers are stopped)
+```
+
+**Daily workflow:**
+- After making code changes: `docker compose up --build` (rebuilds API, keeps data)
+- When done working: Just leave it running, or `docker compose stop`
+- Coming back: `docker compose start` or `docker compose up`
+
+Only use `docker compose down` (without `-v`) when you need to remove containers completely. NEVER use `down -v` unless you explicitly want to delete all tracked time and clients.
+
 ### Run web (Vite dev server)
 
 **Start the API first** (Docker or `npm run dev:api`), then:
