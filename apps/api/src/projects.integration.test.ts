@@ -198,4 +198,72 @@ describe.skipIf(!databaseUrl)("Project API", () => {
     const { clients } = await listRes.json();
     expect(clients).toHaveLength(0);
   });
+
+  it("returns 404 when updating a Project from another workspace", async () => {
+    const otherWorkspaceId = "b0000000-0000-4000-8000-000000000002";
+    await pool.query(
+      "INSERT INTO workspaces (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
+      [otherWorkspaceId, "Other Workspace"],
+    );
+    const foreignClient = await pool.query<{ id: string }>(
+      `
+        INSERT INTO clients (workspace_id, name, default_rate)
+        VALUES ($1, 'Foreign Client', 50)
+        RETURNING id
+      `,
+      [otherWorkspaceId],
+    );
+    const foreignProject = await pool.query<{ id: string }>(
+      `
+        INSERT INTO projects (workspace_id, client_id, name)
+        VALUES ($1, $2, 'Foreign Project')
+        RETURNING id
+      `,
+      [otherWorkspaceId, foreignClient.rows[0]!.id],
+    );
+
+    const res = await app.request(
+      `/api/projects/${foreignProject.rows[0]!.id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Hacked" }),
+      },
+    );
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 when deleting a Project from another workspace", async () => {
+    const otherWorkspaceId = "b0000000-0000-4000-8000-000000000002";
+    await pool.query(
+      "INSERT INTO workspaces (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
+      [otherWorkspaceId, "Other Workspace"],
+    );
+    const foreignClient = await pool.query<{ id: string }>(
+      `
+        INSERT INTO clients (workspace_id, name, default_rate)
+        VALUES ($1, 'Foreign Client', 50)
+        RETURNING id
+      `,
+      [otherWorkspaceId],
+    );
+    const foreignProject = await pool.query<{ id: string }>(
+      `
+        INSERT INTO projects (workspace_id, client_id, name)
+        VALUES ($1, $2, 'Foreign Project')
+        RETURNING id
+      `,
+      [otherWorkspaceId, foreignClient.rows[0]!.id],
+    );
+
+    const res = await app.request(
+      `/api/projects/${foreignProject.rows[0]!.id}`,
+      {
+        method: "DELETE",
+      },
+    );
+
+    expect(res.status).toBe(404);
+  });
 });

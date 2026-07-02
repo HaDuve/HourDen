@@ -6,15 +6,17 @@ type ProjectFormData = {
   color: string;
 };
 
+const DEFAULT_PROJECT_COLOR = "#3b82f6";
+
 const emptyForm: ProjectFormData = {
   name: "",
-  color: "",
+  color: DEFAULT_PROJECT_COLOR,
 };
 
 function projectToForm(project: Project): ProjectFormData {
   return {
     name: project.name,
-    color: project.color ?? "",
+    color: project.color ?? DEFAULT_PROJECT_COLOR,
   };
 }
 
@@ -290,7 +292,7 @@ export default function ProjectsPage() {
                 <span>Color (optional)</span>
                 <input
                   type="color"
-                  value={form.color || "#3b82f6"}
+                  value={form.color}
                   onChange={(e) =>
                     setForm((current) => ({
                       ...current,
