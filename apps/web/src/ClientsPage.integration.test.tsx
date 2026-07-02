@@ -7,15 +7,15 @@ config({
 });
 
 import { Pool } from "pg";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../api/src/app.js";
 import { runMigrations } from "../../api/src/db/migrate.js";
-import App from "./App.js";
+import ClientsPage from "./ClientsPage.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 
-describe.skipIf(!databaseUrl)("App with live API", () => {
+describe.skipIf(!databaseUrl)("ClientsPage with live API", () => {
   const pool = new Pool({ connectionString: databaseUrl });
   let originalFetch: typeof fetch;
 
@@ -49,12 +49,25 @@ describe.skipIf(!databaseUrl)("App with live API", () => {
     await pool.end();
   });
 
-  it("loads the Clients page from the live API", async () => {
-    render(<App />);
+  it("creates and lists a Client end-to-end", async () => {
+    render(<ClientsPage />);
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /clients/i })).toBeInTheDocument();
       expect(screen.getByText(/no clients yet/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /new client/i }));
+    fireEvent.change(screen.getByLabelText(/^name$/i), {
+      target: { value: "Bandao" },
+    });
+    fireEvent.change(screen.getByLabelText(/default rate/i), {
+      target: { value: "60" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Bandao")).toBeInTheDocument();
+      expect(screen.getByText("60 €/h")).toBeInTheDocument();
     });
   });
 });
