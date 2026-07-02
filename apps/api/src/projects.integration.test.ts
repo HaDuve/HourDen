@@ -27,6 +27,7 @@ describe.skipIf(!databaseUrl)("Project API", () => {
   });
 
   beforeEach(async () => {
+    await pool.query("DELETE FROM time_entries");
     await pool.query("DELETE FROM projects");
     await pool.query("DELETE FROM clients");
   });
