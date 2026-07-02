@@ -54,7 +54,11 @@ docker compose up --build
 
 The API listens on `http://localhost:3001`. Migrations run on container start and seed a single Workspace row.
 
+Postgres is published on host port **5433** (not 5432) to avoid clashing with a local Postgres install. The API container still talks to Postgres on the internal Docker network.
+
 ### Run web (Vite dev server)
+
+**Start the API first** (Docker or `npm run dev:api`), then:
 
 In a second terminal:
 
@@ -66,9 +70,10 @@ Open `http://localhost:5173`. The page calls `/api/health` (proxied to the API) 
 
 ### Run API without Docker (optional)
 
-Start Postgres via Docker, then:
+With Postgres from Docker Compose (host port 5433):
 
 ```bash
+cp .env.example .env   # DATABASE_URL uses localhost:5433
 npm run migrate -w @hourden/api
 npm run dev:api
 ```
@@ -79,6 +84,7 @@ npm run dev:api
 npm test
 npm run typecheck
 npm run build
+npm run verify:build   # production import smoke (after build)
 ```
 
 Migration integration tests run when `DATABASE_URL` is set (CI provides Postgres automatically).
@@ -91,27 +97,27 @@ Production uses **Caddy basic auth** on `hourden.hannesduve.com` (Portfolio's Ca
 
 HourDen shares VM1 with Portfolio. Portfolio's Caddy serves the static web bundle and reverse-proxies `/api` to the HourDen API container ([ADR-0003](./docs/adr/0003-share-portfolio-caddy.md)).
 
-### 1. Build artifacts
+### Automated deploy (recommended)
+
+Same pattern as Portfolio `deploy-remote.sh`:
+
+```bash
+cp scripts/deploy-remote.example.sh scripts/deploy-remote.sh
+chmod +x scripts/deploy-remote.sh
+# set SSH_TARGET in deploy-remote.sh (gitignored)
+./scripts/deploy-remote.sh
+```
+
+Deploy **after** changes are on `main`. Optional verify: `VERIFY_PRODUCTION=1 HOURDEN_BASIC_AUTH_USER=… HOURDEN_BASIC_AUTH_PASSWORD=… ./scripts/deploy-remote.sh`
+
+### Manual deploy
 
 ```bash
 ./scripts/deploy.sh
+# on VM: git pull, docker compose up -d --build, publish web dist to /var/www/hourden
 ```
 
-This builds `apps/web/dist` and `apps/api/dist`.
-
-### 2. Publish web static files
-
-Copy the web build to the shared volume/path Portfolio's Caddy serves, e.g. `/var/www/hourden`.
-
-### 3. Start API + Postgres
-
-On the VM, from this repo:
-
-```bash
-docker compose up -d --build
-```
-
-### 4. Portfolio Caddy vhost
+### Portfolio Caddy vhost (one-time)
 
 Add to Portfolio's `Caddyfile` (adjust paths and credentials):
 
@@ -134,7 +140,7 @@ hourden.hannesduve.com {
 
 Reload Caddy after updating the config.
 
-### 5. Verify
+### Verify production
 
 ```bash
 HOURDEN_BASIC_AUTH_USER=operator HOURDEN_BASIC_AUTH_PASSWORD='…' ./scripts/verify-production.sh
