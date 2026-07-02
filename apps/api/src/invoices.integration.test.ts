@@ -223,6 +223,62 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     });
   });
 
+  it("prevents a second Invoice for the same Client and billing month", async () => {
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const ondojo = await createProject(app, bandao.id, "Ondojo");
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "Early June work",
+        startedAt: "2026-06-10T10:00:00.000Z",
+        endedAt: "2026-06-10T11:00:00.000Z",
+      }),
+    });
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "Late June work",
+        startedAt: "2026-06-20T10:00:00.000Z",
+        endedAt: "2026-06-20T11:00:00.000Z",
+      }),
+    });
+
+    const first = await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-15",
+      }),
+    });
+    const second = await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-16",
+        to: "2026-06-30",
+      }),
+    });
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(409);
+    expect(await second.json()).toEqual({
+      error: "Invoice already exists for this Client and billing month",
+    });
+  });
+
   it("marks covered Time Entries as Invoiced and blocks edits", async () => {
     const bandao = await createClient(app, {
       name: "Bandao",

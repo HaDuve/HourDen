@@ -115,4 +115,11 @@ export const MIGRATIONS = [
         FOREIGN KEY (invoice_id) REFERENCES invoices(id);
     `,
   },
+  {
+    id: "007_invoice_number_unique",
+    sql: `
+      CREATE UNIQUE INDEX IF NOT EXISTS invoices_client_invoice_number_unique_idx
+        ON invoices (client_id, invoice_number);
+    `,
+  },
 ] as const;

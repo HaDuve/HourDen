@@ -2,15 +2,14 @@ import {
   DEFAULT_INVOICE_OPERATOR,
   generateInvoicePdf,
 } from "@hourden/domain/invoice-pdf";
-import { nextInvoiceNumber } from "@hourden/domain";
 import { Hono } from "hono";
 import type { Pool } from "pg";
 import {
   createInvoice,
+  findInvoiceForBillingMonth,
   findInvoiceForPeriod,
   getClientForInvoice,
   listInvoiceableEntriesForClient,
-  listInvoiceNumbersForClientYear,
   rowsToGroupedInvoiceLines,
 } from "./db/invoices.js";
 import { reportTimeZone } from "./db/reports.js";
@@ -59,6 +58,15 @@ function invoiceOperator() {
   };
 }
 
+function invoiceConflictMessage(
+  reason: "duplicate_period" | "duplicate_month" | "duplicate_number",
+): string {
+  if (reason === "duplicate_month") {
+    return "Invoice already exists for this Client and billing month";
+  }
+  return "Invoice already exists for this Client and Billing Period";
+}
+
 export function createInvoicesRouter(pool: Pool) {
   const router = new Hono();
 
@@ -98,15 +106,27 @@ export function createInvoicesRouter(pool: Pool) {
       );
     }
 
-    const existing = await findInvoiceForPeriod(
+    const existingPeriod = await findInvoiceForPeriod(
       pool,
       client.id,
       range.from,
       range.to,
     );
-    if (existing) {
+    if (existingPeriod) {
       return c.json(
-        { error: "Invoice already exists for this Client and Billing Period" },
+        { error: invoiceConflictMessage("duplicate_period") },
+        409,
+      );
+    }
+
+    const existingMonth = await findInvoiceForBillingMonth(
+      pool,
+      client.id,
+      range.to,
+    );
+    if (existingMonth) {
+      return c.json(
+        { error: invoiceConflictMessage("duplicate_month") },
         409,
       );
     }
@@ -136,17 +156,37 @@ export function createInvoicesRouter(pool: Pool) {
     );
 
     const invoiceYear = Number(range.to.slice(0, 4));
-    const existingNumbers = await listInvoiceNumbersForClientYear(
-      pool,
-      client.id,
-      invoiceYear,
-    );
-    const invoiceNumber = nextInvoiceNumber(existingNumbers, invoiceYear);
     const invoiceDate = range.to;
     const dueDate = addDays(invoiceDate, 14);
 
+    const created = await createInvoice(pool, {
+      workspaceId,
+      clientId: client.id,
+      invoiceYear,
+      periodStart: range.from,
+      periodEnd: range.to,
+      invoiceDate,
+      dueDate,
+      totalAmount,
+      totalDurationMinutes,
+      entryIds: entryRows.map((row) => row.id),
+    });
+
+    if (created === "duplicate_period" || created === "duplicate_number") {
+      return c.json(
+        { error: invoiceConflictMessage("duplicate_period") },
+        409,
+      );
+    }
+    if (created === "duplicate_month") {
+      return c.json(
+        { error: invoiceConflictMessage("duplicate_month") },
+        409,
+      );
+    }
+
     const pdf = await generateInvoicePdf({
-      invoiceNumber,
+      invoiceNumber: created.invoice_number,
       invoiceDate,
       periodStart: range.from,
       periodEnd: range.to,
@@ -160,25 +200,16 @@ export function createInvoicesRouter(pool: Pool) {
       operator: invoiceOperator(),
     });
 
-    await createInvoice(pool, {
-      workspaceId,
-      clientId: client.id,
-      invoiceNumber,
-      periodStart: range.from,
-      periodEnd: range.to,
-      invoiceDate,
-      dueDate,
-      totalAmount,
-      totalDurationMinutes,
-      entryIds: entryRows.map((row) => row.id),
-    });
-
     const recipientCode = invoiceRecipientCode(client.name);
-    const filename = invoiceFilename(invoiceNumber, range.to, recipientCode);
+    const filename = invoiceFilename(
+      created.invoice_number,
+      range.to,
+      recipientCode,
+    );
 
     c.header("Content-Type", "application/pdf");
     c.header("Content-Disposition", `attachment; filename="${filename}"`);
-    c.header("X-Invoice-Number", invoiceNumber);
+    c.header("X-Invoice-Number", created.invoice_number);
     return c.body(new Uint8Array(pdf), 201);
   });
 

@@ -56,4 +56,10 @@ describe("migration definitions", () => {
     expect(migration?.sql).toContain("UNIQUE (client_id, period_start, period_end)");
     expect(migration?.sql).toContain("time_entries_invoice_id_fkey");
   });
+
+  it("enforces unique invoice numbers per Client", () => {
+    const migration = MIGRATIONS.find((m) => m.id === "007_invoice_number_unique");
+    expect(migration).toBeDefined();
+    expect(migration?.sql).toContain("invoices_client_invoice_number_unique_idx");
+  });
 });

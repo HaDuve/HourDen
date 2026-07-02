@@ -1,10 +1,11 @@
 import {
   groupEntriesByDateAndDescription,
+  nextInvoiceNumber,
   toLocalDateKey,
   type Client,
   type GroupedReportLine,
 } from "@hourden/domain";
-import type { Pool } from "pg";
+import type { DatabaseError, Pool, PoolClient } from "pg";
 import { reportTimeZone } from "./reports.js";
 
 type InvoiceableEntryRow = {
@@ -15,18 +16,66 @@ type InvoiceableEntryRow = {
   amount: string | null;
 };
 
-type InvoiceRow = {
+export type InvoiceRow = {
   id: string;
   invoice_number: string;
   period_start: string;
   period_end: string;
 };
 
+export type CreateInvoiceResult =
+  | InvoiceRow
+  | "duplicate_period"
+  | "duplicate_number"
+  | "duplicate_month";
+
 function durationMinutes(startedAt: Date, endedAt: Date): number {
   return Math.max(
     0,
     Math.round((endedAt.getTime() - startedAt.getTime()) / 60_000),
   );
+}
+
+function billingMonthKey(periodEnd: string): { year: number; month: number } {
+  const [year, month] = periodEnd.split("-").map(Number);
+  return { year: year!, month: month! };
+}
+
+function mapInvoiceInsertError(error: unknown): CreateInvoiceResult | "throw" {
+  const dbError = error as DatabaseError;
+  if (dbError?.code !== "23505") {
+    return "throw";
+  }
+
+  if (
+    dbError.constraint?.includes("period_start") ||
+    dbError.constraint === "invoices_client_id_period_start_period_end_key"
+  ) {
+    return "duplicate_period";
+  }
+  if (dbError.constraint === "invoices_client_invoice_number_unique_idx") {
+    return "duplicate_number";
+  }
+
+  return "throw";
+}
+
+async function listInvoiceNumbersForClientYear(
+  client: PoolClient,
+  clientId: string,
+  year: number,
+): Promise<string[]> {
+  const result = await client.query<{ invoice_number: string }>(
+    `
+      SELECT invoice_number
+      FROM invoices
+      WHERE client_id = $1 AND invoice_number LIKE $2
+      ORDER BY invoice_number ASC
+    `,
+    [clientId, `${year}%`],
+  );
+
+  return result.rows.map((row) => row.invoice_number);
 }
 
 export async function getClientForInvoice(
@@ -81,22 +130,25 @@ export async function findInvoiceForPeriod(
   return result.rows[0] ?? null;
 }
 
-export async function listInvoiceNumbersForClientYear(
+export async function findInvoiceForBillingMonth(
   pool: Pool,
   clientId: string,
-  year: number,
-): Promise<string[]> {
-  const result = await pool.query<{ invoice_number: string }>(
+  periodEnd: string,
+): Promise<InvoiceRow | null> {
+  const { year, month } = billingMonthKey(periodEnd);
+  const result = await pool.query<InvoiceRow>(
     `
-      SELECT invoice_number
+      SELECT id, invoice_number, period_start::text, period_end::text
       FROM invoices
-      WHERE client_id = $1 AND invoice_number LIKE $2
-      ORDER BY invoice_number ASC
+      WHERE client_id = $1
+        AND EXTRACT(YEAR FROM period_end) = $2
+        AND EXTRACT(MONTH FROM period_end) = $3
+      LIMIT 1
     `,
-    [clientId, `${year}%`],
+    [clientId, year, month],
   );
 
-  return result.rows.map((row) => row.invoice_number);
+  return result.rows[0] ?? null;
 }
 
 export async function listInvoiceableEntriesForClient(
@@ -147,7 +199,7 @@ export async function createInvoice(
   input: {
     workspaceId: string;
     clientId: string;
-    invoiceNumber: string;
+    invoiceYear: number;
     periodStart: string;
     periodEnd: string;
     invoiceDate: string;
@@ -156,11 +208,49 @@ export async function createInvoice(
     totalDurationMinutes: number;
     entryIds: string[];
   },
-): Promise<InvoiceRow> {
+): Promise<CreateInvoiceResult> {
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
+
+    const lockedClient = await client.query<{ id: string }>(
+      `
+        SELECT id
+        FROM clients
+        WHERE id = $1 AND workspace_id = $2
+        FOR UPDATE
+      `,
+      [input.clientId, input.workspaceId],
+    );
+    if (!lockedClient.rows[0]) {
+      await client.query("ROLLBACK");
+      return "duplicate_period";
+    }
+
+    const { year, month } = billingMonthKey(input.periodEnd);
+    const existingMonth = await client.query(
+      `
+        SELECT 1
+        FROM invoices
+        WHERE client_id = $1
+          AND EXTRACT(YEAR FROM period_end) = $2
+          AND EXTRACT(MONTH FROM period_end) = $3
+        LIMIT 1
+      `,
+      [input.clientId, year, month],
+    );
+    if (existingMonth.rows.length > 0) {
+      await client.query("ROLLBACK");
+      return "duplicate_month";
+    }
+
+    const existingNumbers = await listInvoiceNumbersForClientYear(
+      client,
+      input.clientId,
+      input.invoiceYear,
+    );
+    const invoiceNumber = nextInvoiceNumber(existingNumbers, input.invoiceYear);
 
     const invoiceResult = await client.query<InvoiceRow>(
       `
@@ -181,7 +271,7 @@ export async function createInvoice(
       [
         input.workspaceId,
         input.clientId,
-        input.invoiceNumber,
+        invoiceNumber,
         input.periodStart,
         input.periodEnd,
         input.invoiceDate,
@@ -193,7 +283,7 @@ export async function createInvoice(
 
     const invoice = invoiceResult.rows[0]!;
 
-    await client.query(
+    const updatedEntries = await client.query(
       `
         UPDATE time_entries
         SET invoice_id = $1, updated_at = now()
@@ -202,11 +292,20 @@ export async function createInvoice(
       [invoice.id, input.entryIds, input.workspaceId],
     );
 
+    if (updatedEntries.rowCount !== input.entryIds.length) {
+      await client.query("ROLLBACK");
+      return "duplicate_period";
+    }
+
     await client.query("COMMIT");
     return invoice;
   } catch (error) {
     await client.query("ROLLBACK");
-    throw error;
+    const mapped = mapInvoiceInsertError(error);
+    if (mapped === "throw") {
+      throw error;
+    }
+    return mapped;
   } finally {
     client.release();
   }
