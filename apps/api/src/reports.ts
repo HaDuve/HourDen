@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import type { Pool } from "pg";
 import {
   listReportEntriesForRange,
+  reportTimeZone,
   rowsToClientReportInputs,
   rowsToClockifyExportEntries,
 } from "./db/reports.js";
@@ -28,6 +29,7 @@ function clockifyExportOptions() {
     operatorName: process.env.HOURDEN_OPERATOR_NAME ?? "Hannes Duve",
     operatorEmail:
       process.env.HOURDEN_OPERATOR_EMAIL ?? "hannes.duve@outlook.com",
+    timeZone: reportTimeZone(),
   };
 }
 
@@ -46,13 +48,15 @@ export function createReportsRouter(pool: Pool) {
       );
     }
 
+    const timeZone = reportTimeZone();
     const rows = await listReportEntriesForRange(
       pool,
       getCurrentWorkspaceId(),
       range.from,
       range.to,
+      timeZone,
     );
-    const clients = buildClientReport(rowsToClientReportInputs(rows));
+    const clients = buildClientReport(rowsToClientReportInputs(rows, timeZone));
 
     return c.json({
       from: range.from,
@@ -78,6 +82,7 @@ export function createReportsRouter(pool: Pool) {
       getCurrentWorkspaceId(),
       range.from,
       range.to,
+      reportTimeZone(),
     );
     const csv = serializeClockifyCsv(
       rowsToClockifyExportEntries(rows),

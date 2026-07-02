@@ -1,4 +1,9 @@
-import type { ClientReportInput, ClockifyExportEntry } from "@hourden/domain";
+import {
+  DEFAULT_REPORT_TIMEZONE,
+  toLocalDateKey,
+  type ClientReportInput,
+  type ClockifyExportEntry,
+} from "@hourden/domain";
 import type { Pool } from "pg";
 
 type ReportEntryRow = {
@@ -18,8 +23,8 @@ function durationMinutes(startedAt: Date, endedAt: Date): number {
   return Math.max(0, Math.round((endedAt.getTime() - startedAt.getTime()) / 60_000));
 }
 
-function toDateKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
+export function reportTimeZone(): string {
+  return process.env.HOURDEN_TIMEZONE ?? DEFAULT_REPORT_TIMEZONE;
 }
 
 export async function listReportEntriesForRange(
@@ -27,6 +32,7 @@ export async function listReportEntriesForRange(
   workspaceId: string,
   from: string,
   to: string,
+  timeZone = reportTimeZone(),
 ): Promise<ReportEntryRow[]> {
   const result = await pool.query<ReportEntryRow>(
     `
@@ -46,11 +52,13 @@ export async function listReportEntriesForRange(
       LEFT JOIN clients c ON c.id = p.client_id
       WHERE te.workspace_id = $1
         AND te.ended_at IS NOT NULL
-        AND te.started_at::date >= $2::date
-        AND te.started_at::date <= $3::date
+        AND te.description IS NOT NULL
+        AND trim(te.description) <> ''
+        AND ((te.started_at AT TIME ZONE $4)::date >= $2::date)
+        AND ((te.started_at AT TIME ZONE $4)::date <= $3::date)
       ORDER BY te.started_at ASC
     `,
-    [workspaceId, from, to],
+    [workspaceId, from, to, timeZone],
   );
 
   return result.rows;
@@ -58,10 +66,11 @@ export async function listReportEntriesForRange(
 
 export function rowsToClientReportInputs(
   rows: ReportEntryRow[],
+  timeZone = reportTimeZone(),
 ): ClientReportInput[] {
   return rows.map((row) => ({
     clientName: row.client_name ?? "",
-    date: toDateKey(row.started_at),
+    date: toLocalDateKey(row.started_at, timeZone),
     description: row.description?.trim() ?? "",
     durationMinutes: durationMinutes(row.started_at, row.ended_at),
     amount: row.amount !== null ? Number(row.amount) : 0,

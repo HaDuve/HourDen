@@ -1,10 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { serializeClockifyCsv } from "./clockify-csv.js";
+import { serializeClockifyCsv, toLocalDateKey } from "./clockify-csv.js";
+
+const berlin = "Europe/Berlin";
 
 const defaultOptions = {
   operatorName: "Hannes Duve",
   operatorEmail: "hannes.duve@outlook.com",
+  timeZone: berlin,
 };
+
+describe("toLocalDateKey", () => {
+  it("uses the operator time zone, not UTC, for calendar-day grouping", () => {
+    const justAfterMidnightBerlin = new Date("2026-05-31T22:30:00.000Z");
+
+    expect(toLocalDateKey(justAfterMidnightBerlin, berlin)).toBe("2026-06-01");
+    expect(toLocalDateKey(justAfterMidnightBerlin, "UTC")).toBe("2026-05-31");
+  });
+});
 
 describe("serializeClockifyCsv", () => {
   it("emits the full Clockify column set for a single entry", () => {
@@ -16,8 +28,8 @@ describe("serializeClockifyCsv", () => {
           description: "Development Call",
           tags: ["Communication"],
           billable: true,
-          startedAt: new Date(2026, 5, 22, 10, 0),
-          endedAt: new Date(2026, 5, 22, 10, 13),
+          startedAt: new Date("2026-06-22T08:00:00.000Z"),
+          endedAt: new Date("2026-06-22T08:13:00.000Z"),
           durationMinutes: 13,
           billableRate: 60,
           billableAmount: 13,
@@ -54,8 +66,8 @@ describe("serializeClockifyCsv", () => {
         description: "Private AI Coaching",
         tags: [] as string[],
         billable: true,
-        startedAt: new Date(2026, 5, 23, 12, 55),
-        endedAt: new Date(2026, 5, 23, 13, 55),
+        startedAt: new Date("2026-06-23T10:55:00.000Z"),
+        endedAt: new Date("2026-06-23T11:55:00.000Z"),
         durationMinutes: 60,
         billableRate: 30,
         billableAmount: 30,
@@ -78,8 +90,8 @@ describe("serializeClockifyCsv", () => {
         description: "App Development",
         tags: ["Development"],
         billable: true,
-        startedAt: new Date(2026, 5, 18, 16, 33),
-        endedAt: new Date(2026, 5, 18, 17, 39),
+        startedAt: new Date("2026-06-18T14:33:00.000Z"),
+        endedAt: new Date("2026-06-18T15:39:00.000Z"),
         durationMinutes: 66,
         billableRate: 60,
         billableAmount: 66,

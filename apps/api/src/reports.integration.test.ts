@@ -130,4 +130,100 @@ describe.skipIf(!databaseUrl)("Report API", () => {
     expect(lines[1]).toContain('"0:13"');
     expect(lines[1]).toContain('"13.00"');
   });
+
+  it("excludes incomplete stopped entries without a Description", async () => {
+    const bandao = await createClient(app, "Bandao", 60);
+    const ondojo = await createProject(app, bandao.id, "Ondojo");
+
+    const timer = await (
+      await app.request("/api/time-entries/timer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: ondojo.id }),
+      })
+    ).json();
+
+    await app.request(`/api/time-entries/${timer.id}/stop`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "Billable work",
+        startedAt: "2026-06-18T10:00:00.000Z",
+        endedAt: "2026-06-18T11:00:00.000Z",
+      }),
+    });
+
+    const res = await app.request(
+      "/api/reports?from=2026-06-18&to=2026-06-18",
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.clients).toEqual([
+      {
+        clientName: "Bandao",
+        lines: [
+          {
+            date: "2026-06-18",
+            description: "Billable work",
+            durationMinutes: 60,
+            amount: 60,
+          },
+        ],
+        totalDurationMinutes: 60,
+        totalAmount: 60,
+      },
+    ]);
+  });
+
+  it("filters and groups by the operator time zone calendar day", async () => {
+    const previousTz = process.env.HOURDEN_TIMEZONE;
+    process.env.HOURDEN_TIMEZONE = "Europe/Berlin";
+
+    try {
+      const bandao = await createClient(app, "Bandao", 60);
+      const ondojo = await createProject(app, bandao.id, "Ondojo");
+
+      await app.request("/api/time-entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: ondojo.id,
+          description: "Late night work",
+          startedAt: "2026-05-31T22:30:00.000Z",
+          endedAt: "2026-05-31T23:30:00.000Z",
+        }),
+      });
+
+      const juneReport = await app.request(
+        "/api/reports?from=2026-06-01&to=2026-06-01",
+      );
+      const mayReport = await app.request(
+        "/api/reports?from=2026-05-31&to=2026-05-31",
+      );
+
+      expect((await juneReport.json()).clients).toHaveLength(1);
+      expect((await mayReport.json()).clients).toEqual([]);
+
+      const exportRes = await app.request(
+        "/api/reports/export?from=2026-06-01&to=2026-06-01",
+      );
+      const csv = await exportRes.text();
+      expect(csv).toContain('"01/06/2026"');
+      expect(csv).toContain('"Late night work"');
+    } finally {
+      if (previousTz === undefined) {
+        delete process.env.HOURDEN_TIMEZONE;
+      } else {
+        process.env.HOURDEN_TIMEZONE = previousTz;
+      }
+    }
+  });
 });
