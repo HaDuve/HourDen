@@ -27,4 +27,18 @@ describe("migration definitions", () => {
     expect(projectsMigration?.sql).toContain("color");
     expect(projectsMigration?.sql).toContain("ON DELETE RESTRICT");
   });
+
+  it("creates the time_entries table with workspace scope and billing fields", () => {
+    const migration = MIGRATIONS.find((m) => m.id === "004_time_entries");
+    expect(migration).toBeDefined();
+    expect(migration?.sql).toContain("workspace_id");
+    expect(migration?.sql).toContain("project_id");
+    expect(migration?.sql).toContain("started_at");
+    expect(migration?.sql).toContain("ended_at");
+    expect(migration?.sql).toContain("description");
+    expect(migration?.sql).toContain("tags");
+    expect(migration?.sql).toContain("billable");
+    expect(migration?.sql).toContain("amount");
+    expect(migration?.sql).toContain("ended_at IS NULL");
+  });
 });

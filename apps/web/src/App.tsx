@@ -1,16 +1,28 @@
 import { useState } from "react";
 import ClientsPage from "./ClientsPage.js";
 import ProjectsPage from "./ProjectsPage.js";
+import TodayPage from "./TodayPage.js";
 
-type Page = "clients" | "projects";
+type Page = "today" | "clients" | "projects";
 
 export default function App() {
-  const [page, setPage] = useState<Page>("clients");
+  const [page, setPage] = useState<Page>("today");
 
   return (
     <div>
       <nav className="border-b border-neutral-200 bg-white">
         <div className="mx-auto flex max-w-3xl gap-1 px-8 py-3">
+          <button
+            type="button"
+            onClick={() => setPage("today")}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+              page === "today"
+                ? "bg-slate-900 text-white"
+                : "text-neutral-700 hover:bg-neutral-100"
+            }`}
+          >
+            Today
+          </button>
           <button
             type="button"
             onClick={() => setPage("clients")}
@@ -35,7 +47,13 @@ export default function App() {
           </button>
         </div>
       </nav>
-      {page === "clients" ? <ClientsPage /> : <ProjectsPage />}
+      {page === "today" ? (
+        <TodayPage />
+      ) : page === "clients" ? (
+        <ClientsPage />
+      ) : (
+        <ProjectsPage />
+      )}
     </div>
   );
 }

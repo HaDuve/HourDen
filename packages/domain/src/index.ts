@@ -9,3 +9,10 @@ export type {
   CreateProjectInput,
   UpdateProjectInput,
 } from "./project.js";
+export type {
+  TimeEntry,
+  StartTimerInput,
+  StopTimerInput,
+  CreateManualEntryInput,
+  UpdateTimeEntryInput,
+} from "./time-entry.js";

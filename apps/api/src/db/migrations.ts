@@ -50,4 +50,29 @@ export const MIGRATIONS = [
       CREATE INDEX IF NOT EXISTS projects_client_id_idx ON projects (client_id);
     `,
   },
+  {
+    id: "004_time_entries",
+    sql: `
+      CREATE TABLE IF NOT EXISTS time_entries (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        workspace_id uuid NOT NULL REFERENCES workspaces(id),
+        project_id uuid REFERENCES projects(id) ON DELETE SET NULL,
+        started_at timestamptz NOT NULL,
+        ended_at timestamptz,
+        description text,
+        tags text[] NOT NULL DEFAULT '{}',
+        billable boolean NOT NULL DEFAULT true,
+        amount numeric(10, 2),
+        invoice_id uuid,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+
+      CREATE INDEX IF NOT EXISTS time_entries_workspace_id_idx ON time_entries (workspace_id);
+      CREATE INDEX IF NOT EXISTS time_entries_started_at_idx ON time_entries (workspace_id, started_at);
+      CREATE UNIQUE INDEX IF NOT EXISTS time_entries_one_running_per_workspace_idx
+        ON time_entries (workspace_id)
+        WHERE ended_at IS NULL;
+    `,
+  },
 ] as const;

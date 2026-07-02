@@ -35,6 +35,7 @@ describe.skipIf(!databaseUrl)("App with live API", () => {
   });
 
   beforeEach(async () => {
+    await pool.query("DELETE FROM time_entries");
     await pool.query("DELETE FROM projects");
     await pool.query("DELETE FROM clients");
   });
@@ -44,12 +45,12 @@ describe.skipIf(!databaseUrl)("App with live API", () => {
     await pool.end();
   });
 
-  it("loads the Clients page from the live API", async () => {
+  it("loads the Today page from the live API", async () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /clients/i })).toBeInTheDocument();
-      expect(screen.getByText(/no clients yet/i)).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+      expect(screen.getByText(/no time logged today yet/i)).toBeInTheDocument();
     });
   });
 });
