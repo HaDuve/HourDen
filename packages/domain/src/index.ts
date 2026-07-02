@@ -38,7 +38,9 @@ export {
   formatDurationDecimal,
   toLocalDateKey,
   DEFAULT_REPORT_TIMEZONE,
+  CLOCKIFY_HEADERS,
 } from "./clockify-csv.js";
+export type { ClockifyHeader } from "./clockify-csv.js";
 export type {
   ClockifyParsedRow,
   ParseClockifyCsvOptions,

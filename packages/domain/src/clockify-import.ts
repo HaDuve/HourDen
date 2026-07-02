@@ -1,4 +1,5 @@
 import {
+  CLOCKIFY_HEADERS,
   DEFAULT_REPORT_TIMEZONE,
   formatDurationHMM,
 } from "./clockify-csv.js";
@@ -21,27 +22,6 @@ export type ClockifyParsedRow = {
 export type ParseClockifyCsvOptions = {
   timeZone?: string;
 };
-
-const CLOCKIFY_HEADERS = [
-  "Project",
-  "Client",
-  "Description",
-  "Task",
-  "User",
-  "Group",
-  "Email",
-  "Tags",
-  "Billable",
-  "Start Date",
-  "Start Time",
-  "End Date",
-  "End Time",
-  "Duration (h)",
-  "Duration (decimal)",
-  "Billable Rate (EUR)",
-  "Billable Amount (EUR)",
-  "Date of creation",
-] as const;
 
 export function parseClockifyCsv(
   csv: string,
@@ -243,6 +223,7 @@ function parseOptionalMoney(value: string): number | null {
 }
 
 export function clockifyImportFingerprint(row: ClockifyParsedRow): string {
+  const tags = [...row.tags].sort().join(",");
   return [
     row.clientName,
     row.projectName,
@@ -251,5 +232,6 @@ export function clockifyImportFingerprint(row: ClockifyParsedRow): string {
     row.endedAt.toISOString(),
     formatDurationHMM(row.durationMinutes),
     row.billable ? "1" : "0",
+    tags,
   ].join("|");
 }

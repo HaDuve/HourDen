@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseClockifyCsv } from "./clockify-import.js";
-
+import { clockifyImportFingerprint, parseClockifyCsv } from "./clockify-import.js";
 const berlin = "Europe/Berlin";
 
 describe("parseClockifyCsv", () => {
@@ -63,5 +62,35 @@ describe("parseClockifyCsv", () => {
       skipped: true,
       skipReason: "empty_client",
     });
+  });
+});
+
+describe("clockifyImportFingerprint", () => {
+  it("includes tags so rows with different tags do not collide", () => {
+    const startedAt = new Date("2026-06-22T08:00:00.000Z");
+    const endedAt = new Date("2026-06-22T08:13:00.000Z");
+    const base = {
+      projectName: "Ondojo",
+      clientName: "Bandao",
+      description: "Development Call",
+      billable: true,
+      startedAt,
+      endedAt,
+      durationMinutes: 13,
+      billableRate: 60,
+      billableAmount: 13,
+      skipped: false,
+    };
+
+    const communication = clockifyImportFingerprint({
+      ...base,
+      tags: ["Communication"],
+    });
+    const development = clockifyImportFingerprint({
+      ...base,
+      tags: ["Development"],
+    });
+
+    expect(communication).not.toBe(development);
   });
 });

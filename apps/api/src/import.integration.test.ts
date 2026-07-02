@@ -98,6 +98,20 @@ describe.skipIf(!databaseUrl)("Clockify import API", () => {
     expect(count.rows[0]?.count).toBe(3);
   });
 
+  it("imports rows that share times and description but differ by tags", async () => {
+    const csv = `"Project","Client","Description","Task","User","Group","Email","Tags","Billable","Start Date","Start Time","End Date","End Time","Duration (h)","Duration (decimal)","Billable Rate (EUR)","Billable Amount (EUR)","Date of creation"
+"Ondojo","Bandao","Development Call","","","","","Communication","Yes","22/06/2026","10:00","22/06/2026","10:13","0:13","0.22","60.00","13.00","22/06/2026"
+"Ondojo","Bandao","Development Call","","","","","Development","Yes","22/06/2026","10:00","22/06/2026","10:13","0:13","0.22","60.00","13.00","22/06/2026"`;
+
+    const res = await importCsv(csv);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      imported: 2,
+      duplicates: 0,
+      skippedEmptyClient: 0,
+    });
+  });
+
   it("reports rows with empty Client as skipped", async () => {
     const csv = `"Project","Client","Description","Task","User","Group","Email","Tags","Billable","Start Date","Start Time","End Date","End Time","Duration (h)","Duration (decimal)","Billable Rate (EUR)","Billable Amount (EUR)","Date of creation"
 "Internal","","Untracked work","","","","","","Yes","01/06/2026","9:00","01/06/2026","10:00","1:00","1.00","0.00","0.00","01/06/2026"

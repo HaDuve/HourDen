@@ -40,6 +40,10 @@ const CLOCKIFY_HEADERS = [
   "Date of creation",
 ] as const;
 
+export type ClockifyHeader = (typeof CLOCKIFY_HEADERS)[number];
+
+export { CLOCKIFY_HEADERS };
+
 export function serializeClockifyCsv(
   entries: ClockifyExportEntry[],
   options: ClockifyExportOptions,

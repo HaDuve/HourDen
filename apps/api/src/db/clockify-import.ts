@@ -116,20 +116,6 @@ async function importRow(
 ): Promise<"imported" | "duplicate"> {
   const fingerprint = clockifyImportFingerprint(row);
 
-  const existing = await pool.query(
-    `
-      SELECT id
-      FROM time_entries
-      WHERE workspace_id = $1 AND import_fingerprint = $2
-      LIMIT 1
-    `,
-    [workspaceId, fingerprint],
-  );
-
-  if (existing.rows[0]) {
-    return "duplicate";
-  }
-
   const defaultRate = row.billableRate ?? 0;
   const clientId = await findOrCreateClient(
     pool,
@@ -151,7 +137,7 @@ async function importRow(
   const hourlyRate = Number(rateResult.rows[0]!.default_rate);
   const amount = computeAmount(row.durationMinutes, hourlyRate);
 
-  await pool.query(
+  const inserted = await pool.query<{ id: string }>(
     `
       INSERT INTO time_entries (
         workspace_id,
@@ -165,6 +151,10 @@ async function importRow(
         import_fingerprint
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      ON CONFLICT (workspace_id, import_fingerprint)
+      WHERE import_fingerprint IS NOT NULL
+      DO NOTHING
+      RETURNING id
     `,
     [
       workspaceId,
@@ -179,9 +169,10 @@ async function importRow(
     ],
   );
 
-  return "imported";
+  return inserted.rows[0] ? "imported" : "duplicate";
 }
 
+// Rows are imported one at a time; a mid-batch failure leaves earlier rows committed.
 export async function importClockifyCsv(
   pool: Pool,
   workspaceId: string,
