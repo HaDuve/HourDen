@@ -16,3 +16,24 @@ export type {
   CreateManualEntryInput,
   UpdateTimeEntryInput,
 } from "./time-entry.js";
+export type {
+  ReportLineInput,
+  GroupedReportLine,
+  ClientReportInput,
+  ClientReport,
+} from "./report.js";
+export {
+  groupEntriesByDateAndDescription,
+  buildClientReport,
+} from "./report.js";
+export type {
+  ClockifyExportEntry,
+  ClockifyExportOptions,
+} from "./clockify-csv.js";
+export {
+  serializeClockifyCsv,
+  formatClockifyDate,
+  formatClockifyTime,
+  formatDurationHMM,
+  formatDurationDecimal,
+} from "./clockify-csv.js";

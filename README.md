@@ -156,4 +156,21 @@ HOURDEN_BASIC_AUTH_USER=operator HOURDEN_BASIC_AUTH_PASSWORD='…' ./scripts/ver
 
 ## Relationship to the invoice script
 
-Until the PDF port (slice 6), HourDen will export a Clockify-compatible CSV that the existing `generate_invoice.py` (kept outside this repo) consumes unchanged.
+Until the PDF port (slice 6), HourDen exports a Clockify-compatible CSV that the existing `generate_invoice.py` (kept outside this repo) consumes unchanged.
+
+### Report + CSV export
+
+- **Report** tab: pick a date range, review Time Entries grouped by Client (lines merged by date + description).
+- **Export CSV**: downloads the full Clockify column set for the selected range.
+
+### Manual verification with `generate_invoice.py`
+
+After exporting a CSV from HourDen:
+
+1. Save the file under `Clockify_Time_Reports/` next to `generate_invoice.py` (parent Invoices repo).
+2. Run: `python generate_invoice.py -l` (or process all CSVs in that folder without `-l`).
+3. Confirm the PDF totals match the Report view for that Client and date range.
+
+To force a single Client, use a filename suffix Clockify uses, e.g. `..._BANDAO.csv` (see `generate_invoice.py`).
+
+Operator name/email in the CSV (`User`, `Email` columns) come from `HOURDEN_OPERATOR_NAME` and `HOURDEN_OPERATOR_EMAIL` (see `.env.example`).
