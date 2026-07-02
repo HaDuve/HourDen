@@ -10,3 +10,6 @@ coverage/
 .vite/
 .turbo/
 .local/
+
+# Local deploy script (contains server IP)
+scripts/deploy-remote.sh
