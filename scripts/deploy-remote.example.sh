@@ -65,7 +65,7 @@ build_web() {
     -v "\${REMOTE_DIR}:/app" \
     -w /app \
     node:22-alpine \
-    sh -c "npm ci && npm run build -w @hourden/web"
+    sh -c "npm ci && npm run build"
 }
 
 publish_web() {
