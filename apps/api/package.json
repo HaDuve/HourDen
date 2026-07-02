@@ -13,8 +13,8 @@
     "migrate": "tsx src/db/migrate-cli.ts"
   },
   "dependencies": {
-    "@hourden/domain": "*",
     "@hono/node-server": "^1.14.4",
+    "@hourden/domain": "*",
     "dotenv": "^16.5.0",
     "hono": "^4.8.3",
     "pg": "^8.16.0"
@@ -22,6 +22,7 @@
   "devDependencies": {
     "@types/node": "^22.15.30",
     "@types/pg": "^8.15.4",
+    "pdf-parse": "^2.4.5",
     "tsx": "^4.19.4",
     "vitest": "^3.2.4"
   }

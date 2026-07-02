@@ -1,3 +1,4 @@
+import { DEFAULT_WORKSPACE_ID } from "@hourden/domain";
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "./app.js";
@@ -41,6 +42,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
 
   beforeEach(async () => {
     await pool.query("DELETE FROM time_entries");
+    await pool.query("DELETE FROM invoices");
     await pool.query("DELETE FROM projects");
     await pool.query("DELETE FROM clients");
   });
@@ -354,6 +356,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
   });
 
   it("blocks editing and deleting invoiced entries", async () => {
+    const client = await createClient(app, "Bandao", 60);
     const created = await (
       await app.request("/api/time-entries", {
         method: "POST",
@@ -366,10 +369,29 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
       })
     ).json();
 
-    await pool.query(
-      "UPDATE time_entries SET invoice_id = gen_random_uuid() WHERE id = $1",
-      [created.id],
+    const invoice = await pool.query<{ id: string }>(
+      `
+        INSERT INTO invoices (
+          workspace_id,
+          client_id,
+          invoice_number,
+          period_start,
+          period_end,
+          invoice_date,
+          due_date,
+          total_amount,
+          total_duration_minutes
+        )
+        VALUES ($1, $2, '2026001', '2026-07-01', '2026-07-31', '2026-07-31', '2026-08-14', 60, 60)
+        RETURNING id
+      `,
+      [DEFAULT_WORKSPACE_ID, client.id],
     );
+
+    await pool.query("UPDATE time_entries SET invoice_id = $1 WHERE id = $2", [
+      invoice.rows[0]!.id,
+      created.id,
+    ]);
 
     const patchRes = await app.request(`/api/time-entries/${created.id}`, {
       method: "PATCH",

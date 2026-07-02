@@ -8,6 +8,7 @@
   "scripts": {
     "build": "npm run build -w @hourden/domain && npm run build -w @hourden/api && npm run build -w @hourden/web",
     "test": "vitest run",
+    "test:invoice-snapshot": "vitest run -w @hourden/domain src/invoice-pdf-snapshot.test.ts",
     "verify:build": "node scripts/verify-built-api.mjs",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
