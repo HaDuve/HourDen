@@ -8,4 +8,14 @@ describe("migration definitions", () => {
     expect(workspacesMigration).toBeDefined();
     expect(workspacesMigration?.sql).toContain(DEFAULT_WORKSPACE_ID);
   });
+
+  it("creates the clients table with workspace scope and recipient fields", () => {
+    const clientsMigration = MIGRATIONS.find((m) => m.id === "002_clients");
+    expect(clientsMigration).toBeDefined();
+    expect(clientsMigration?.sql).toContain("workspace_id");
+    expect(clientsMigration?.sql).toContain("default_rate");
+    expect(clientsMigration?.sql).toContain("legal_name");
+    expect(clientsMigration?.sql).toContain("address_line1");
+    expect(clientsMigration?.sql).toContain("address_line2");
+  });
 });

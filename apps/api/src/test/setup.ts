@@ -1,1 +1,1 @@
-// Vitest setup for API tests.
+import "../load-env.js";
