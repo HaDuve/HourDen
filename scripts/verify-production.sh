@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+if [[ -f "$ROOT/.env" ]]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "$ROOT/.env"
+  set +a
+fi
+
 BASE_URL="${HOURDEN_BASE_URL:-https://hourden.hannesduve.com}"
 BASIC_AUTH_USER="${HOURDEN_BASIC_AUTH_USER:-}"
 BASIC_AUTH_PASSWORD="${HOURDEN_BASIC_AUTH_PASSWORD:-}"
