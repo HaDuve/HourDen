@@ -1,15 +1,15 @@
 import { Hono } from "hono";
+import { healthPayload } from "./health.js";
 import { apiKeyAuth } from "./middleware/api-key.js";
 
 export function createApp() {
   const app = new Hono();
 
-  app.get("/health", (c) => c.json({ status: "ok" }));
+  app.use("*", apiKeyAuth);
+  app.get("/health", (c) => c.json(healthPayload()));
 
   const api = new Hono();
-  api.use("*", apiKeyAuth);
-  api.get("/health", (c) => c.json({ status: "ok" }));
-
+  api.get("/health", (c) => c.json(healthPayload()));
   app.route("/api", api);
 
   return app;

@@ -85,7 +85,7 @@ Migration integration tests run when `DATABASE_URL` is set (CI provides Postgres
 
 ## Auth (MVP)
 
-Production uses **Caddy basic auth** on `hourden.hannesduve.com` (Portfolio's Caddy terminates TLS and protects the vhost). The API can additionally require `HOURDEN_API_KEY` on `/api/*` when set — useful for local dev without Caddy.
+Production uses **Caddy basic auth** on `hourden.hannesduve.com` (Portfolio's Caddy terminates TLS and protects the vhost). When `HOURDEN_API_KEY` is set, the API requires that key on **all** routes (including `/health`) — useful when the API port is exposed without Caddy.
 
 ## Deploy to `hourden.hannesduve.com`
 
@@ -136,12 +136,17 @@ Reload Caddy after updating the config.
 
 ### 5. Verify
 
+```bash
+HOURDEN_BASIC_AUTH_USER=operator HOURDEN_BASIC_AUTH_PASSWORD='…' ./scripts/verify-production.sh
+```
+
 - `https://hourden.hannesduve.com` prompts for basic auth, then shows the HourDen shell
 - The page reports `API status: ok`
+- `GET /api/health` returns the seeded `workspaceId`
 
 ## Workspace seam
 
-`getCurrentWorkspaceId()` in `apps/api` is the single choke-point for workspace resolution ([ADR-0004](./docs/adr/0004-multi-tenant-prep-boundary.md)). MVP returns the seeded workspace id from `@hourden/domain`.
+`getCurrentWorkspaceId()` in `apps/api` is the single choke-point for workspace resolution ([ADR-0004](./docs/adr/0004-multi-tenant-prep-boundary.md)). MVP returns the seeded workspace id from `@hourden/domain`, exposed on the health endpoint as `workspaceId`.
 
 ## Relationship to the invoice script
 

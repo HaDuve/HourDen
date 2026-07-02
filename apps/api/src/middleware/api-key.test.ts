@@ -19,6 +19,13 @@ describe("API key auth", () => {
     expect(res.status).toBe(401);
   });
 
+  it("rejects /health without a valid key when configured", async () => {
+    process.env.HOURDEN_API_KEY = "test-secret";
+    const app = createApp();
+    const res = await app.request("/health");
+    expect(res.status).toBe(401);
+  });
+
   it("accepts /api requests with a valid x-api-key header", async () => {
     process.env.HOURDEN_API_KEY = "test-secret";
     const app = createApp();

@@ -40,6 +40,35 @@ jobs:
 
       - run: npm run typecheck
 
+      - run: npm run lint
+
       - run: npm test
 
       - run: npm run build
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start API and Postgres
+        run: docker compose up --build -d --wait
+
+      - name: Verify API health
+        run: |
+          curl --fail --retry 10 --retry-delay 2 --retry-all-errors \
+            http://localhost:3001/health | tee health.json
+          grep -q '"status":"ok"' health.json
+          grep -q 'a0000000-0000-4000-8000-000000000001' health.json
+
+      - name: Verify seeded workspace row
+        run: |
+          docker compose exec -T postgres \
+            psql -U hourden -d hourden -tAc \
+            "SELECT count(*) FROM workspaces WHERE id = 'a0000000-0000-4000-8000-000000000001';" \
+            | grep -q '^1$'
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
