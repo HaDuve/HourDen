@@ -39,3 +39,13 @@ export {
   toLocalDateKey,
   DEFAULT_REPORT_TIMEZONE,
 } from "./clockify-csv.js";
+export type {
+  ClockifyParsedRow,
+  ParseClockifyCsvOptions,
+} from "./clockify-import.js";
+export {
+  parseClockifyCsv,
+  parseClockifyDateTime,
+  parseDurationHMM,
+  clockifyImportFingerprint,
+} from "./clockify-import.js";

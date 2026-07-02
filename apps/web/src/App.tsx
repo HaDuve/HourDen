@@ -1,10 +1,11 @@
 import { useState } from "react";
 import ClientsPage from "./ClientsPage.js";
+import ImportPage from "./ImportPage.js";
 import ProjectsPage from "./ProjectsPage.js";
 import ReportPage from "./ReportPage.js";
 import TodayPage from "./TodayPage.js";
 
-type Page = "today" | "clients" | "projects" | "report";
+type Page = "today" | "clients" | "projects" | "report" | "import";
 
 export default function App() {
   const [page, setPage] = useState<Page>("today");
@@ -57,6 +58,17 @@ export default function App() {
           >
             Report
           </button>
+          <button
+            type="button"
+            onClick={() => setPage("import")}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+              page === "import"
+                ? "bg-slate-900 text-white"
+                : "text-neutral-700 hover:bg-neutral-100"
+            }`}
+          >
+            Import
+          </button>
         </div>
       </nav>
       {page === "today" ? (
@@ -65,8 +77,10 @@ export default function App() {
         <ClientsPage />
       ) : page === "projects" ? (
         <ProjectsPage />
-      ) : (
+      ) : page === "report" ? (
         <ReportPage />
+      ) : (
+        <ImportPage />
       )}
     </div>
   );

@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { Pool } from "pg";
+import { createImportRouter } from "./import.js";
 import { createClientsRouter } from "./clients.js";
 import { createProjectsRouter } from "./projects.js";
 import { createReportsRouter } from "./reports.js";
@@ -22,6 +23,7 @@ export function createApp(options: AppOptions = {}) {
   const api = new Hono();
   api.get("/health", (c) => c.json(healthPayload()));
   api.route("/clients", createClientsRouter(db));
+  api.route("/import", createImportRouter(db));
   api.route("/projects", createProjectsRouter(db));
   api.route("/reports", createReportsRouter(db));
   api.route("/time-entries", createTimeEntriesRouter(db));

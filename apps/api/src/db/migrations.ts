@@ -75,4 +75,15 @@ export const MIGRATIONS = [
         WHERE ended_at IS NULL;
     `,
   },
+  {
+    id: "005_clockify_import_fingerprint",
+    sql: `
+      ALTER TABLE time_entries
+        ADD COLUMN IF NOT EXISTS import_fingerprint text;
+
+      CREATE UNIQUE INDEX IF NOT EXISTS time_entries_import_fingerprint_idx
+        ON time_entries (workspace_id, import_fingerprint)
+        WHERE import_fingerprint IS NOT NULL;
+    `,
+  },
 ] as const;
