@@ -1,10 +1,4 @@
-import { config } from "dotenv";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
-config({
-  path: resolve(fileURLToPath(import.meta.url), "../../../../.env"),
-});
+import "./test/load-env.js";
 
 import { Pool } from "pg";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";

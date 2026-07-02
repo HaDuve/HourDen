@@ -107,6 +107,75 @@ describe("ClientsPage", () => {
     );
   });
 
+  it("edits a Client through the form", async () => {
+    const client = {
+      id: "c0000000-0000-4000-8000-000000000001",
+      name: "Bandao",
+      defaultRate: 60,
+      legalName: null,
+      addressLine1: null,
+      addressLine2: null,
+    };
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ clients: [client] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ...client,
+          name: "Bandao GmbH",
+          defaultRate: 65,
+          legalName: "BANDAO Guidance GmbH",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          clients: [
+            {
+              ...client,
+              name: "Bandao GmbH",
+              defaultRate: 65,
+              legalName: "BANDAO Guidance GmbH",
+            },
+          ],
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<ClientsPage />);
+    await waitFor(() => {
+      expect(screen.getByText("Bandao")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^edit$/i }));
+    fireEvent.change(screen.getByLabelText(/^name$/i), {
+      target: { value: "Bandao GmbH" },
+    });
+    fireEvent.change(screen.getByLabelText(/default rate/i), {
+      target: { value: "65" },
+    });
+    fireEvent.change(screen.getByLabelText(/legal name/i), {
+      target: { value: "BANDAO Guidance GmbH" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Bandao GmbH")).toBeInTheDocument();
+      expect(screen.getByText("65 €/h")).toBeInTheDocument();
+      expect(screen.getByText(/Recipient: BANDAO Guidance GmbH/i)).toBeInTheDocument();
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/clients/${client.id}`,
+      expect.objectContaining({ method: "PATCH" }),
+    );
+  });
+
   it("deletes a Client after confirmation", async () => {
     const client = {
       id: "c0000000-0000-4000-8000-000000000001",

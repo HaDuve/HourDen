@@ -1,0 +1,7 @@
+import { config } from "dotenv";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+config({
+  path: resolve(fileURLToPath(import.meta.url), "../../../../../.env"),
+});

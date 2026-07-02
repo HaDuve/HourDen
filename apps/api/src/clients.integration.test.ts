@@ -142,6 +142,54 @@ describe.skipIf(!databaseUrl)("Client API", () => {
     expect(clients[0].name).toBe("Local Client");
   });
 
+  it("returns 404 when updating a Client from another workspace", async () => {
+    const otherWorkspaceId = "b0000000-0000-4000-8000-000000000002";
+    await pool.query(
+      "INSERT INTO workspaces (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
+      [otherWorkspaceId, "Other Workspace"],
+    );
+    const foreign = await pool.query<{ id: string }>(
+      `
+        INSERT INTO clients (workspace_id, name, default_rate)
+        VALUES ($1, 'Foreign Client', 50)
+        RETURNING id
+      `,
+      [otherWorkspaceId],
+    );
+    const foreignId = foreign.rows[0]!.id;
+
+    const res = await app.request(`/api/clients/${foreignId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Hacked" }),
+    });
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 when deleting a Client from another workspace", async () => {
+    const otherWorkspaceId = "b0000000-0000-4000-8000-000000000002";
+    await pool.query(
+      "INSERT INTO workspaces (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
+      [otherWorkspaceId, "Other Workspace"],
+    );
+    const foreign = await pool.query<{ id: string }>(
+      `
+        INSERT INTO clients (workspace_id, name, default_rate)
+        VALUES ($1, 'Foreign Client', 50)
+        RETURNING id
+      `,
+      [otherWorkspaceId],
+    );
+    const foreignId = foreign.rows[0]!.id;
+
+    const res = await app.request(`/api/clients/${foreignId}`, {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(404);
+  });
+
   it("allows Recipient fields to be empty on create and filled in later", async () => {
     const created = await (
       await app.request("/api/clients", {
@@ -169,5 +217,35 @@ describe.skipIf(!databaseUrl)("Client API", () => {
       addressLine1: "Beispielweg 2",
       addressLine2: null,
     });
+  });
+
+  it("returns 400 for malformed JSON on create", async () => {
+    const res = await app.request("/api/clients", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{not json",
+    });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid JSON body" });
+  });
+
+  it("returns 400 for malformed JSON on update", async () => {
+    const created = await (
+      await app.request("/api/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Bandao", defaultRate: 60 }),
+      })
+    ).json();
+
+    const res = await app.request(`/api/clients/${created.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: "{not json",
+    });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid JSON body" });
   });
 });

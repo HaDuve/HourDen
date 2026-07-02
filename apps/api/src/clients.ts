@@ -4,6 +4,16 @@ import type { Pool } from "pg";
 import { createClient, deleteClient, listClients, updateClient } from "./db/clients.js";
 import { getCurrentWorkspaceId } from "./workspace.js";
 
+async function readJsonBody<T>(
+  c: { req: { json: () => Promise<T> }; json: (data: unknown, status?: number) => Response },
+): Promise<T | Response> {
+  try {
+    return await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400);
+  }
+}
+
 export function createClientsRouter(pool: Pool) {
   const router = new Hono();
 
@@ -13,7 +23,8 @@ export function createClientsRouter(pool: Pool) {
   });
 
   router.post("/", async (c) => {
-    const body = (await c.req.json()) as CreateClientInput;
+    const body = await readJsonBody<CreateClientInput>(c);
+    if (body instanceof Response) return body;
 
     if (!body.name?.trim()) {
       return c.json({ error: "name is required" }, 400);
@@ -34,7 +45,8 @@ export function createClientsRouter(pool: Pool) {
   });
 
   router.patch("/:id", async (c) => {
-    const body = (await c.req.json()) as UpdateClientInput;
+    const body = await readJsonBody<UpdateClientInput>(c);
+    if (body instanceof Response) return body;
 
     if (body.name !== undefined && !body.name.trim()) {
       return c.json({ error: "name cannot be empty" }, 400);
