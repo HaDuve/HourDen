@@ -49,8 +49,12 @@ export function createTimeEntriesRouter(pool: Pool) {
     const body = await readJsonBody<StartTimerInput>(c);
     if (body instanceof Response) return body;
 
-    const entry = await startTimer(pool, getCurrentWorkspaceId(), body);
-    return c.json(entry, 201);
+    const result = await startTimer(pool, getCurrentWorkspaceId(), body);
+    if (result === "invalid_project") {
+      return c.json({ error: "Project not found" }, 404);
+    }
+
+    return c.json(result, 201);
   });
 
   router.post("/:id/stop", async (c) => {
@@ -86,6 +90,9 @@ export function createTimeEntriesRouter(pool: Pool) {
     if (result === "invalid_range") {
       return c.json({ error: "endedAt must be after startedAt" }, 400);
     }
+    if (result === "invalid_project") {
+      return c.json({ error: "Project not found" }, 404);
+    }
 
     return c.json(result, 201);
   });
@@ -103,6 +110,12 @@ export function createTimeEntriesRouter(pool: Pool) {
 
     if (result === "invoiced") {
       return c.json({ error: "Invoiced Time Entry is read-only" }, 409);
+    }
+    if (result === "invalid_project") {
+      return c.json({ error: "Project not found" }, 404);
+    }
+    if (result === "cannot_reopen") {
+      return c.json({ error: "Cannot reopen a stopped Time Entry" }, 409);
     }
     if (!result) {
       return c.json({ error: "Time Entry not found" }, 404);

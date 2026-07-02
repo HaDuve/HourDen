@@ -160,6 +160,115 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
     expect(completed.billableComplete).toBe(true);
   });
 
+  it("rejects a Project from another workspace", async () => {
+    const otherWorkspaceId = "b0000000-0000-4000-8000-000000000002";
+    await pool.query(
+      "INSERT INTO workspaces (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
+      [otherWorkspaceId, "Other Workspace"],
+    );
+    const foreignClient = await pool.query<{ id: string }>(
+      `
+        INSERT INTO clients (workspace_id, name, default_rate)
+        VALUES ($1, 'Foreign Client', 50)
+        RETURNING id
+      `,
+      [otherWorkspaceId],
+    );
+    const foreignProject = await pool.query<{ id: string }>(
+      `
+        INSERT INTO projects (workspace_id, client_id, name)
+        VALUES ($1, $2, 'Foreign Project')
+        RETURNING id
+      `,
+      [otherWorkspaceId, foreignClient.rows[0]!.id],
+    );
+    const foreignProjectId = foreignProject.rows[0]!.id;
+
+    const timerRes = await app.request("/api/time-entries/timer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId: foreignProjectId }),
+    });
+    expect(timerRes.status).toBe(404);
+
+    const manualRes = await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: foreignProjectId,
+        startedAt: "2026-07-02T08:00:00.000Z",
+        endedAt: "2026-07-02T09:00:00.000Z",
+        description: "Foreign project work",
+      }),
+    });
+    expect(manualRes.status).toBe(404);
+
+    const local = await (
+      await app.request("/api/time-entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startedAt: "2026-07-02T08:00:00.000Z",
+          endedAt: "2026-07-02T09:00:00.000Z",
+          description: "Local entry",
+        }),
+      })
+    ).json();
+
+    const patchRes = await app.request(`/api/time-entries/${local.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId: foreignProjectId }),
+    });
+    expect(patchRes.status).toBe(404);
+  });
+
+  it("includes an overnight running timer on today's list", async () => {
+    const { DEFAULT_WORKSPACE_ID } = await import("@hourden/domain");
+    await pool.query(
+      `
+        INSERT INTO time_entries (workspace_id, started_at, description)
+        VALUES ($1, $2, 'Overnight work')
+      `,
+      [DEFAULT_WORKSPACE_ID, "2026-07-01T22:00:00.000Z"],
+    );
+
+    const listRes = await app.request("/api/time-entries?date=2026-07-02");
+    expect(listRes.status).toBe(200);
+    const { entries } = await listRes.json();
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      description: "Overnight work",
+      isRunning: true,
+    });
+  });
+
+  it("rejects reopening a stopped entry as running", async () => {
+    const created = await (
+      await app.request("/api/time-entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startedAt: "2026-07-02T08:00:00.000Z",
+          endedAt: "2026-07-02T09:00:00.000Z",
+          description: "Completed work",
+        }),
+      })
+    ).json();
+
+    const res = await app.request(`/api/time-entries/${created.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ endedAt: null }),
+    });
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({
+      error: "Cannot reopen a stopped Time Entry",
+    });
+  });
+
   it("computes amount from the Client rate for a completed entry", async () => {
     const client = await createClient(app, "Bandao", 60);
     const project = await createProject(app, client.id, "Ondojo");

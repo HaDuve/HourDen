@@ -6,12 +6,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../api/src/app.js";
 import { runMigrations } from "../../api/src/db/migrate.js";
 import TodayPage from "./TodayPage.js";
+import { todayLocalDate } from "./today-date.js";
 
 const databaseUrl = process.env.DATABASE_URL;
-
-function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 describe.skipIf(!databaseUrl)("TodayPage with live API", () => {
   const pool = new Pool({ connectionString: databaseUrl });
@@ -50,7 +47,7 @@ describe.skipIf(!databaseUrl)("TodayPage with live API", () => {
   });
 
   it("lists today's entries and supports start/stop and manual add", async () => {
-    const today = todayIsoDate();
+    const today = todayLocalDate();
     const start = `${today}T09:00`;
     const end = `${today}T10:00`;
 
@@ -92,5 +89,36 @@ describe.skipIf(!databaseUrl)("TodayPage with live API", () => {
     const listRes = await fetch(`/api/time-entries?date=${today}`);
     const { entries } = (await listRes.json()) as { entries: unknown[] };
     expect(entries.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("lets the Operator add a description to an incomplete stopped entry", async () => {
+    render(<TodayPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /start timer/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /start timer/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /stop timer/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /stop timer/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/incomplete/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^edit$/i }));
+    fireEvent.change(screen.getByLabelText(/^description$/i), {
+      target: { value: "Wrapped up design review" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Wrapped up design review")).toBeInTheDocument();
+      expect(screen.queryByText(/incomplete/i)).not.toBeInTheDocument();
+    });
   });
 });

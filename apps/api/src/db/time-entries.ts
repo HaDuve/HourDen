@@ -84,6 +84,29 @@ async function computeStoredAmount(
   return computeAmount(mins, rate);
 }
 
+async function isProjectInWorkspace(
+  pool: Pool,
+  workspaceId: string,
+  projectId: string,
+): Promise<boolean> {
+  const result = await pool.query(
+    "SELECT id FROM projects WHERE id = $1 AND workspace_id = $2",
+    [projectId, workspaceId],
+  );
+  return Boolean(result.rows[0]);
+}
+
+async function validateProjectId(
+  pool: Pool,
+  workspaceId: string,
+  projectId: string | null | undefined,
+): Promise<"ok" | "invalid_project"> {
+  if (!projectId) return "ok";
+  return (await isProjectInWorkspace(pool, workspaceId, projectId))
+    ? "ok"
+    : "invalid_project";
+}
+
 async function getTimeEntryRow(
   pool: Pool,
   workspaceId: string,
@@ -114,7 +137,10 @@ export async function startTimer(
   pool: Pool,
   workspaceId: string,
   input: StartTimerInput,
-): Promise<TimeEntry> {
+): Promise<TimeEntry | "invalid_project"> {
+  const projectCheck = await validateProjectId(pool, workspaceId, input.projectId);
+  if (projectCheck === "invalid_project") return "invalid_project";
+
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -140,15 +166,30 @@ export async function startTimer(
 
     if (running.rows[0]) {
       const current = running.rows[0];
-      const amount = await computeStoredAmount(pool, workspaceId, {
-        ...current,
-        ended_at: new Date(),
-      });
-
+      const stopped = await client.query<TimeEntryRow>(
+        `
+          UPDATE time_entries
+          SET ended_at = now(), updated_at = now()
+          WHERE id = $1 AND workspace_id = $2
+          RETURNING
+            id,
+            project_id,
+            started_at,
+            ended_at,
+            description,
+            tags,
+            billable,
+            amount,
+            invoice_id
+        `,
+        [current.id, workspaceId],
+      );
+      const stoppedRow = stopped.rows[0]!;
+      const amount = await computeStoredAmount(pool, workspaceId, stoppedRow);
       await client.query(
         `
           UPDATE time_entries
-          SET ended_at = now(), amount = $3, updated_at = now()
+          SET amount = $3, updated_at = now()
           WHERE id = $1 AND workspace_id = $2
         `,
         [current.id, workspaceId, amount],
@@ -272,7 +313,10 @@ export async function createManualEntry(
   pool: Pool,
   workspaceId: string,
   input: CreateManualEntryInput,
-): Promise<TimeEntry | "invalid_range"> {
+): Promise<TimeEntry | "invalid_range" | "invalid_project"> {
+  const projectCheck = await validateProjectId(pool, workspaceId, input.projectId);
+  if (projectCheck === "invalid_project") return "invalid_project";
+
   const startedAt = new Date(input.startedAt);
   const endedAt = new Date(input.endedAt);
 
@@ -366,10 +410,19 @@ export async function updateTimeEntry(
   workspaceId: string,
   entryId: string,
   input: UpdateTimeEntryInput,
-): Promise<TimeEntry | null | "invoiced"> {
+): Promise<TimeEntry | null | "invoiced" | "invalid_project" | "cannot_reopen"> {
   const existing = await getTimeEntryRow(pool, workspaceId, entryId);
   if (!existing) return null;
   if (existing.invoice_id) return "invoiced";
+
+  if (input.projectId) {
+    const projectCheck = await validateProjectId(pool, workspaceId, input.projectId);
+    if (projectCheck === "invalid_project") return "invalid_project";
+  }
+
+  if (input.endedAt === null && existing.ended_at !== null) {
+    return "cannot_reopen";
+  }
 
   const assignments: string[] = [];
   const values: unknown[] = [entryId, workspaceId];
