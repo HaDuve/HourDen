@@ -164,6 +164,47 @@ describe("InvoicesPage", () => {
     expect(screen.getByLabelText(/^to$/i)).toHaveValue(expectedRange.to);
   });
 
+  it("re-previews with plain numbering when Use prefix is turned off", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        const body = JSON.parse(init.body as string) as { usePrefix?: boolean };
+        const usePrefix = body.usePrefix !== false;
+        return Promise.resolve(
+          previewPdfResponse(
+            usePrefix ? "BAN2026001" : "2026001",
+            "BAN",
+          ),
+        );
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<InvoicesPage />);
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
+      expect(screen.getByLabelText(/^use prefix$/i)).toBeChecked();
+    });
+
+    fireEvent.click(screen.getByLabelText(/^use prefix$/i));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
+    });
+
+    const previewCalls = fetchMock.mock.calls.filter(
+      ([url, init]) => url === "/api/invoices/preview" && init?.method === "POST",
+    );
+    expect(previewCalls).toHaveLength(2);
+    expect(JSON.parse(previewCalls[1]![1]!.body as string)).toMatchObject({
+      usePrefix: false,
+    });
+  });
+
   it("shows an inline error when preview fails because Recipient fields are missing", async () => {
     vi.stubGlobal("fetch", clientsFetchMock([clientWithoutRecipient]));
 

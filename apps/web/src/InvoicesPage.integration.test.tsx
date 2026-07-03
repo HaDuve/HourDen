@@ -67,6 +67,7 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", () => {
 
     await pool.query("DELETE FROM time_entries");
     await pool.query("DELETE FROM invoices");
+    await pool.query("DELETE FROM workspace_invoice_numbering");
     await pool.query("DELETE FROM client_invoice_numbering");
     await pool.query("DELETE FROM projects");
     await pool.query("DELETE FROM clients");
