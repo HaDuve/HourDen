@@ -70,4 +70,12 @@ describe("migration definitions", () => {
     expect(migration?.sql).toContain("status text");
     expect(migration?.sql).toContain("DEFAULT 'issued'");
   });
+
+  it("stores per-client invoice numbering strategy by year", () => {
+    const migration = MIGRATIONS.find((m) => m.id === "009_client_invoice_numbering");
+    expect(migration).toBeDefined();
+    expect(migration?.sql).toContain("client_invoice_numbering");
+    expect(migration?.sql).toContain("strategy text");
+    expect(migration?.sql).toContain("'sequential', 'from_last'");
+  });
 });

@@ -4,7 +4,8 @@ import {
   type InvoiceOperator,
 } from "@hourden/domain/invoice-pdf";
 import type { InvoiceIssuanceSnapshot } from "@hourden/domain/invoice-issuance-snapshot";
-import type { GroupedReportLine } from "@hourden/domain";
+import type { GroupedReportLine, InvoiceNumberingStrategy } from "@hourden/domain";
+import { isValidInvoiceNumber } from "@hourden/domain";
 import { Hono } from "hono";
 import type { Pool } from "pg";
 import {
@@ -13,6 +14,8 @@ import {
   findInvoiceForPeriod,
   getClientForInvoice,
   getIssuedInvoiceById,
+  getInvoiceNumberingPreview,
+  invoiceNumberExistsForClient,
   listInvoiceableEntriesForClient,
   listIssuedInvoiceDetails,
   listIssuedInvoices,
@@ -32,7 +35,13 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-type InvoiceRequestBody = { clientId?: string; from?: string; to?: string };
+type InvoiceRequestBody = {
+  clientId?: string;
+  from?: string;
+  to?: string;
+  invoiceNumber?: string;
+  numberingStrategy?: InvoiceNumberingStrategy;
+};
 
 type InvoiceClient = {
   id: string;
@@ -92,7 +101,26 @@ function invoiceConflictMessage(
   if (reason === "duplicate_month") {
     return "Invoice already exists for this Client and billing month";
   }
+  if (reason === "duplicate_number") {
+    return "Invoice Number already exists for this Client";
+  }
   return "Invoice already exists for this Client and Billing Period";
+}
+
+function parseNumberingStrategy(
+  value: string | undefined,
+): InvoiceNumberingStrategy | "invalid" {
+  if (value === undefined) {
+    return "invalid";
+  }
+  if (value === "sequential" || value === "from_last") {
+    return value;
+  }
+  return "invalid";
+}
+
+function invalidInvoiceNumberMessage(year: number): string {
+  return `Invoice Number must start with ${year} followed by at least three digits`;
 }
 
 async function prepareInvoice(
@@ -314,6 +342,36 @@ function parseExportFilters(
 export function createInvoicesRouter(pool: Pool) {
   const router = new Hono();
 
+  router.get("/numbering-preview", async (c) => {
+    const clientId = c.req.query("clientId");
+    const invoiceNumber = c.req.query("invoiceNumber");
+    const yearParam = c.req.query("year");
+
+    if (!clientId || !UUID_RE.test(clientId)) {
+      return c.json({ error: "clientId is required" }, 400);
+    }
+    if (!invoiceNumber) {
+      return c.json({ error: "invoiceNumber is required" }, 400);
+    }
+    if (!yearParam || !/^\d{4}$/.test(yearParam)) {
+      return c.json({ error: "year must be a four-digit calendar year" }, 400);
+    }
+
+    const year = Number(yearParam);
+    if (!isValidInvoiceNumber(invoiceNumber, year)) {
+      return c.json({ error: invalidInvoiceNumberMessage(year) }, 400);
+    }
+
+    const preview = await getInvoiceNumberingPreview(
+      pool,
+      clientId,
+      year,
+      invoiceNumber,
+    );
+
+    return c.json(preview);
+  });
+
   router.get("/export.zip", async (c) => {
     const yearParam = c.req.query("year");
     const filters = parseExportFilters(c.req.query("client"), yearParam);
@@ -373,10 +431,24 @@ export function createInvoicesRouter(pool: Pool) {
       return c.json({ error: prepared.error }, prepared.status);
     }
 
-    const invoiceNumber = await peekNextInvoiceNumber(
+    const suggestedInvoiceNumber = await peekNextInvoiceNumber(
       pool,
       prepared.client.id,
       prepared.invoiceYear,
+    );
+
+    const invoiceNumber = body.invoiceNumber ?? suggestedInvoiceNumber;
+    if (!isValidInvoiceNumber(invoiceNumber, prepared.invoiceYear)) {
+      return c.json(
+        { error: invalidInvoiceNumberMessage(prepared.invoiceYear) },
+        400,
+      );
+    }
+
+    const numberExists = await invoiceNumberExistsForClient(
+      pool,
+      prepared.client.id,
+      invoiceNumber,
     );
     const pdf = await renderInvoicePdf(prepared, invoiceNumber);
 
@@ -385,6 +457,8 @@ export function createInvoicesRouter(pool: Pool) {
     )) {
       c.header(name, value);
     }
+    c.header("X-Suggested-Invoice-Number", suggestedInvoiceNumber);
+    c.header("X-Invoice-Number-Exists", numberExists ? "true" : "false");
 
     return c.body(new Uint8Array(pdf), 200);
   });
@@ -400,6 +474,34 @@ export function createInvoicesRouter(pool: Pool) {
       return c.json({ error: prepared.error }, prepared.status);
     }
 
+    const suggestedInvoiceNumber = await peekNextInvoiceNumber(
+      pool,
+      prepared.client.id,
+      prepared.invoiceYear,
+    );
+    const invoiceNumber = body.invoiceNumber ?? suggestedInvoiceNumber;
+
+    if (!isValidInvoiceNumber(invoiceNumber, prepared.invoiceYear)) {
+      return c.json(
+        { error: invalidInvoiceNumberMessage(prepared.invoiceYear) },
+        400,
+      );
+    }
+
+    const editedNumber = invoiceNumber !== suggestedInvoiceNumber;
+    if (editedNumber && !body.numberingStrategy) {
+      return c.json(
+        { error: "numberingStrategy is required when overriding Invoice Number" },
+        400,
+      );
+    }
+    if (
+      body.numberingStrategy &&
+      parseNumberingStrategy(body.numberingStrategy) === "invalid"
+    ) {
+      return c.json({ error: "numberingStrategy must be sequential or from_last" }, 400);
+    }
+
     const created = await createInvoice(pool, {
       workspaceId: prepared.workspaceId,
       clientId: prepared.client.id,
@@ -412,11 +514,19 @@ export function createInvoicesRouter(pool: Pool) {
       totalDurationMinutes: prepared.totalDurationMinutes,
       entryIds: prepared.entryIds,
       snapshot: prepared.snapshot,
+      invoiceNumber,
+      numberingStrategy: editedNumber ? body.numberingStrategy : undefined,
     });
 
-    if (created === "duplicate_period" || created === "duplicate_number") {
+    if (created === "duplicate_period") {
       return c.json(
         { error: invoiceConflictMessage("duplicate_period") },
+        409,
+      );
+    }
+    if (created === "duplicate_number") {
+      return c.json(
+        { error: invoiceConflictMessage("duplicate_number") },
         409,
       );
     }
