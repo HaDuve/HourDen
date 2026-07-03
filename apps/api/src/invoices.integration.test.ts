@@ -1267,4 +1267,41 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       },
     });
   });
+
+  it("rejects issue when Invoice Number is overridden without numberingStrategy", async () => {
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const ondojo = await createProject(app, bandao.id, "Ondojo");
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "Billable work",
+        startedAt: "2026-06-18T10:00:00.000Z",
+        endedAt: "2026-06-18T11:00:00.000Z",
+      }),
+    });
+
+    const res = await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+        invoiceNumber: "2026010",
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "numberingStrategy is required when overriding Invoice Number",
+    });
+  });
 });

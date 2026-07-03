@@ -1,4 +1,5 @@
 import type { Client, InvoiceNumberingStrategy } from "@hourden/domain";
+import { isValidInvoiceNumber } from "@hourden/domain";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type IssuedInvoice = {
@@ -314,8 +315,20 @@ export default function InvoicesPage() {
     setInvoiceNumber(nextValue);
     setNumberingStrategy(null);
 
+    const invoiceYear = invoiceYearFromPeriodEnd(to);
+    const isCompleteNumber = isValidInvoiceNumber(nextValue, invoiceYear);
+
+    if (!isCompleteNumber) {
+      setInvoiceNumberExists(false);
+      setNumberingPreview(null);
+    }
+
     if (invoiceNumberDebounceRef.current) {
       clearTimeout(invoiceNumberDebounceRef.current);
+    }
+
+    if (!isCompleteNumber) {
+      return;
     }
 
     invoiceNumberDebounceRef.current = setTimeout(() => {

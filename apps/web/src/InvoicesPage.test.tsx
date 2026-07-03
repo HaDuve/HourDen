@@ -481,6 +481,55 @@ describe("InvoicesPage", () => {
     clickSpy.mockRestore();
   });
 
+  it("does not re-preview while the edited Invoice Number is still incomplete", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        const body = JSON.parse(init.body as string) as { invoiceNumber?: string };
+        const number = body.invoiceNumber ?? "2026001";
+        return Promise.resolve(
+          new Response(new Blob(["%PDF-preview"], { type: "application/pdf" }), {
+            status: 200,
+            headers: {
+              "Content-Type": "application/pdf",
+              "X-Invoice-Number": number,
+              "X-Suggested-Invoice-Number": "2026001",
+              "X-Invoice-Number-Exists": "false",
+            },
+          }),
+        );
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<InvoicesPage />);
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
+    });
+
+    const previewCallsBeforeEdit = fetchMock.mock.calls.filter(
+      ([url, init]) => url === "/api/invoices/preview" && init?.method === "POST",
+    ).length;
+
+    fireEvent.change(screen.getByLabelText(/^invoice number$/i), {
+      target: { value: "202601" },
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 350));
+
+    const previewCallsAfterPartialEdit = fetchMock.mock.calls.filter(
+      ([url, init]) => url === "/api/invoices/preview" && init?.method === "POST",
+    ).length;
+
+    expect(previewCallsAfterPartialEdit).toBe(previewCallsBeforeEdit);
+    expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("202601");
+    expect(screen.queryByText(/invoice number must start with/i)).not.toBeInTheDocument();
+  });
+
   it("allows editing the Invoice Number and re-previews the PDF", async () => {
     const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
       if (url === "/api/invoices/preview" && init?.method === "POST") {
