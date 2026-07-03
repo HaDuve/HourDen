@@ -13,6 +13,16 @@
       "types": "./src/invoice-pdf.ts",
       "development": "./src/invoice-pdf.ts",
       "default": "./dist/invoice-pdf.js"
+    },
+    "./invoice-pdf-snapshot": {
+      "types": "./src/invoice-pdf-snapshot.ts",
+      "development": "./src/invoice-pdf-snapshot.ts",
+      "default": "./dist/invoice-pdf-snapshot.js"
+    },
+    "./invoice-issuance-snapshot": {
+      "types": "./src/invoice-issuance-snapshot.ts",
+      "development": "./src/invoice-issuance-snapshot.ts",
+      "default": "./dist/invoice-issuance-snapshot.js"
     }
   },
   "scripts": {

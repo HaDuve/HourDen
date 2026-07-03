@@ -27,6 +27,7 @@ export {
   buildClientReport,
 } from "./report.js";
 export { nextInvoiceNumber } from "./invoice-number.js";
+export type { InvoiceIssuanceSnapshot } from "./invoice-issuance-snapshot.js";
 export type {
   ClockifyExportEntry,
   ClockifyExportOptions,

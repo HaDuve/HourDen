@@ -122,4 +122,12 @@ export const MIGRATIONS = [
         ON invoices (client_id, invoice_number);
     `,
   },
+  {
+    id: "008_invoice_snapshot",
+    sql: `
+      ALTER TABLE invoices
+        ADD COLUMN IF NOT EXISTS snapshot jsonb,
+        ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'issued';
+    `,
+  },
 ] as const;

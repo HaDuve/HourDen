@@ -1,6 +1,9 @@
 import { PDFParse } from "pdf-parse";
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { DEFAULT_INVOICE_OPERATOR } from "@hourden/domain/invoice-pdf";
+import { normalizeInvoicePdfText } from "@hourden/domain/invoice-pdf-snapshot";
+import type { InvoiceIssuanceSnapshot } from "@hourden/domain/invoice-issuance-snapshot";
 import { createApp } from "./app.js";
 import { runMigrations } from "./db/migrate.js";
 
@@ -379,5 +382,182 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     expect(clientReport.totalDurationMinutes).toBe(74);
     expect(text).toContain("74.00 EUR");
     expect(text).toContain("74");
+  });
+
+  it("stores a verbatim issuance snapshot when issuing an Invoice", async () => {
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const ondojo = await createProject(app, bandao.id, "Ondojo");
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "App Development",
+        startedAt: "2026-06-18T14:33:00.000Z",
+        endedAt: "2026-06-18T15:39:00.000Z",
+      }),
+    });
+
+    const res = await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-18",
+        to: "2026-06-30",
+      }),
+    });
+
+    expect(res.status).toBe(201);
+
+    const row = await pool.query<{
+      snapshot: InvoiceIssuanceSnapshot;
+      status: string;
+    }>("SELECT snapshot, status FROM invoices LIMIT 1");
+
+    expect(row.rows).toHaveLength(1);
+    expect(row.rows[0]!.status).toBe("issued");
+    expect(row.rows[0]!.snapshot).toEqual({
+      recipient: {
+        legalName: "BANDAO Guidance GmbH",
+        addressLine1: "Schloßbergstraße 1",
+        addressLine2: "82319 Starnberg",
+      },
+      operator: DEFAULT_INVOICE_OPERATOR,
+      lines: [
+        {
+          date: "2026-06-18",
+          description: "App Development",
+          durationMinutes: 66,
+          amount: 66,
+        },
+      ],
+      totals: {
+        totalAmount: 66,
+        totalDurationMinutes: 66,
+      },
+    });
+  });
+
+  it("preview renders a PDF with the next Invoice Number without committing", async () => {
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const ondojo = await createProject(app, bandao.id, "Ondojo");
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "Billable work",
+        startedAt: "2026-06-18T10:00:00.000Z",
+        endedAt: "2026-06-18T11:00:00.000Z",
+      }),
+    });
+
+    const preview = await app.request("/api/invoices/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+
+    expect(preview.status).toBe(200);
+    expect(preview.headers.get("content-type")).toContain("application/pdf");
+    expect(preview.headers.get("x-invoice-number")).toBe("2026001");
+
+    const invoices = await pool.query("SELECT id, snapshot FROM invoices");
+    expect(invoices.rows).toHaveLength(0);
+
+    const listed = await (
+      await app.request("/api/time-entries?date=2026-06-18")
+    ).json();
+    expect(listed.entries[0].invoiced).toBe(false);
+
+    const previewAgain = await app.request("/api/invoices/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+    expect(previewAgain.headers.get("x-invoice-number")).toBe("2026001");
+  });
+
+  it("preview and issue render identical PDF content for the same inputs", async () => {
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const ondojo = await createProject(app, bandao.id, "Ondojo");
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "App Development",
+        startedAt: "2026-06-18T14:33:00.000Z",
+        endedAt: "2026-06-18T15:39:00.000Z",
+      }),
+    });
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "App Development",
+        startedAt: "2026-06-18T09:43:00.000Z",
+        endedAt: "2026-06-18T09:51:00.000Z",
+      }),
+    });
+
+    const requestBody = {
+      clientId: bandao.id,
+      from: "2026-06-18",
+      to: "2026-06-30",
+    };
+
+    const preview = await app.request("/api/invoices/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+    });
+    const issued = await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+    });
+
+    expect(preview.headers.get("x-invoice-number")).toBe("2026001");
+    expect(issued.headers.get("x-invoice-number")).toBe("2026001");
+
+    const previewText = normalizeInvoicePdfText(await pdfText(await preview.arrayBuffer()), {
+      invoiceNumber: "2026001",
+      legalName: "BANDAO Guidance GmbH",
+    });
+    const issuedText = normalizeInvoicePdfText(await pdfText(await issued.arrayBuffer()), {
+      invoiceNumber: "2026001",
+      legalName: "BANDAO Guidance GmbH",
+    });
+
+    expect(issuedText).toBe(previewText);
   });
 });
