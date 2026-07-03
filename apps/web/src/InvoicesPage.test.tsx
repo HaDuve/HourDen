@@ -20,20 +20,38 @@ const clientWithoutRecipient = {
   addressLine2: null,
 };
 
-function clientsFetchMock(clients: unknown[]) {
+function emptyInvoicesListResponse() {
+  return Promise.resolve({
+    ok: true,
+    json: async () => ({ invoices: [] }),
+  });
+}
+
+function clientsResponse(clients: unknown[]) {
+  return Promise.resolve({
+    ok: true,
+    json: async () => ({ clients }),
+  });
+}
+
+type FetchHandler = (
+  url: string,
+  init?: RequestInit,
+) => Promise<unknown> | undefined;
+
+function createInvoicesPageFetchMock(clients: unknown[], handler?: FetchHandler) {
   return vi.fn().mockImplementation((url: string, init?: RequestInit) => {
-    if (url === "/api/clients") {
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ clients }),
-      });
-    }
-    if (url === "/api/invoices" && !init?.method) {
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ invoices: [] }),
-      });
-    }
+    const custom = handler?.(url, init);
+    if (custom !== undefined) return custom;
+
+    if (url === "/api/clients") return clientsResponse(clients);
+    if (url === "/api/invoices" && !init?.method) return emptyInvoicesListResponse();
+    return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+  });
+}
+
+function clientsFetchMock(clients: unknown[]) {
+  return createInvoicesPageFetchMock(clients, (url, init) => {
     if (url === "/api/invoices/preview" && init?.method === "POST") {
       return Promise.resolve({
         ok: false,
@@ -52,7 +70,7 @@ function clientsFetchMock(clients: unknown[]) {
         }),
       });
     }
-    return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    return undefined;
   });
 }
 
@@ -101,24 +119,7 @@ describe("InvoicesPage", () => {
   });
 
   it("loads Clients into a select and defaults the Billing Period to the current month", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockImplementation((url: string, init?: RequestInit) => {
-        if (url === "/api/clients") {
-          return Promise.resolve({
-            ok: true,
-            json: async () => ({ clients: [bandaoClient] }),
-          });
-        }
-        if (url === "/api/invoices" && !init?.method) {
-          return Promise.resolve({
-            ok: true,
-            json: async () => ({ invoices: [] }),
-          });
-        }
-        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
-      }),
-    );
+    vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
 
     const expectedRange = currentMonthRange();
     render(<InvoicesPage />);
@@ -149,13 +150,7 @@ describe("InvoicesPage", () => {
   });
 
   it("shows an inline error when issue fails because there are no billable entries", async () => {
-    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
-      if (url === "/api/clients") {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ clients: [bandaoClient] }),
-        });
-      }
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
       if (url === "/api/invoices/preview" && init?.method === "POST") {
         return Promise.resolve(previewPdfResponse("2026001"));
       }
@@ -168,7 +163,7 @@ describe("InvoicesPage", () => {
           }),
         });
       }
-      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      return undefined;
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -193,29 +188,25 @@ describe("InvoicesPage", () => {
   });
 
   it("shows an inline error for a duplicate Billing Period", async () => {
-    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
-      if (url === "/api/clients") {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ clients: [bandaoClient] }),
-        });
-      }
-      if (url === "/api/invoices/preview" && init?.method === "POST") {
-        return Promise.resolve(previewPdfResponse("2026001"));
-      }
-      if (url === "/api/invoices" && init?.method === "POST") {
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              error: "Invoice already exists for this Client and Billing Period",
-            }),
-            { status: 409, headers: { "Content-Type": "application/json" } },
-          ),
-        );
-      }
-      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
-    });
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal(
+      "fetch",
+      createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+        if (url === "/api/invoices/preview" && init?.method === "POST") {
+          return Promise.resolve(previewPdfResponse("2026001"));
+        }
+        if (url === "/api/invoices" && init?.method === "POST") {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                error: "Invoice already exists for this Client and Billing Period",
+              }),
+              { status: 409, headers: { "Content-Type": "application/json" } },
+            ),
+          );
+        }
+        return undefined;
+      }),
+    );
 
     render(<InvoicesPage />);
 
@@ -236,29 +227,25 @@ describe("InvoicesPage", () => {
   });
 
   it("shows an inline error for a duplicate billing month", async () => {
-    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
-      if (url === "/api/clients") {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ clients: [bandaoClient] }),
-        });
-      }
-      if (url === "/api/invoices/preview" && init?.method === "POST") {
-        return Promise.resolve(previewPdfResponse("2026001"));
-      }
-      if (url === "/api/invoices" && init?.method === "POST") {
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              error: "Invoice already exists for this Client and billing month",
-            }),
-            { status: 409, headers: { "Content-Type": "application/json" } },
-          ),
-        );
-      }
-      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
-    });
-    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal(
+      "fetch",
+      createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+        if (url === "/api/invoices/preview" && init?.method === "POST") {
+          return Promise.resolve(previewPdfResponse("2026001"));
+        }
+        if (url === "/api/invoices" && init?.method === "POST") {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                error: "Invoice already exists for this Client and billing month",
+              }),
+              { status: 409, headers: { "Content-Type": "application/json" } },
+            ),
+          );
+        }
+        return undefined;
+      }),
+    );
 
     render(<InvoicesPage />);
 
@@ -279,17 +266,11 @@ describe("InvoicesPage", () => {
   });
 
   it("previews the invoice PDF and shows the next Invoice Number without issuing", async () => {
-    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
-      if (url === "/api/clients") {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ clients: [bandaoClient] }),
-        });
-      }
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
       if (url === "/api/invoices/preview" && init?.method === "POST") {
         return Promise.resolve(previewPdfResponse("2026001"));
       }
-      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      return undefined;
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -324,17 +305,11 @@ describe("InvoicesPage", () => {
   it("keeps Issue Invoice disabled until preview succeeds for the current selection", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockImplementation((url: string, init?: RequestInit) => {
-        if (url === "/api/clients") {
-          return Promise.resolve({
-            ok: true,
-            json: async () => ({ clients: [bandaoClient] }),
-          });
-        }
+      createInvoicesPageFetchMock([bandaoClient], (url, init) => {
         if (url === "/api/invoices/preview" && init?.method === "POST") {
           return Promise.resolve(previewPdfResponse("2026001"));
         }
-        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+        return undefined;
       }),
     );
 
@@ -352,20 +327,14 @@ describe("InvoicesPage", () => {
   });
 
   it("issues the invoice and downloads the PDF", async () => {
-    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
-      if (url === "/api/clients") {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ clients: [bandaoClient] }),
-        });
-      }
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
       if (url === "/api/invoices/preview" && init?.method === "POST") {
         return Promise.resolve(previewPdfResponse("2026001"));
       }
       if (url === "/api/invoices" && init?.method === "POST") {
         return Promise.resolve(issuePdfResponse("2026001"));
       }
-      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      return undefined;
     });
     vi.stubGlobal("fetch", fetchMock);
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click");
@@ -414,13 +383,7 @@ describe("InvoicesPage", () => {
       totalAmount: 60,
     };
 
-    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
-      if (url === "/api/clients") {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ clients: [bandaoClient] }),
-        });
-      }
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
       if (url === "/api/invoices" && !init?.method) {
         return Promise.resolve({
           ok: true,
@@ -439,7 +402,7 @@ describe("InvoicesPage", () => {
           }),
         );
       }
-      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      return undefined;
     });
     vi.stubGlobal("fetch", fetchMock);
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click");

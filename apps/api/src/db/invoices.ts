@@ -403,7 +403,7 @@ export async function getIssuedInvoiceById(
         i.status
       FROM invoices i
       INNER JOIN clients c ON c.id = i.client_id
-      WHERE i.id = $1 AND i.workspace_id = $2 AND i.status = 'issued'
+      WHERE i.id = $1 AND i.workspace_id = $2 AND i.status = 'issued' AND i.snapshot IS NOT NULL
     `,
     [invoiceId, workspaceId],
   );
@@ -435,7 +435,7 @@ export async function listIssuedInvoices(
         i.total_amount::text,
         i.snapshot
       FROM invoices i
-      WHERE i.workspace_id = $1 AND i.status = 'issued'
+      WHERE i.workspace_id = $1 AND i.status = 'issued' AND i.snapshot IS NOT NULL
       ORDER BY i.invoice_date DESC, i.invoice_number DESC
     `,
     [workspaceId],

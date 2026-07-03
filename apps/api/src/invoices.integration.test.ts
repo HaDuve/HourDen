@@ -637,6 +637,75 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     expect(rawReconstructedText).not.toContain("Mutated Legal Name GmbH");
   });
 
+  it("reconstructs an issued Invoice PDF from its snapshot after Operator env changes", async () => {
+    const originalOperatorName = process.env.HOURDEN_OPERATOR_NAME;
+    const operatorName = originalOperatorName ?? DEFAULT_INVOICE_OPERATOR.name;
+
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const ondojo = await createProject(app, bandao.id, "Ondojo");
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "Billable work",
+        startedAt: "2026-06-18T10:00:00.000Z",
+        endedAt: "2026-06-18T11:00:00.000Z",
+      }),
+    });
+
+    const issued = await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+
+    expect(issued.status).toBe(201);
+    const invoiceNumber = issued.headers.get("x-invoice-number")!;
+    const originalText = normalizeInvoicePdfText(await pdfText(await issued.arrayBuffer()), {
+      invoiceNumber,
+      legalName: "BANDAO Guidance GmbH",
+    });
+
+    const row = await pool.query<{ id: string }>("SELECT id FROM invoices LIMIT 1");
+    const invoiceId = row.rows[0]!.id;
+
+    try {
+      process.env.HOURDEN_OPERATOR_NAME = "Mutated Operator Name";
+
+      const reconstructed = await app.request(`/api/invoices/${invoiceId}/pdf`);
+      expect(reconstructed.status).toBe(200);
+
+      const reconstructedBody = await reconstructed.arrayBuffer();
+      const reconstructedText = normalizeInvoicePdfText(await pdfText(reconstructedBody), {
+        invoiceNumber,
+        legalName: "BANDAO Guidance GmbH",
+      });
+
+      expect(reconstructedText).toBe(originalText);
+
+      const rawReconstructedText = await pdfText(reconstructedBody);
+      expect(rawReconstructedText).toContain(operatorName);
+      expect(rawReconstructedText).not.toContain("Mutated Operator Name");
+    } finally {
+      if (originalOperatorName === undefined) {
+        delete process.env.HOURDEN_OPERATOR_NAME;
+      } else {
+        process.env.HOURDEN_OPERATOR_NAME = originalOperatorName;
+      }
+    }
+  });
+
   it("lists issued Invoices with Recipient, Invoice Number, Billing Period, and total", async () => {
     const bandao = await createClient(app, {
       name: "Bandao",
@@ -728,6 +797,48 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     await pool.query("UPDATE invoices SET status = 'voided' WHERE id = $1", [
       invoiceId,
     ]);
+
+    const list = await app.request("/api/invoices");
+    expect((await list.json()).invoices).toHaveLength(0);
+
+    const pdf = await app.request(`/api/invoices/${invoiceId}/pdf`);
+    expect(pdf.status).toBe(404);
+  });
+
+  it("excludes Invoices with a missing snapshot from the list and PDF reconstruction", async () => {
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const ondojo = await createProject(app, bandao.id, "Ondojo");
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "Billable work",
+        startedAt: "2026-06-18T10:00:00.000Z",
+        endedAt: "2026-06-18T11:00:00.000Z",
+      }),
+    });
+
+    await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+
+    const row = await pool.query<{ id: string }>("SELECT id FROM invoices LIMIT 1");
+    const invoiceId = row.rows[0]!.id;
+
+    await pool.query("UPDATE invoices SET snapshot = NULL WHERE id = $1", [invoiceId]);
 
     const list = await app.request("/api/invoices");
     expect((await list.json()).invoices).toHaveLength(0);

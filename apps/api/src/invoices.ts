@@ -229,8 +229,8 @@ async function renderInvoicePdf(
     periodEnd: prepared.range.to,
     dueDate: prepared.dueDate,
     recipient: prepared.snapshot.recipient,
-    lines: prepared.lines,
-    operator: prepared.operator,
+    lines: prepared.snapshot.lines,
+    operator: prepared.snapshot.operator,
   });
 }
 
