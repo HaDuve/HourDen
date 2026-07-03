@@ -1,6 +1,8 @@
 import type { Client, InvoiceNumberingStrategy } from "@hourden/domain";
 import { isValidInvoiceNumber } from "@hourden/domain";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { DateRangeFilter } from "./DateRangeFilter.js";
+import { currentMonthRange } from "./date-range.js";
 
 type IssuedInvoice = {
   id: string;
@@ -19,18 +21,6 @@ type NumberingPreview = {
     fromLast: string;
   };
 };
-
-function formatDateInput(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
-function currentMonthRange(): { from: string; to: string } {
-  const now = new Date();
-  const from = new Date(now.getFullYear(), now.getMonth(), 1);
-  const to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  return { from: formatDateInput(from), to: formatDateInput(to) };
-}
 
 function invoiceYearFromPeriodEnd(periodEnd: string): number {
   return Number(periodEnd.slice(0, 4));
@@ -500,24 +490,14 @@ export default function InvoicesPage() {
             )}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-sm text-neutral-700">
-          From
-          <input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="rounded-md border border-neutral-300 px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm text-neutral-700">
-          To
-          <input
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="rounded-md border border-neutral-300 px-3 py-2"
-          />
-        </label>
+        <DateRangeFilter
+          from={from}
+          to={to}
+          onChange={({ from: nextFrom, to: nextTo }) => {
+            setFrom(nextFrom);
+            setTo(nextTo);
+          }}
+        />
       </div>
 
       {error ? (

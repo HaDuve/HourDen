@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import InvoicesPage from "./InvoicesPage.js";
 
@@ -121,6 +121,26 @@ describe("InvoicesPage", () => {
   beforeEach(() => {
     URL.createObjectURL = vi.fn(() => "blob:test") as typeof URL.createObjectURL;
     URL.revokeObjectURL = vi.fn() as typeof URL.revokeObjectURL;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("sets the Billing Period to last month when the last month quick control is clicked", async () => {
+    vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
+    vi.setSystemTime(new Date(2026, 5, 18));
+
+    render(<InvoicesPage />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^client$/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^last month$/i }));
+
+    expect(screen.getByLabelText(/^from$/i)).toHaveValue("2026-05-01");
+    expect(screen.getByLabelText(/^to$/i)).toHaveValue("2026-05-31");
   });
 
   it("loads Clients into a select and defaults the Billing Period to the current month", async () => {
