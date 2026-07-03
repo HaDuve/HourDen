@@ -60,7 +60,7 @@ async function readApiError(res: Response): Promise<string> {
   return `Request failed (${res.status})`;
 }
 
-function downloadPdfBlob(blob: Blob, disposition: string) {
+function downloadAttachmentBlob(blob: Blob, disposition: string) {
   const match = disposition.match(/filename="([^"]+)"/);
   const filename = match?.[1] ?? "invoice.pdf";
   const url = URL.createObjectURL(blob);
@@ -202,7 +202,7 @@ export default function InvoicesPage() {
 
       const blob = await res.blob();
       const disposition = res.headers.get("Content-Disposition") ?? "";
-      downloadPdfBlob(blob, disposition);
+      downloadAttachmentBlob(blob, disposition);
       setInvoiceNumber(res.headers.get("X-Invoice-Number"));
       clearPreviewBlob();
       await loadIssuedInvoices();
@@ -238,7 +238,7 @@ export default function InvoicesPage() {
 
       const blob = await res.blob();
       const disposition = res.headers.get("Content-Disposition") ?? "";
-      downloadPdfBlob(blob, disposition);
+      downloadAttachmentBlob(blob, disposition);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to export invoices");
     } finally {
@@ -259,7 +259,7 @@ export default function InvoicesPage() {
 
       const blob = await res.blob();
       const disposition = res.headers.get("Content-Disposition") ?? "";
-      downloadPdfBlob(blob, disposition);
+      downloadAttachmentBlob(blob, disposition);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to download invoice");
     } finally {

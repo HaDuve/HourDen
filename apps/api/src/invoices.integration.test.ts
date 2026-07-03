@@ -966,6 +966,87 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     ]);
   });
 
+  it("rejects invalid export.zip query filters with 400", async () => {
+    const invalidYear = await app.request("/api/invoices/export.zip?year=abc");
+    expect(invalidYear.status).toBe(400);
+    expect(await invalidYear.json()).toEqual({
+      error: "year must be a four-digit calendar year",
+    });
+
+    const invalidClient = await app.request(
+      "/api/invoices/export.zip?client=not-a-uuid",
+    );
+    expect(invalidClient.status).toBe(400);
+    expect(await invalidClient.json()).toEqual({
+      error: "client must be a valid client id",
+    });
+  });
+
+  it("excludes voided and missing-snapshot invoices from export.zip", async () => {
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const ondojo = await createProject(app, bandao.id, "Ondojo");
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "Billable work",
+        startedAt: "2026-06-18T10:00:00.000Z",
+        endedAt: "2026-06-18T11:00:00.000Z",
+      }),
+    });
+
+    await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+
+    const issuedExport = await app.request("/api/invoices/export.zip");
+    const issuedZip = await JSZip.loadAsync(await issuedExport.arrayBuffer());
+    expect(
+      Object.keys(issuedZip.files).filter((path) => !issuedZip.files[path]!.dir),
+    ).toHaveLength(1);
+
+    const row = await pool.query<{ id: string }>("SELECT id FROM invoices LIMIT 1");
+    const invoiceId = row.rows[0]!.id;
+
+    await pool.query("UPDATE invoices SET status = 'voided' WHERE id = $1", [
+      invoiceId,
+    ]);
+
+    const voidedExport = await app.request("/api/invoices/export.zip");
+    const voidedZip = await JSZip.loadAsync(await voidedExport.arrayBuffer());
+    expect(
+      Object.keys(voidedZip.files).filter((path) => !voidedZip.files[path]!.dir),
+    ).toHaveLength(0);
+
+    await pool.query(
+      "UPDATE invoices SET status = 'issued', snapshot = NULL WHERE id = $1",
+      [invoiceId],
+    );
+
+    const missingSnapshotExport = await app.request("/api/invoices/export.zip");
+    const missingSnapshotZip = await JSZip.loadAsync(
+      await missingSnapshotExport.arrayBuffer(),
+    );
+    expect(
+      Object.keys(missingSnapshotZip.files).filter(
+        (path) => !missingSnapshotZip.files[path]!.dir,
+      ),
+    ).toHaveLength(0);
+  });
+
   it("excludes Invoices with a missing snapshot from the list and PDF reconstruction", async () => {
     const bandao = await createClient(app, {
       name: "Bandao",

@@ -29,6 +29,8 @@ import { reportTimeZone } from "./db/reports.js";
 import { getCurrentWorkspaceId } from "./workspace.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type InvoiceRequestBody = { clientId?: string; from?: string; to?: string };
 
@@ -289,10 +291,13 @@ async function parseInvoiceBody(
 function parseExportFilters(
   clientId: string | undefined,
   year: string | undefined,
-): { clientId?: string; year?: number } | "invalid_year" {
+): { clientId?: string; year?: number } | "invalid_year" | "invalid_client" {
   const filters: { clientId?: string; year?: number } = {};
 
   if (clientId) {
+    if (!UUID_RE.test(clientId)) {
+      return "invalid_client";
+    }
     filters.clientId = clientId;
   }
 
@@ -314,6 +319,9 @@ export function createInvoicesRouter(pool: Pool) {
     const filters = parseExportFilters(c.req.query("client"), yearParam);
     if (filters === "invalid_year") {
       return c.json({ error: "year must be a four-digit calendar year" }, 400);
+    }
+    if (filters === "invalid_client") {
+      return c.json({ error: "client must be a valid client id" }, 400);
     }
 
     const invoices = await listIssuedInvoiceDetails(
