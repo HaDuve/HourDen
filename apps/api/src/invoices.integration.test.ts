@@ -1923,6 +1923,81 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     expect(hannahIssue.headers.get("x-invoice-number")).toBe("2026002");
   });
 
+  it("applies a plain from_last override workspace-wide for subsequent plain suggestions", async () => {
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const hannah = await createClient(app, {
+      name: "Hannah",
+      legalName: "Hannah Coaching",
+      addressLine1: "Main Street 1",
+      addressLine2: "10115 Berlin",
+    });
+    const bandaoProject = await createProject(app, bandao.id, "Ondojo");
+    const hannahProject = await createProject(app, hannah.id, "Coaching");
+
+    const createEntry = (projectId: string, from: string, to: string) =>
+      app.request("/api/time-entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          description: "Work",
+          startedAt: `${from}T10:00:00.000Z`,
+          endedAt: `${to}T11:00:00.000Z`,
+        }),
+      });
+
+    await createEntry(bandaoProject.id, "2026-06-01", "2026-06-01");
+    await createEntry(hannahProject.id, "2026-06-01", "2026-06-01");
+
+    const bandaoOverride = await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+        usePrefix: false,
+        invoiceNumber: "2026010",
+        numberingStrategy: "from_last",
+      }),
+    });
+    expect(bandaoOverride.status).toBe(201);
+    expect(bandaoOverride.headers.get("x-invoice-number")).toBe("2026010");
+
+    await createEntry(hannahProject.id, "2026-07-01", "2026-07-01");
+
+    const hannahPreview = await app.request("/api/invoices/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: hannah.id,
+        from: "2026-07-01",
+        to: "2026-07-31",
+        usePrefix: false,
+      }),
+    });
+    expect(hannahPreview.headers.get("x-suggested-invoice-number")).toBe(
+      "2026011",
+    );
+
+    const hannahIssue = await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: hannah.id,
+        from: "2026-07-01",
+        to: "2026-07-31",
+        usePrefix: false,
+      }),
+    });
+    expect(hannahIssue.headers.get("x-invoice-number")).toBe("2026011");
+  });
+
   it("rejects plain issue when Invoice Number is overridden without numberingStrategy", async () => {
     const bandao = await createClient(app, {
       name: "Bandao",
