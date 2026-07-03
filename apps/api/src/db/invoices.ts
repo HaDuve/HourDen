@@ -4,6 +4,7 @@ import {
   toLocalDateKey,
   type Client,
   type GroupedReportLine,
+  type InvoiceIssuanceSnapshot,
 } from "@hourden/domain";
 import type { DatabaseError, Pool, PoolClient } from "pg";
 import { reportTimeZone } from "./reports.js";
@@ -61,11 +62,11 @@ function mapInvoiceInsertError(error: unknown): CreateInvoiceResult | "throw" {
 }
 
 async function listInvoiceNumbersForClientYear(
-  client: PoolClient,
+  executor: Pool | PoolClient,
   clientId: string,
   year: number,
 ): Promise<string[]> {
-  const result = await client.query<{ invoice_number: string }>(
+  const result = await executor.query<{ invoice_number: string }>(
     `
       SELECT invoice_number
       FROM invoices
@@ -76,6 +77,20 @@ async function listInvoiceNumbersForClientYear(
   );
 
   return result.rows.map((row) => row.invoice_number);
+}
+
+export async function peekNextInvoiceNumber(
+  pool: Pool,
+  clientId: string,
+  year: number,
+): Promise<string> {
+  const existingNumbers = await listInvoiceNumbersForClientYear(
+    pool,
+    clientId,
+    year,
+  );
+
+  return nextInvoiceNumber(existingNumbers, year);
 }
 
 export async function getClientForInvoice(
@@ -207,6 +222,7 @@ export async function createInvoice(
     totalAmount: number;
     totalDurationMinutes: number;
     entryIds: string[];
+    snapshot: InvoiceIssuanceSnapshot;
   },
 ): Promise<CreateInvoiceResult> {
   const client = await pool.connect();
@@ -263,9 +279,10 @@ export async function createInvoice(
           invoice_date,
           due_date,
           total_amount,
-          total_duration_minutes
+          total_duration_minutes,
+          snapshot
         )
-        VALUES ($1, $2, $3, $4::date, $5::date, $6::date, $7::date, $8, $9)
+        VALUES ($1, $2, $3, $4::date, $5::date, $6::date, $7::date, $8, $9, $10::jsonb)
         RETURNING id, invoice_number, period_start::text, period_end::text
       `,
       [
@@ -278,6 +295,7 @@ export async function createInvoice(
         input.dueDate,
         input.totalAmount,
         input.totalDurationMinutes,
+        JSON.stringify(input.snapshot),
       ],
     );
 

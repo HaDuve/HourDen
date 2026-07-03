@@ -62,4 +62,12 @@ describe("migration definitions", () => {
     expect(migration).toBeDefined();
     expect(migration?.sql).toContain("invoices_client_invoice_number_unique_idx");
   });
+
+  it("adds issuance snapshot and status columns to invoices", () => {
+    const migration = MIGRATIONS.find((m) => m.id === "008_invoice_snapshot");
+    expect(migration).toBeDefined();
+    expect(migration?.sql).toContain("snapshot jsonb");
+    expect(migration?.sql).toContain("status text");
+    expect(migration?.sql).toContain("DEFAULT 'issued'");
+  });
 });
