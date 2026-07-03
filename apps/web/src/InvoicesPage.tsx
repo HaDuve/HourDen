@@ -85,6 +85,9 @@ export default function InvoicesPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [issuedInvoices, setIssuedInvoices] = useState<IssuedInvoice[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [exportClientId, setExportClientId] = useState("");
+  const [exportYear, setExportYear] = useState("");
+  const [exporting, setExporting] = useState(false);
   const previewUrlRef = useRef<string | null>(null);
 
   const clearPreviewBlob = useCallback(() => {
@@ -210,6 +213,39 @@ export default function InvoicesPage() {
     }
   }
 
+  async function handleExportOutgoing() {
+    setExporting(true);
+    setError(null);
+
+    try {
+      const params = new URLSearchParams();
+      if (exportClientId) {
+        params.set("client", exportClientId);
+      }
+      if (exportYear.trim()) {
+        params.set("year", exportYear.trim());
+      }
+
+      const query = params.toString();
+      const url = query
+        ? `/api/invoices/export.zip?${query}`
+        : "/api/invoices/export.zip";
+      const res = await fetch(url);
+      if (!res.ok) {
+        setError(await readApiError(res));
+        return;
+      }
+
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") ?? "";
+      downloadPdfBlob(blob, disposition);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to export invoices");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   async function handleDownloadIssued(invoice: IssuedInvoice) {
     setDownloadingId(invoice.id);
     setError(null);
@@ -316,7 +352,47 @@ export default function InvoicesPage() {
       ) : null}
 
       <section className="mt-10">
-        <h2 className="mb-4 text-lg font-medium text-slate-900">Issued Invoices</h2>
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+          <h2 className="text-lg font-medium text-slate-900">Issued Invoices</h2>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex min-w-[10rem] flex-col gap-1 text-sm text-neutral-700">
+              Export client
+              <select
+                value={exportClientId}
+                onChange={(e) => setExportClientId(e.target.value)}
+                disabled={loading || clients.length === 0}
+                className="rounded-md border border-neutral-300 px-3 py-2"
+              >
+                <option value="">All clients</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-neutral-700">
+              Export year
+              <input
+                type="number"
+                min={2000}
+                max={2100}
+                placeholder="All years"
+                value={exportYear}
+                onChange={(e) => setExportYear(e.target.value)}
+                className="w-28 rounded-md border border-neutral-300 px-3 py-2"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => void handleExportOutgoing()}
+              disabled={exporting || loading}
+              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              {exporting ? "Exporting…" : "Export Outgoing.zip"}
+            </button>
+          </div>
+        </div>
         {issuedInvoices.length === 0 ? (
           <p className="text-sm text-neutral-600">No issued invoices yet.</p>
         ) : (

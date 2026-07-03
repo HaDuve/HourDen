@@ -414,6 +414,53 @@ export async function getIssuedInvoiceById(
   return mapIssuedInvoiceDetail(row);
 }
 
+export async function listIssuedInvoiceDetails(
+  pool: Pool,
+  workspaceId: string,
+  filters?: { clientId?: string; year?: number },
+): Promise<IssuedInvoiceDetail[]> {
+  const conditions = [
+    "i.workspace_id = $1",
+    "i.status = 'issued'",
+    "i.snapshot IS NOT NULL",
+  ];
+  const params: unknown[] = [workspaceId];
+  let paramIndex = 2;
+
+  if (filters?.clientId) {
+    conditions.push(`i.client_id = $${paramIndex++}`);
+    params.push(filters.clientId);
+  }
+  if (filters?.year !== undefined) {
+    conditions.push(`EXTRACT(YEAR FROM i.period_end) = $${paramIndex++}`);
+    params.push(filters.year);
+  }
+
+  const result = await pool.query<IssuedInvoiceDbRow>(
+    `
+      SELECT
+        i.id,
+        i.client_id,
+        c.name AS client_name,
+        i.invoice_number,
+        i.period_start::text,
+        i.period_end::text,
+        i.invoice_date::text,
+        i.due_date::text,
+        i.total_amount::text,
+        i.snapshot,
+        i.status
+      FROM invoices i
+      INNER JOIN clients c ON c.id = i.client_id
+      WHERE ${conditions.join(" AND ")}
+      ORDER BY i.invoice_date DESC, i.invoice_number DESC
+    `,
+    params,
+  );
+
+  return result.rows.map(mapIssuedInvoiceDetail);
+}
+
 export async function listIssuedInvoices(
   pool: Pool,
   workspaceId: string,

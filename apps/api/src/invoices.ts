@@ -14,11 +14,17 @@ import {
   getClientForInvoice,
   getIssuedInvoiceById,
   listInvoiceableEntriesForClient,
+  listIssuedInvoiceDetails,
   listIssuedInvoices,
   peekNextInvoiceNumber,
   rowsToGroupedInvoiceLines,
   type IssuedInvoiceDetail,
 } from "./db/invoices.js";
+import { buildIssuedInvoicesZip } from "./invoice-export.js";
+import {
+  invoiceFilename,
+  invoiceRecipientCode,
+} from "./invoice-path.js";
 import { reportTimeZone } from "./db/reports.js";
 import { getCurrentWorkspaceId } from "./workspace.js";
 
@@ -68,20 +74,6 @@ function addDays(isoDate: string, days: number): string {
   const date = new Date(`${isoDate}T00:00:00.000Z`);
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
-}
-
-function invoiceRecipientCode(clientName: string): string {
-  return clientName.trim().toUpperCase().replace(/\s+/g, "");
-}
-
-function invoiceFilename(
-  invoiceNumber: string,
-  periodEnd: string,
-  recipientCode: string,
-): string {
-  const [year, month, day] = periodEnd.split("-");
-  const datePart = `${day}_${month}_${year.slice(2)}`;
-  return `${invoiceNumber}_${datePart}_Invoice_Hannes_Duve_${recipientCode}.pdf`;
 }
 
 function invoiceOperator(): InvoiceOperator {
@@ -294,8 +286,47 @@ async function parseInvoiceBody(
   }
 }
 
+function parseExportFilters(
+  clientId: string | undefined,
+  year: string | undefined,
+): { clientId?: string; year?: number } | "invalid_year" {
+  const filters: { clientId?: string; year?: number } = {};
+
+  if (clientId) {
+    filters.clientId = clientId;
+  }
+
+  if (year !== undefined) {
+    if (!/^\d{4}$/.test(year)) {
+      return "invalid_year";
+    }
+    filters.year = Number(year);
+  }
+
+  return filters;
+}
+
 export function createInvoicesRouter(pool: Pool) {
   const router = new Hono();
+
+  router.get("/export.zip", async (c) => {
+    const yearParam = c.req.query("year");
+    const filters = parseExportFilters(c.req.query("client"), yearParam);
+    if (filters === "invalid_year") {
+      return c.json({ error: "year must be a four-digit calendar year" }, 400);
+    }
+
+    const invoices = await listIssuedInvoiceDetails(
+      pool,
+      getCurrentWorkspaceId(),
+      filters,
+    );
+    const zip = await buildIssuedInvoicesZip(invoices, renderInvoicePdfFromSnapshot);
+
+    c.header("Content-Type", "application/zip");
+    c.header("Content-Disposition", 'attachment; filename="Outgoing.zip"');
+    return c.body(new Uint8Array(zip), 200);
+  });
 
   router.get("/", async (c) => {
     const invoices = await listIssuedInvoices(pool, getCurrentWorkspaceId());

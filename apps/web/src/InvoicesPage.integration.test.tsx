@@ -1,7 +1,7 @@
 import "./test/load-env.js";
 
 import { Pool } from "pg";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../../api/src/app.js";
 import { runMigrations } from "../../api/src/db/migrate.js";
@@ -99,7 +99,11 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", () => {
     render(<InvoicesPage />);
 
     await waitFor(() => {
-      expect(screen.getByRole("option", { name: "Bandao" })).toBeInTheDocument();
+      expect(
+        within(screen.getByLabelText(/^client$/i)).getByRole("option", {
+          name: "Bandao",
+        }),
+      ).toBeInTheDocument();
     });
 
     fireEvent.change(screen.getByLabelText(/^client$/i), {
@@ -164,7 +168,11 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", () => {
     render(<InvoicesPage />);
 
     await waitFor(() => {
-      expect(screen.getByRole("option", { name: "Hannah" })).toBeInTheDocument();
+      expect(
+        within(screen.getByLabelText(/^client$/i)).getByRole("option", {
+          name: "Hannah",
+        }),
+      ).toBeInTheDocument();
     });
 
     fireEvent.change(screen.getByLabelText(/^client$/i), {
@@ -190,7 +198,11 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", () => {
     render(<InvoicesPage />);
 
     await waitFor(() => {
-      expect(screen.getByRole("option", { name: "Bandao" })).toBeInTheDocument();
+      expect(
+        within(screen.getByLabelText(/^client$/i)).getByRole("option", {
+          name: "Bandao",
+        }),
+      ).toBeInTheDocument();
     });
 
     fireEvent.change(screen.getByLabelText(/^client$/i), {
