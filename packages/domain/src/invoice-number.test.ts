@@ -65,6 +65,12 @@ describe("nextInvoiceNumber", () => {
     expect(nextInvoiceNumber(["2025003"], 2026)).toBe("2026001");
   });
 
+  it("ignores prefixed invoice numbers in the plain pool", () => {
+    expect(nextInvoiceNumber(["BAN2026001", "HAN2026001"], 2026)).toBe(
+      "2026001",
+    );
+  });
+
   it("continues from the highest issued suffix when strategy is from_last", () => {
     expect(
       nextInvoiceNumber(["2026001", "2026010"], 2026, "from_last"),

@@ -93,4 +93,14 @@ describe("migration definitions", () => {
     );
     expect(migration?.preCheck).toBeTypeOf("function");
   });
+
+  it("stores workspace-wide plain invoice numbering strategy by year", () => {
+    const migration = MIGRATIONS.find(
+      (m) => m.id === "011_workspace_invoice_numbering_strategy",
+    );
+    expect(migration).toBeDefined();
+    expect(migration?.sql).toContain("workspace_invoice_numbering");
+    expect(migration?.sql).toContain("strategy text");
+    expect(migration?.sql).toContain("'sequential', 'from_last'");
+  });
 });

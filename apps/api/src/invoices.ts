@@ -49,6 +49,7 @@ type InvoiceRequestBody = {
   invoiceNumber?: string;
   invoicePrefix?: string;
   numberingStrategy?: InvoiceNumberingStrategy;
+  usePrefix?: boolean;
 };
 
 type InvoiceClient = {
@@ -114,6 +115,10 @@ function invoiceConflictMessage(
     return "Invoice Number already exists in this Workspace";
   }
   return "Invoice already exists for this Client and Billing Period";
+}
+
+function parseUsePrefix(value: unknown): boolean {
+  return value !== false;
 }
 
 function parseNumberingStrategy(
@@ -377,6 +382,7 @@ export function createInvoicesRouter(pool: Pool) {
     const invoiceNumber = c.req.query("invoiceNumber");
     const yearParam = c.req.query("year");
     const prefixParam = c.req.query("invoicePrefix");
+    const usePrefix = c.req.query("usePrefix") !== "false";
 
     if (!clientId || !UUID_RE.test(clientId)) {
       return c.json({ error: "clientId is required" }, 400);
@@ -410,10 +416,12 @@ export function createInvoicesRouter(pool: Pool) {
 
     const preview = await getInvoiceNumberingPreview(
       pool,
+      getCurrentWorkspaceId(),
       client,
       year,
       invoiceNumber,
       prefix,
+      usePrefix,
     );
 
     return c.json(preview);
@@ -478,22 +486,28 @@ export function createInvoicesRouter(pool: Pool) {
       return c.json({ error: prepared.error }, prepared.status);
     }
 
-    const prefix = resolveRequestInvoicePrefix(body, prepared.client);
-    if (!isValidInvoicePrefix(prefix)) {
+    const usePrefix = parseUsePrefix(body.usePrefix);
+    const prefix = usePrefix ? resolveRequestInvoicePrefix(body, prepared.client) : "";
+    if (usePrefix && !isValidInvoicePrefix(prefix)) {
       return c.json({ error: "invoicePrefix must be 1-6 letters or digits" }, 400);
     }
 
     const suggestedInvoiceNumber = await peekNextInvoiceNumber(
       pool,
+      prepared.workspaceId,
       prepared.client,
       prepared.invoiceYear,
-      prefix,
+      usePrefix ? prefix : undefined,
+      usePrefix,
     );
 
     const invoiceNumber = body.invoiceNumber ?? suggestedInvoiceNumber;
     if (!isValidIssuedInvoiceNumber(invoiceNumber, prepared.invoiceYear)) {
+      const messagePrefix = usePrefix
+        ? prefix
+        : resolveInvoicePrefix(prepared.client);
       return c.json(
-        { error: invalidInvoiceNumberMessage(prefix, prepared.invoiceYear) },
+        { error: invalidInvoiceNumberMessage(messagePrefix, prepared.invoiceYear) },
         400,
       );
     }
@@ -511,7 +525,9 @@ export function createInvoicesRouter(pool: Pool) {
       c.header(name, value);
     }
     c.header("X-Suggested-Invoice-Number", suggestedInvoiceNumber);
-    c.header("X-Suggested-Invoice-Prefix", prefix);
+    if (usePrefix) {
+      c.header("X-Suggested-Invoice-Prefix", prefix);
+    }
     c.header("X-Invoice-Number-Exists", numberExists ? "true" : "false");
 
     return c.body(new Uint8Array(pdf), 200);
@@ -530,16 +546,21 @@ export function createInvoicesRouter(pool: Pool) {
 
     const client = prepared.client;
 
-    const prefix = resolveRequestInvoicePrefix(body, client);
+    const usePrefix = parseUsePrefix(body.usePrefix);
+    const prefix = usePrefix
+      ? resolveRequestInvoicePrefix(body, client)
+      : resolveInvoicePrefix(client);
     if (!isValidInvoicePrefix(prefix)) {
       return c.json({ error: "invoicePrefix must be 1-6 letters or digits" }, 400);
     }
 
     const suggestedInvoiceNumber = await peekNextInvoiceNumber(
       pool,
+      prepared.workspaceId,
       client,
       prepared.invoiceYear,
-      prefix,
+      usePrefix ? prefix : undefined,
+      usePrefix,
     );
     const invoiceNumber = body.invoiceNumber ?? suggestedInvoiceNumber;
 
@@ -580,6 +601,7 @@ export function createInvoicesRouter(pool: Pool) {
       invoiceNumber,
       invoicePrefix: prefix,
       numberingStrategy: editedNumber ? body.numberingStrategy : undefined,
+      usePrefix,
     });
 
     if (created === "duplicate_period") {

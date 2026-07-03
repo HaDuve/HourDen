@@ -1,10 +1,12 @@
 import {
   groupEntriesByDateAndDescription,
   deriveDefaultInvoicePrefix,
-  invoiceNumberExists,
+  isValidInvoiceNumber,
   isValidInvoicePrefix,
+  nextInvoiceNumber,
   nextPrefixedInvoiceNumber,
   normalizeInvoicePrefix,
+  previewNextInvoiceNumbers,
   previewNextPrefixedInvoiceNumbers,
   toLocalDateKey,
   type Client,
@@ -122,12 +124,48 @@ export function resolveInvoicePrefix(client: {
   return deriveDefaultInvoicePrefix(client.name);
 }
 
+async function listPlainInvoiceNumbersForWorkspaceYear(
+  executor: Pool | PoolClient,
+  workspaceId: string,
+  year: number,
+): Promise<string[]> {
+  const result = await executor.query<{ invoice_number: string }>(
+    `
+      SELECT invoice_number
+      FROM invoices
+      WHERE workspace_id = $1 AND EXTRACT(YEAR FROM period_end) = $2
+      ORDER BY invoice_number ASC
+    `,
+    [workspaceId, year],
+  );
+
+  return result.rows
+    .map((row) => row.invoice_number)
+    .filter((number) => isValidInvoiceNumber(number, year));
+}
+
 export async function peekNextInvoiceNumber(
   pool: Pool,
+  workspaceId: string,
   client: { id: string; name: string; invoicePrefix: string | null },
   year: number,
   prefixOverride?: string,
+  usePrefix = true,
 ): Promise<string> {
+  if (!usePrefix) {
+    const existingNumbers = await listPlainInvoiceNumbersForWorkspaceYear(
+      pool,
+      workspaceId,
+      year,
+    );
+    const strategy = await getWorkspaceInvoiceNumberingStrategy(
+      pool,
+      workspaceId,
+      year,
+    );
+    return nextInvoiceNumber(existingNumbers, year, strategy);
+  }
+
   const prefix = prefixOverride
     ? normalizeInvoicePrefix(prefixOverride)
     : resolveInvoicePrefix(client);
@@ -175,6 +213,40 @@ export async function setInvoiceNumberingStrategy(
   );
 }
 
+export async function getWorkspaceInvoiceNumberingStrategy(
+  executor: Pool | PoolClient,
+  workspaceId: string,
+  year: number,
+): Promise<InvoiceNumberingStrategy> {
+  const result = await executor.query<{ strategy: InvoiceNumberingStrategy }>(
+    `
+      SELECT strategy
+      FROM workspace_invoice_numbering
+      WHERE workspace_id = $1 AND invoice_year = $2
+    `,
+    [workspaceId, year],
+  );
+
+  return result.rows[0]?.strategy ?? "sequential";
+}
+
+export async function setWorkspaceInvoiceNumberingStrategy(
+  executor: Pool | PoolClient,
+  workspaceId: string,
+  year: number,
+  strategy: InvoiceNumberingStrategy,
+): Promise<void> {
+  await executor.query(
+    `
+      INSERT INTO workspace_invoice_numbering (workspace_id, invoice_year, strategy)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (workspace_id, invoice_year)
+      DO UPDATE SET strategy = EXCLUDED.strategy, updated_at = now()
+    `,
+    [workspaceId, year, strategy],
+  );
+}
+
 export async function invoiceNumberExistsInWorkspace(
   pool: Pool,
   workspaceId: string,
@@ -195,30 +267,42 @@ export async function invoiceNumberExistsInWorkspace(
 
 export async function getInvoiceNumberingPreview(
   pool: Pool,
+  workspaceId: string,
   client: { id: string; name: string; invoicePrefix: string | null },
   year: number,
   invoiceNumber: string,
   prefix: string,
+  usePrefix = true,
 ): Promise<{
   exists: boolean;
   suggestedNumber: string;
   nextIfIssued: { sequential: string; fromLast: string };
 }> {
+  const exists = await invoiceNumberExistsInWorkspace(
+    pool,
+    workspaceId,
+    invoiceNumber,
+  );
+
+  if (!usePrefix) {
+    const plainNumbers = await listPlainInvoiceNumbersForWorkspaceYear(
+      pool,
+      workspaceId,
+      year,
+    );
+
+    return {
+      exists,
+      suggestedNumber: nextInvoiceNumber(plainNumbers, year, "sequential"),
+      nextIfIssued: previewNextInvoiceNumbers(plainNumbers, year, invoiceNumber),
+    };
+  }
+
   const existingNumbers = await listInvoiceNumbersForClientYear(
     pool,
     client.id,
     year,
   );
-  const workspaceId = (
-    await pool.query<{ workspace_id: string }>(
-      "SELECT workspace_id FROM clients WHERE id = $1",
-      [client.id],
-    )
-  ).rows[0]?.workspace_id;
-
-  const exists = workspaceId
-    ? await invoiceNumberExistsInWorkspace(pool, workspaceId, invoiceNumber)
-    : invoiceNumberExists(existingNumbers, invoiceNumber);
 
   return {
     exists,
@@ -373,6 +457,7 @@ export async function createInvoice(
     invoiceNumber?: string;
     invoicePrefix?: string;
     numberingStrategy?: InvoiceNumberingStrategy;
+    usePrefix?: boolean;
   },
 ): Promise<CreateInvoiceResult> {
   const client = await pool.connect();
@@ -427,24 +512,44 @@ export async function createInvoice(
       return "duplicate_month";
     }
 
+    const usePrefix = input.usePrefix ?? true;
     const existingNumbers = await listInvoiceNumbersForClientYear(
       client,
       input.clientId,
       input.invoiceYear,
     );
-    const strategy = await getInvoiceNumberingStrategy(
+    const plainNumbers = await listPlainInvoiceNumbersForWorkspaceYear(
       client,
-      input.clientId,
+      input.workspaceId,
       input.invoiceYear,
     );
-    const invoiceNumber =
-      input.invoiceNumber ??
-      nextPrefixedInvoiceNumber(
-        existingNumbers,
-        prefix,
-        input.invoiceYear,
-        strategy,
-      );
+    let invoiceNumber = input.invoiceNumber;
+    if (!invoiceNumber) {
+      if (!usePrefix) {
+        const strategy = await getWorkspaceInvoiceNumberingStrategy(
+          client,
+          input.workspaceId,
+          input.invoiceYear,
+        );
+        invoiceNumber = nextInvoiceNumber(
+          plainNumbers,
+          input.invoiceYear,
+          strategy,
+        );
+      } else {
+        const strategy = await getInvoiceNumberingStrategy(
+          client,
+          input.clientId,
+          input.invoiceYear,
+        );
+        invoiceNumber = nextPrefixedInvoiceNumber(
+          existingNumbers,
+          prefix,
+          input.invoiceYear,
+          strategy,
+        );
+      }
+    }
 
     const workspaceDuplicate = await client.query(
       `
@@ -461,12 +566,21 @@ export async function createInvoice(
     }
 
     if (input.numberingStrategy) {
-      await setInvoiceNumberingStrategy(
-        client,
-        input.clientId,
-        input.invoiceYear,
-        input.numberingStrategy,
-      );
+      if (usePrefix) {
+        await setInvoiceNumberingStrategy(
+          client,
+          input.clientId,
+          input.invoiceYear,
+          input.numberingStrategy,
+        );
+      } else {
+        await setWorkspaceInvoiceNumberingStrategy(
+          client,
+          input.workspaceId,
+          input.invoiceYear,
+          input.numberingStrategy,
+        );
+      }
     }
 
     await client.query(

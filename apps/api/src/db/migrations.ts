@@ -179,4 +179,17 @@ export const MIGRATIONS: Migration[] = [
         ON invoices (workspace_id, invoice_number);
     `,
   },
+  {
+    id: "011_workspace_invoice_numbering_strategy",
+    sql: `
+      CREATE TABLE IF NOT EXISTS workspace_invoice_numbering (
+        workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        invoice_year integer NOT NULL,
+        strategy text NOT NULL CHECK (strategy IN ('sequential', 'from_last')),
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY (workspace_id, invoice_year)
+      );
+    `,
+  },
 ] as const;

@@ -49,6 +49,7 @@ async function fetchNumberingPreview(
   invoiceNumber: string,
   year: number,
   invoicePrefix: string,
+  usePrefix: boolean,
 ): Promise<NumberingPreview> {
   const params = new URLSearchParams({
     clientId,
@@ -56,6 +57,9 @@ async function fetchNumberingPreview(
     year: String(year),
     invoicePrefix,
   });
+  if (!usePrefix) {
+    params.set("usePrefix", "false");
+  }
   const res = await fetch(`/api/invoices/numbering-preview?${params}`);
   if (!res.ok) {
     throw new Error(await readApiError(res));
@@ -118,6 +122,7 @@ export default function InvoicesPage() {
   );
   const [numberingStrategy, setNumberingStrategy] =
     useState<InvoiceNumberingStrategy | null>(null);
+  const [usePrefix, setUsePrefix] = useState(true);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [issuedInvoices, setIssuedInvoices] = useState<IssuedInvoice[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -150,6 +155,7 @@ export default function InvoicesPage() {
     setInvoiceNumberExists(false);
     setNumberingPreview(null);
     setNumberingStrategy(null);
+    setUsePrefix(true);
   }, [clearPreviewBlob]);
 
   const loadIssuedInvoices = useCallback(async () => {
@@ -222,6 +228,7 @@ export default function InvoicesPage() {
           nextInvoiceNumber,
           invoiceYearFromPeriodEnd(to),
           nextInvoicePrefix,
+          usePrefix,
         );
         setNumberingPreview(preview);
         setNumberingStrategy((current) => current ?? "from_last");
@@ -231,11 +238,15 @@ export default function InvoicesPage() {
         );
       }
     },
-    [clientId, suggestedInvoiceNumber, to],
+    [clientId, suggestedInvoiceNumber, to, usePrefix],
   );
 
   const requestPreview = useCallback(
-    async (options?: { invoiceNumber?: string; invoicePrefix?: string }) => {
+    async (options?: {
+      invoiceNumber?: string;
+      invoicePrefix?: string;
+      usePrefix?: boolean;
+    }) => {
       if (!clientId) {
         setError("Select a Client before previewing");
         return;
@@ -252,7 +263,12 @@ export default function InvoicesPage() {
           to: string;
           invoiceNumber?: string;
           invoicePrefix?: string;
+          usePrefix?: boolean;
         } = { clientId, from, to };
+        const nextUsePrefix = options?.usePrefix ?? usePrefix;
+        if (!nextUsePrefix) {
+          body.usePrefix = false;
+        }
         if (options?.invoiceNumber) {
           body.invoiceNumber = options.invoiceNumber;
         }
@@ -321,8 +337,25 @@ export default function InvoicesPage() {
         }
       }
     },
-    [clientId, clients, from, to, clearPreviewBlob, refreshNumberingPreview],
+    [clientId, clients, from, to, usePrefix, clearPreviewBlob, refreshNumberingPreview],
   );
+
+  function handleUsePrefixChange(checked: boolean) {
+    setUsePrefix(checked);
+    setNumberingStrategy(null);
+    setNumberingPreview(null);
+
+    if (previewUrl) {
+      void requestPreview({
+        usePrefix: checked,
+        invoiceNumber:
+          invoiceNumber && invoiceNumber !== suggestedInvoiceNumber
+            ? invoiceNumber
+            : undefined,
+        invoicePrefix: invoicePrefix ?? undefined,
+      });
+    }
+  }
 
   async function handlePreview() {
     await requestPreview();
@@ -406,7 +439,11 @@ export default function InvoicesPage() {
         invoiceNumber: string;
         invoicePrefix?: string;
         numberingStrategy?: InvoiceNumberingStrategy;
+        usePrefix?: boolean;
       } = { clientId, from, to, invoiceNumber };
+      if (!usePrefix) {
+        body.usePrefix = false;
+      }
       if (invoicePrefix) {
         body.invoicePrefix = invoicePrefix;
       }
@@ -568,6 +605,18 @@ export default function InvoicesPage() {
 
       {invoiceNumber ? (
         <div className="mb-4 space-y-3">
+          <label className="flex items-center gap-2 text-sm text-neutral-700">
+            <input
+              type="checkbox"
+              aria-label="Use prefix"
+              checked={usePrefix}
+              onChange={(e) => handleUsePrefixChange(e.target.checked)}
+              disabled={previewing || issuing}
+              className="rounded border-neutral-300"
+            />
+            Use prefix
+          </label>
+
           <label className="flex max-w-xs flex-col gap-1 text-sm text-neutral-700">
             Invoice Prefix
             <input

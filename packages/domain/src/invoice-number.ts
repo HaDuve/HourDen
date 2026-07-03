@@ -120,23 +120,23 @@ export function nextInvoiceNumber(
   year: number,
   strategy: InvoiceNumberingStrategy = "sequential",
 ): string {
-  const prefix = String(year);
+  const yearText = String(year);
   const sameYear = existingNumbers.filter((number) =>
-    number.startsWith(prefix),
+    isValidInvoiceNumber(number, year),
   );
 
   if (sameYear.length === 0) {
-    return `${year}001`;
+    return `${yearText}001`;
   }
 
   if (strategy === "from_last") {
     const maxSuffix = Math.max(
-      ...sameYear.map((number) => Number(number.slice(prefix.length))),
+      ...sameYear.map((number) => Number(number.slice(yearText.length))),
     );
-    return `${year}${String(maxSuffix + 1).padStart(3, "0")}`;
+    return `${yearText}${String(maxSuffix + 1).padStart(3, "0")}`;
   }
 
-  return `${year}${String(sameYear.length + 1).padStart(3, "0")}`;
+  return `${yearText}${String(sameYear.length + 1).padStart(3, "0")}`;
 }
 
 export function previewNextInvoiceNumbers(
