@@ -76,6 +76,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   beforeEach(async () => {
     await pool.query("DELETE FROM time_entries");
     await pool.query("DELETE FROM invoices");
+    await pool.query("DELETE FROM client_invoice_numbering");
     await pool.query("DELETE FROM projects");
     await pool.query("DELETE FROM clients");
   });
@@ -1087,5 +1088,183 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
 
     const pdf = await app.request(`/api/invoices/${invoiceId}/pdf`);
     expect(pdf.status).toBe(404);
+  });
+
+  it("preview accepts a custom Invoice Number and reports whether it already exists", async () => {
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const ondojo = await createProject(app, bandao.id, "Ondojo");
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "Billable work",
+        startedAt: "2026-06-18T10:00:00.000Z",
+        endedAt: "2026-06-18T11:00:00.000Z",
+      }),
+    });
+
+    const preview = await app.request("/api/invoices/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+        invoiceNumber: "2026010",
+      }),
+    });
+
+    expect(preview.status).toBe(200);
+    expect(preview.headers.get("x-invoice-number")).toBe("2026010");
+    expect(preview.headers.get("x-suggested-invoice-number")).toBe("2026001");
+    expect(preview.headers.get("x-invoice-number-exists")).toBe("false");
+
+    const text = await pdfText(await preview.arrayBuffer());
+    expect(text).toContain("2026010");
+
+    await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+        invoiceNumber: "2026010",
+        numberingStrategy: "from_last",
+      }),
+    });
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "More work",
+        startedAt: "2026-07-18T10:00:00.000Z",
+        endedAt: "2026-07-18T11:00:00.000Z",
+      }),
+    });
+
+    const duplicatePreview = await app.request("/api/invoices/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-07-01",
+        to: "2026-07-31",
+        invoiceNumber: "2026010",
+      }),
+    });
+
+    expect(duplicatePreview.headers.get("x-invoice-number-exists")).toBe("true");
+  });
+
+  it("issues with an edited Invoice Number and persists the chosen numbering strategy", async () => {
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const ondojo = await createProject(app, bandao.id, "Ondojo");
+
+    const createEntry = (from: string, to: string) =>
+      app.request("/api/time-entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: ondojo.id,
+          description: "Work",
+          startedAt: `${from}T10:00:00.000Z`,
+          endedAt: `${to}T11:00:00.000Z`,
+        }),
+      });
+
+    await createEntry("2026-05-01", "2026-05-01");
+    await createEntry("2026-06-01", "2026-06-01");
+    await createEntry("2026-07-01", "2026-07-01");
+
+    const may = await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-05-01",
+        to: "2026-05-31",
+        invoiceNumber: "2026010",
+        numberingStrategy: "sequential",
+      }),
+    });
+    expect(may.status).toBe(201);
+    expect(may.headers.get("x-invoice-number")).toBe("2026010");
+
+    const june = await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+    expect(june.headers.get("x-invoice-number")).toBe("2026002");
+
+    await createEntry("2026-08-01", "2026-08-01");
+
+    const august = await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-08-01",
+        to: "2026-08-31",
+        invoiceNumber: "2026020",
+        numberingStrategy: "from_last",
+      }),
+    });
+    expect(august.headers.get("x-invoice-number")).toBe("2026020");
+
+    await createEntry("2026-09-01", "2026-09-01");
+
+    const september = await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-09-01",
+        to: "2026-09-30",
+      }),
+    });
+    expect(september.headers.get("x-invoice-number")).toBe("2026021");
+  });
+
+  it("returns numbering previews for an edited Invoice Number", async () => {
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+
+    const res = await app.request(
+      `/api/invoices/numbering-preview?clientId=${bandao.id}&invoiceNumber=2026010&year=2026`,
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      exists: false,
+      suggestedNumber: "2026001",
+      nextIfIssued: {
+        sequential: "2026002",
+        fromLast: "2026011",
+      },
+    });
   });
 });

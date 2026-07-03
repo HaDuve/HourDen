@@ -1,4 +1,4 @@
-import type { Client } from "@hourden/domain";
+import type { Client, InvoiceNumberingStrategy } from "@hourden/domain";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type IssuedInvoice = {
@@ -8,6 +8,15 @@ type IssuedInvoice = {
   periodStart: string;
   periodEnd: string;
   totalAmount: number;
+};
+
+type NumberingPreview = {
+  exists: boolean;
+  suggestedNumber: string;
+  nextIfIssued: {
+    sequential: string;
+    fromLast: string;
+  };
 };
 
 function formatDateInput(date: Date): string {
@@ -20,6 +29,10 @@ function currentMonthRange(): { from: string; to: string } {
   const from = new Date(now.getFullYear(), now.getMonth(), 1);
   const to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   return { from: formatDateInput(from), to: formatDateInput(to) };
+}
+
+function invoiceYearFromPeriodEnd(periodEnd: string): number {
+  return Number(periodEnd.slice(0, 4));
 }
 
 async function fetchClients(): Promise<Client[]> {
@@ -38,6 +51,23 @@ async function fetchIssuedInvoices(): Promise<IssuedInvoice[]> {
   }
   const data = (await res.json()) as { invoices?: IssuedInvoice[] };
   return data.invoices ?? [];
+}
+
+async function fetchNumberingPreview(
+  clientId: string,
+  invoiceNumber: string,
+  year: number,
+): Promise<NumberingPreview> {
+  const params = new URLSearchParams({
+    clientId,
+    invoiceNumber,
+    year: String(year),
+  });
+  const res = await fetch(`/api/invoices/numbering-preview?${params}`);
+  if (!res.ok) {
+    throw new Error(await readApiError(res));
+  }
+  return res.json() as Promise<NumberingPreview>;
 }
 
 function formatAmount(amount: number): string {
@@ -82,6 +112,15 @@ export default function InvoicesPage() {
   const [previewing, setPreviewing] = useState(false);
   const [issuing, setIssuing] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null);
+  const [suggestedInvoiceNumber, setSuggestedInvoiceNumber] = useState<
+    string | null
+  >(null);
+  const [invoiceNumberExists, setInvoiceNumberExists] = useState(false);
+  const [numberingPreview, setNumberingPreview] = useState<NumberingPreview | null>(
+    null,
+  );
+  const [numberingStrategy, setNumberingStrategy] =
+    useState<InvoiceNumberingStrategy | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [issuedInvoices, setIssuedInvoices] = useState<IssuedInvoice[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -89,6 +128,10 @@ export default function InvoicesPage() {
   const [exportYear, setExportYear] = useState("");
   const [exporting, setExporting] = useState(false);
   const previewUrlRef = useRef<string | null>(null);
+  const previewRequestIdRef = useRef(0);
+  const invoiceNumberDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   const clearPreviewBlob = useCallback(() => {
     if (previewUrlRef.current) {
@@ -101,6 +144,10 @@ export default function InvoicesPage() {
   const clearPreview = useCallback(() => {
     clearPreviewBlob();
     setInvoiceNumber(null);
+    setSuggestedInvoiceNumber(null);
+    setInvoiceNumberExists(false);
+    setNumberingPreview(null);
+    setNumberingStrategy(null);
   }, [clearPreviewBlob]);
 
   const loadIssuedInvoices = useCallback(async () => {
@@ -142,41 +189,138 @@ export default function InvoicesPage() {
       if (previewUrlRef.current) {
         URL.revokeObjectURL(previewUrlRef.current);
       }
+      if (invoiceNumberDebounceRef.current) {
+        clearTimeout(invoiceNumberDebounceRef.current);
+      }
     };
   }, []);
 
-  async function handlePreview() {
-    if (!clientId) {
-      setError("Select a Client before previewing");
-      return;
-    }
+  const invoiceNumberEdited =
+    invoiceNumber !== null &&
+    suggestedInvoiceNumber !== null &&
+    invoiceNumber !== suggestedInvoiceNumber;
 
-    setPreviewing(true);
-    setError(null);
-    clearPreview();
-
-    try {
-      const res = await fetch("/api/invoices/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, from, to }),
-      });
-
-      if (!res.ok) {
-        setError(await readApiError(res));
+  const refreshNumberingPreview = useCallback(
+    async (nextInvoiceNumber: string) => {
+      if (!clientId || !suggestedInvoiceNumber) {
+        return;
+      }
+      if (nextInvoiceNumber === suggestedInvoiceNumber) {
+        setNumberingPreview(null);
+        setNumberingStrategy(null);
         return;
       }
 
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      previewUrlRef.current = url;
-      setPreviewUrl(url);
-      setInvoiceNumber(res.headers.get("X-Invoice-Number"));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to preview invoice");
-    } finally {
-      setPreviewing(false);
+      try {
+        const preview = await fetchNumberingPreview(
+          clientId,
+          nextInvoiceNumber,
+          invoiceYearFromPeriodEnd(to),
+        );
+        setNumberingPreview(preview);
+        setNumberingStrategy((current) => current ?? "from_last");
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to load numbering preview",
+        );
+      }
+    },
+    [clientId, suggestedInvoiceNumber, to],
+  );
+
+  const requestPreview = useCallback(
+    async (invoiceNumberOverride?: string) => {
+      if (!clientId) {
+        setError("Select a Client before previewing");
+        return;
+      }
+
+      const requestId = ++previewRequestIdRef.current;
+      setPreviewing(true);
+      setError(null);
+
+      try {
+        const body: {
+          clientId: string;
+          from: string;
+          to: string;
+          invoiceNumber?: string;
+        } = { clientId, from, to };
+        if (invoiceNumberOverride) {
+          body.invoiceNumber = invoiceNumberOverride;
+        }
+
+        const res = await fetch("/api/invoices/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        if (requestId !== previewRequestIdRef.current) {
+          return;
+        }
+
+        if (!res.ok) {
+          setError(await readApiError(res));
+          return;
+        }
+
+        const nextInvoiceNumber = res.headers.get("X-Invoice-Number");
+        const nextSuggested = res.headers.get("X-Suggested-Invoice-Number");
+        const exists =
+          res.headers.get("X-Invoice-Number-Exists") === "true";
+
+        const blob = await res.blob();
+        if (requestId !== previewRequestIdRef.current) {
+          return;
+        }
+
+        clearPreviewBlob();
+        const url = URL.createObjectURL(blob);
+        previewUrlRef.current = url;
+        setPreviewUrl(url);
+        setInvoiceNumber(nextInvoiceNumber);
+        setSuggestedInvoiceNumber(nextSuggested);
+        setInvoiceNumberExists(exists);
+
+        if (
+          nextInvoiceNumber &&
+          nextSuggested &&
+          nextInvoiceNumber !== nextSuggested
+        ) {
+          await refreshNumberingPreview(nextInvoiceNumber);
+        } else {
+          setNumberingPreview(null);
+          setNumberingStrategy(null);
+        }
+      } catch (err) {
+        if (requestId === previewRequestIdRef.current) {
+          setError(err instanceof Error ? err.message : "Failed to preview invoice");
+        }
+      } finally {
+        if (requestId === previewRequestIdRef.current) {
+          setPreviewing(false);
+        }
+      }
+    },
+    [clientId, from, to, clearPreviewBlob, refreshNumberingPreview],
+  );
+
+  async function handlePreview() {
+    await requestPreview();
+  }
+
+  function handleInvoiceNumberChange(nextValue: string) {
+    setInvoiceNumber(nextValue);
+    setNumberingStrategy(null);
+
+    if (invoiceNumberDebounceRef.current) {
+      clearTimeout(invoiceNumberDebounceRef.current);
     }
+
+    invoiceNumberDebounceRef.current = setTimeout(() => {
+      void requestPreview(nextValue);
+    }, 300);
   }
 
   async function handleIssue() {
@@ -184,15 +328,34 @@ export default function InvoicesPage() {
       setError("Select a Client before issuing");
       return;
     }
+    if (!invoiceNumber) {
+      setError("Preview the invoice before issuing");
+      return;
+    }
+    if (invoiceNumberEdited && !numberingStrategy) {
+      setError("Choose how future invoices should be numbered");
+      return;
+    }
 
     setIssuing(true);
     setError(null);
 
     try {
+      const body: {
+        clientId: string;
+        from: string;
+        to: string;
+        invoiceNumber: string;
+        numberingStrategy?: InvoiceNumberingStrategy;
+      } = { clientId, from, to, invoiceNumber };
+      if (invoiceNumberEdited && numberingStrategy) {
+        body.numberingStrategy = numberingStrategy;
+      }
+
       const res = await fetch("/api/invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, from, to }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -205,6 +368,10 @@ export default function InvoicesPage() {
       downloadAttachmentBlob(blob, disposition);
       setInvoiceNumber(res.headers.get("X-Invoice-Number"));
       clearPreviewBlob();
+      setSuggestedInvoiceNumber(null);
+      setInvoiceNumberExists(false);
+      setNumberingPreview(null);
+      setNumberingStrategy(null);
       await loadIssuedInvoices();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to issue invoice");
@@ -267,6 +434,15 @@ export default function InvoicesPage() {
     }
   }
 
+  const issueDisabled =
+    previewing ||
+    issuing ||
+    loading ||
+    !clientId ||
+    !previewUrl ||
+    invoiceNumberExists ||
+    (invoiceNumberEdited && !numberingStrategy);
+
   return (
     <main className="mx-auto max-w-3xl px-8 py-8">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -283,7 +459,7 @@ export default function InvoicesPage() {
           <button
             type="button"
             onClick={() => void handleIssue()}
-            disabled={previewing || issuing || loading || !clientId || !previewUrl}
+            disabled={issueDisabled}
             className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
           >
             {issuing ? "Issuing…" : "Issue Invoice"}
@@ -338,9 +514,66 @@ export default function InvoicesPage() {
       ) : null}
 
       {invoiceNumber ? (
-        <p className="mb-4 text-sm text-neutral-700">
-          Invoice Number: <span className="font-medium">{invoiceNumber}</span>
-        </p>
+        <div className="mb-4 space-y-3">
+          <label className="flex max-w-xs flex-col gap-1 text-sm text-neutral-700">
+            Invoice Number
+            <input
+              type="text"
+              value={invoiceNumber}
+              onChange={(e) => handleInvoiceNumberChange(e.target.value)}
+              disabled={previewing || issuing}
+              className="rounded-md border border-neutral-300 px-3 py-2 font-medium text-neutral-900"
+            />
+          </label>
+
+          {invoiceNumberExists ? (
+            <p className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Invoice Number already exists for this Client.
+            </p>
+          ) : null}
+
+          {invoiceNumberEdited && numberingPreview ? (
+            <fieldset className="rounded-md border border-neutral-200 bg-neutral-50 px-4 py-3">
+              <legend className="px-1 text-sm font-medium text-neutral-900">
+                Future invoices for this Client in {invoiceYearFromPeriodEnd(to)}
+              </legend>
+              <div className="mt-2 space-y-2 text-sm text-neutral-700">
+                <label className="flex cursor-pointer items-start gap-2">
+                  <input
+                    type="radio"
+                    name="numberingStrategy"
+                    value="sequential"
+                    checked={numberingStrategy === "sequential"}
+                    onChange={() => setNumberingStrategy("sequential")}
+                    className="mt-1"
+                  />
+                  <span>
+                    Continue suggested sequence
+                    <span className="mt-0.5 block text-neutral-500">
+                      Next: {numberingPreview.nextIfIssued.sequential}
+                    </span>
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-2">
+                  <input
+                    type="radio"
+                    name="numberingStrategy"
+                    value="from_last"
+                    checked={numberingStrategy === "from_last"}
+                    onChange={() => setNumberingStrategy("from_last")}
+                    className="mt-1"
+                  />
+                  <span>
+                    Continue from this number
+                    <span className="mt-0.5 block text-neutral-500">
+                      Next: {numberingPreview.nextIfIssued.fromLast}
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </fieldset>
+          ) : null}
+        </div>
       ) : null}
 
       {previewUrl ? (

@@ -130,4 +130,17 @@ export const MIGRATIONS = [
         ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'issued';
     `,
   },
+  {
+    id: "009_client_invoice_numbering",
+    sql: `
+      CREATE TABLE IF NOT EXISTS client_invoice_numbering (
+        client_id uuid NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+        invoice_year integer NOT NULL,
+        strategy text NOT NULL CHECK (strategy IN ('sequential', 'from_last')),
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY (client_id, invoice_year)
+      );
+    `,
+  },
 ] as const;

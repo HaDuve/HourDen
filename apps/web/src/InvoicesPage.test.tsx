@@ -80,6 +80,8 @@ function previewPdfResponse(invoiceNumber: string) {
     headers: {
       "Content-Type": "application/pdf",
       "X-Invoice-Number": invoiceNumber,
+      "X-Suggested-Invoice-Number": invoiceNumber,
+      "X-Invoice-Number-Exists": "false",
     },
   });
 }
@@ -181,7 +183,7 @@ describe("InvoicesPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
     await waitFor(() => {
-      expect(screen.getByText("2026001")).toBeInTheDocument();
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
@@ -220,7 +222,7 @@ describe("InvoicesPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
     await waitFor(() => {
-      expect(screen.getByText("2026001")).toBeInTheDocument();
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
@@ -259,7 +261,7 @@ describe("InvoicesPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
     await waitFor(() => {
-      expect(screen.getByText("2026001")).toBeInTheDocument();
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
@@ -287,7 +289,7 @@ describe("InvoicesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("2026001")).toBeInTheDocument();
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
       expect(screen.getByTitle(/invoice preview/i)).toHaveAttribute("src", "blob:test");
     });
 
@@ -351,7 +353,7 @@ describe("InvoicesPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
     await waitFor(() => {
-      expect(screen.getByText("2026001")).toBeInTheDocument();
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
@@ -365,6 +367,7 @@ describe("InvoicesPage", () => {
             clientId: bandaoClient.id,
             from: currentMonthRange().from,
             to: currentMonthRange().to,
+            invoiceNumber: "2026001",
           }),
         }),
       );
@@ -373,7 +376,7 @@ describe("InvoicesPage", () => {
 
     await waitFor(() => {
       expect(screen.queryByTitle(/invoice preview/i)).not.toBeInTheDocument();
-      expect(screen.getByText("2026001")).toBeInTheDocument();
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
     });
 
     clickSpy.mockRestore();
@@ -473,6 +476,227 @@ describe("InvoicesPage", () => {
         `/api/invoices/export.zip?client=${bandaoClient.id}&year=2026`,
       );
       expect(clickSpy).toHaveBeenCalled();
+    });
+
+    clickSpy.mockRestore();
+  });
+
+  it("allows editing the Invoice Number and re-previews the PDF", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        const body = JSON.parse(init.body as string) as { invoiceNumber?: string };
+        const number = body.invoiceNumber ?? "2026001";
+        return Promise.resolve(
+          new Response(new Blob(["%PDF-preview"], { type: "application/pdf" }), {
+            status: 200,
+            headers: {
+              "Content-Type": "application/pdf",
+              "X-Invoice-Number": number,
+              "X-Suggested-Invoice-Number": "2026001",
+              "X-Invoice-Number-Exists": "false",
+            },
+          }),
+        );
+      }
+      if (url.startsWith("/api/invoices/numbering-preview")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            exists: false,
+            suggestedNumber: "2026001",
+            nextIfIssued: { sequential: "2026002", fromLast: "2026011" },
+          }),
+        });
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<InvoicesPage />);
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
+    });
+
+    fireEvent.change(screen.getByLabelText(/^invoice number$/i), {
+      target: { value: "2026010" },
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/invoices/preview",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            clientId: bandaoClient.id,
+            from: currentMonthRange().from,
+            to: currentMonthRange().to,
+            invoiceNumber: "2026010",
+          }),
+        }),
+      );
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026010");
+    });
+  });
+
+  it("shows a warning when the edited Invoice Number already exists", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        return Promise.resolve(
+          new Response(new Blob(["%PDF-preview"], { type: "application/pdf" }), {
+            status: 200,
+            headers: {
+              "Content-Type": "application/pdf",
+              "X-Invoice-Number": "2026010",
+              "X-Suggested-Invoice-Number": "2026001",
+              "X-Invoice-Number-Exists": "true",
+            },
+          }),
+        );
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<InvoicesPage />);
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/invoice number already exists for this client/i),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeDisabled();
+    });
+  });
+
+  it("asks how future invoices should be numbered when the Invoice Number is edited", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        const body = JSON.parse(init.body as string) as { invoiceNumber?: string };
+        const number = body.invoiceNumber ?? "2026001";
+        return Promise.resolve(
+          new Response(new Blob(["%PDF-preview"], { type: "application/pdf" }), {
+            status: 200,
+            headers: {
+              "Content-Type": "application/pdf",
+              "X-Invoice-Number": number,
+              "X-Suggested-Invoice-Number": "2026001",
+              "X-Invoice-Number-Exists": "false",
+            },
+          }),
+        );
+      }
+      if (url.startsWith("/api/invoices/numbering-preview")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            exists: false,
+            suggestedNumber: "2026001",
+            nextIfIssued: { sequential: "2026002", fromLast: "2026011" },
+          }),
+        });
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<InvoicesPage />);
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
+    });
+
+    fireEvent.change(screen.getByLabelText(/^invoice number$/i), {
+      target: { value: "2026010" },
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/continue suggested sequence/i),
+      ).toBeInTheDocument();
+      expect(screen.getByText(/next: 2026002/i)).toBeInTheDocument();
+      expect(screen.getByText(/continue from this number/i)).toBeInTheDocument();
+      expect(screen.getByText(/next: 2026011/i)).toBeInTheDocument();
+    });
+  });
+
+  it("issues with the edited Invoice Number and numbering strategy", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        const body = JSON.parse(init.body as string) as { invoiceNumber?: string };
+        const number = body.invoiceNumber ?? "2026001";
+        return Promise.resolve(
+          new Response(new Blob(["%PDF-preview"], { type: "application/pdf" }), {
+            status: 200,
+            headers: {
+              "Content-Type": "application/pdf",
+              "X-Invoice-Number": number,
+              "X-Suggested-Invoice-Number": "2026001",
+              "X-Invoice-Number-Exists": "false",
+            },
+          }),
+        );
+      }
+      if (url.startsWith("/api/invoices/numbering-preview")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            exists: false,
+            suggestedNumber: "2026001",
+            nextIfIssued: { sequential: "2026002", fromLast: "2026011" },
+          }),
+        });
+      }
+      if (url === "/api/invoices" && init?.method === "POST") {
+        return Promise.resolve(issuePdfResponse("2026010"));
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click");
+
+    render(<InvoicesPage />);
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
+    });
+
+    fireEvent.change(screen.getByLabelText(/^invoice number$/i), {
+      target: { value: "2026010" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/continue from this number/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText(/continue from this number/i));
+    fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/invoices",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            clientId: bandaoClient.id,
+            from: currentMonthRange().from,
+            to: currentMonthRange().to,
+            invoiceNumber: "2026010",
+            numberingStrategy: "from_last",
+          }),
+        }),
+      );
     });
 
     clickSpy.mockRestore();

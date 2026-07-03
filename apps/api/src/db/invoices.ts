@@ -1,10 +1,13 @@
 import {
   groupEntriesByDateAndDescription,
+  invoiceNumberExists,
   nextInvoiceNumber,
+  previewNextInvoiceNumbers,
   toLocalDateKey,
   type Client,
   type GroupedReportLine,
   type InvoiceIssuanceSnapshot,
+  type InvoiceNumberingStrategy,
 } from "@hourden/domain";
 import type { DatabaseError, Pool, PoolClient } from "pg";
 import { reportTimeZone } from "./reports.js";
@@ -112,8 +115,81 @@ export async function peekNextInvoiceNumber(
     clientId,
     year,
   );
+  const strategy = await getInvoiceNumberingStrategy(pool, clientId, year);
 
-  return nextInvoiceNumber(existingNumbers, year);
+  return nextInvoiceNumber(existingNumbers, year, strategy);
+}
+
+export async function getInvoiceNumberingStrategy(
+  pool: Pool,
+  clientId: string,
+  year: number,
+): Promise<InvoiceNumberingStrategy> {
+  const result = await pool.query<{ strategy: InvoiceNumberingStrategy }>(
+    `
+      SELECT strategy
+      FROM client_invoice_numbering
+      WHERE client_id = $1 AND invoice_year = $2
+    `,
+    [clientId, year],
+  );
+
+  return result.rows[0]?.strategy ?? "sequential";
+}
+
+export async function setInvoiceNumberingStrategy(
+  executor: Pool | PoolClient,
+  clientId: string,
+  year: number,
+  strategy: InvoiceNumberingStrategy,
+): Promise<void> {
+  await executor.query(
+    `
+      INSERT INTO client_invoice_numbering (client_id, invoice_year, strategy)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (client_id, invoice_year)
+      DO UPDATE SET strategy = EXCLUDED.strategy, updated_at = now()
+    `,
+    [clientId, year, strategy],
+  );
+}
+
+export async function invoiceNumberExistsForClient(
+  pool: Pool,
+  clientId: string,
+  invoiceNumber: string,
+): Promise<boolean> {
+  const year = Number(invoiceNumber.slice(0, 4));
+  const existingNumbers = await listInvoiceNumbersForClientYear(
+    pool,
+    clientId,
+    year,
+  );
+
+  return invoiceNumberExists(existingNumbers, invoiceNumber);
+}
+
+export async function getInvoiceNumberingPreview(
+  pool: Pool,
+  clientId: string,
+  year: number,
+  invoiceNumber: string,
+): Promise<{
+  exists: boolean;
+  suggestedNumber: string;
+  nextIfIssued: { sequential: string; fromLast: string };
+}> {
+  const existingNumbers = await listInvoiceNumbersForClientYear(
+    pool,
+    clientId,
+    year,
+  );
+
+  return {
+    exists: invoiceNumberExists(existingNumbers, invoiceNumber),
+    suggestedNumber: nextInvoiceNumber(existingNumbers, year, "sequential"),
+    nextIfIssued: previewNextInvoiceNumbers(existingNumbers, year, invoiceNumber),
+  };
 }
 
 export async function getClientForInvoice(
@@ -246,6 +322,8 @@ export async function createInvoice(
     totalDurationMinutes: number;
     entryIds: string[];
     snapshot: InvoiceIssuanceSnapshot;
+    invoiceNumber?: string;
+    numberingStrategy?: InvoiceNumberingStrategy;
   },
 ): Promise<CreateInvoiceResult> {
   const client = await pool.connect();
@@ -289,7 +367,28 @@ export async function createInvoice(
       input.clientId,
       input.invoiceYear,
     );
-    const invoiceNumber = nextInvoiceNumber(existingNumbers, input.invoiceYear);
+    const strategy = await getInvoiceNumberingStrategy(
+      client,
+      input.clientId,
+      input.invoiceYear,
+    );
+    const invoiceNumber =
+      input.invoiceNumber ??
+      nextInvoiceNumber(existingNumbers, input.invoiceYear, strategy);
+
+    if (invoiceNumberExists(existingNumbers, invoiceNumber)) {
+      await client.query("ROLLBACK");
+      return "duplicate_number";
+    }
+
+    if (input.numberingStrategy) {
+      await setInvoiceNumberingStrategy(
+        client,
+        input.clientId,
+        input.invoiceYear,
+        input.numberingStrategy,
+      );
+    }
 
     const invoiceResult = await client.query<InvoiceRow>(
       `

@@ -26,7 +26,13 @@ export {
   groupEntriesByDateAndDescription,
   buildClientReport,
 } from "./report.js";
-export { nextInvoiceNumber } from "./invoice-number.js";
+export {
+  nextInvoiceNumber,
+  previewNextInvoiceNumbers,
+  invoiceNumberExists,
+  isValidInvoiceNumber,
+  type InvoiceNumberingStrategy,
+} from "./invoice-number.js";
 export type { InvoiceIssuanceSnapshot } from "./invoice-issuance-snapshot.js";
 export type {
   ClockifyExportEntry,

@@ -67,6 +67,7 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", () => {
 
     await pool.query("DELETE FROM time_entries");
     await pool.query("DELETE FROM invoices");
+    await pool.query("DELETE FROM client_invoice_numbering");
     await pool.query("DELETE FROM projects");
     await pool.query("DELETE FROM clients");
   });
@@ -119,7 +120,7 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", () => {
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("2026001")).toBeInTheDocument();
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
       expect(screen.getByTitle(/invoice preview/i)).toBeInTheDocument();
     });
 
