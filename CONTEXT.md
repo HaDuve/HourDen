@@ -38,7 +38,7 @@ _Avoid_: Locked entry, frozen entry
 **Recipient** — the billing identity of a **Client**: legal name + postal address printed on the invoice PDF. Not a separate entity — these are fields on the Client (nullable until the Client is first invoiced). One Client has exactly one Recipient identity.
 _Avoid_: modeling Recipient as its own table (collapsed into Client — see ADR-0002)
 
-**Invoice** — a PDF request for payment covering a **Billing Period** for one Recipient, built from grouped Time Entries (by date + description). Sequential **Invoice Number** per Recipient per calendar year.
+**Invoice** — a PDF request for payment covering a **Billing Period** for one Recipient, built from grouped Time Entries (by date + description). Sequential **Invoice Number** per Recipient per calendar year. Once **issued** it is immutable: it can be reconstructed exactly as sent and is never rewritten by later edits to a Client or Time Entry. HourDen owns only the invoices it issues; invoices predating the switch from the legacy script live in the `Outgoing/` archive.
 _Avoid_: Bill
 
 **Billing Period** — the date range of work included on an Invoice (typically one calendar month).

@@ -1,6 +1,6 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # Run this on the VM to add HourDen vhost to Portfolio's Caddyfile
-set -euo pipefail
+set -e
 
 CADDYFILE="/opt/Portfolio/caddy/Caddyfile"
 BACKUP="${CADDYFILE}.backup-$(date +%Y%m%d-%H%M%S)"
@@ -10,24 +10,27 @@ if grep -q "hourden.hannesduve.com" "$CADDYFILE" 2>/dev/null; then
   exit 0
 fi
 
-echo "Backing up Caddyfile → $BACKUP"
+echo "Backing up Caddyfile -> $BACKUP"
 cp "$CADDYFILE" "$BACKUP"
 
 echo "Adding HourDen vhost to Caddyfile..."
 cat >> "$CADDYFILE" <<'EOF'
 
 hourden.hannesduve.com {
-    basicauth {
+    basic_auth {
         operator $2a$14$Hhcab4yh26gYSIWyztWgPuU0kfsJ2kx9D46jDfXRJjESEPaUtGgyS
     }
 
-    root * /var/www/hourden
     encode gzip zstd
-    try_files {path} /index.html
-    file_server
 
-    handle_path /api/* {
-        reverse_proxy localhost:3001
+    handle /api/* {
+        reverse_proxy host.docker.internal:3001
+    }
+
+    handle {
+        root * /var/www/hourden
+        try_files {path} /index.html
+        file_server
     }
 
     log {
@@ -45,5 +48,5 @@ echo "Reloading Caddy..."
 cd /opt/Portfolio
 docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
 
-echo "✓ HourDen vhost added and Caddy reloaded."
-echo "  Backup saved: $BACKUP"
+echo "OK: HourDen vhost added and Caddy reloaded."
+echo "Backup saved: $BACKUP"

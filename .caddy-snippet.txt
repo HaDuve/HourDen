@@ -2,17 +2,20 @@
 # After the hannesduve.com block, add:
 
 hourden.hannesduve.com {
-    basicauth {
+    basic_auth {
         operator $2a$14$Hhcab4yh26gYSIWyztWgPuU0kfsJ2kx9D46jDfXRJjESEPaUtGgyS
     }
 
-    root * /var/www/hourden
     encode gzip zstd
-    try_files {path} /index.html
-    file_server
 
-    handle_path /api/* {
-        reverse_proxy localhost:3001
+    handle /api/* {
+        reverse_proxy host.docker.internal:3001
+    }
+
+    handle {
+        root * /var/www/hourden
+        try_files {path} /index.html
+        file_server
     }
 
     log {

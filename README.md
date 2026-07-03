@@ -148,22 +148,40 @@ Add to Portfolio's `Caddyfile` (adjust paths and credentials):
 
 ```caddyfile
 hourden.hannesduve.com {
-    basicauth {
+    basic_auth {
         # bcrypt hash — generate with: caddy hash-password
         operator <bcrypt-hash>
     }
 
-    root * /var/www/hourden
-    try_files {path} /index.html
-    file_server
+    encode gzip zstd
 
-    handle_path /api/* {
-        reverse_proxy localhost:3001
+    handle /api/* {
+        reverse_proxy host.docker.internal:3001
+    }
+
+    handle {
+        root * /var/www/hourden
+        try_files {path} /index.html
+        file_server
     }
 }
 ```
 
 Reload Caddy after updating the config.
+
+Portfolio's Caddy runs **inside Docker**. HourDen's API is published on the **host** at `:3001`, and static files live at `/var/www/hourden` on the host. The Portfolio `docker-compose.yml` must include:
+
+- `extra_hosts: ["host.docker.internal:host-gateway"]` on the `caddy` service
+- volume mount `/var/www/hourden:/var/www/hourden:ro` on the `caddy` service
+
+The vhost must use `reverse_proxy host.docker.internal:3001` (not `localhost:3001`).
+
+If production shows 404/502 after first deploy, run on the VM:
+
+```bash
+# from HourDen repo on your machine
+ssh root@188.245.242.141 'bash -s' < scripts/fix-caddy-vm.sh
+```
 
 ### Verify production
 
