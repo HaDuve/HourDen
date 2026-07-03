@@ -12,7 +12,7 @@ _Avoid_: Account, organization (in MVP copy)
 
 ## Time tracking
 
-**Client** — a billable organization or person you work for and invoice. Carries a default hourly **Billable Rate**. Maps to Clockify's "Client" column and to invoice **Recipients** where they overlap (e.g. BANDAO, HANNAH).
+**Client** — a billable organization or person you work for and invoice. Carries a default hourly **Billable Rate** and an **Invoice Prefix**. Maps to Clockify's "Client" column and to invoice **Recipients** where they overlap (e.g. BANDAO, HANNAH).
 _Avoid_: Customer (Portfolio glossary uses this for prospects), SME Client, Recipient (invoice-side name — see Billing)
 
 **Project** — work stream under a Client (e.g. Ondojo under Bandao, Coaching under Hannah).
@@ -35,10 +35,12 @@ _Avoid_: Locked entry, frozen entry
 
 ## Billing
 
+**Invoice Prefix** — short label prepended to a prefixed **Invoice Number** (e.g. `BAN` in `BAN2026003`). Stored on the **Client**; default is derived from the **Client** `name` (not **Recipient** legal name): take the first three letters A–Z, skipping spaces, punctuation, and digits, uppercased; if fewer than three letters exist, use what's available (e.g. `AB` → `AB`). The Operator can edit and persist a different prefix (letters and digits, 1–6 characters, uppercased on save); it is saved to the **Client** when an invoice is issued. The prefixed sequence counter is per **Client** per calendar year — every issued invoice for that **Client** in the year advances the count, whether prefixed or plain. Changing the prefix mid-year continues the count (e.g. after `BAN2026002`, renaming to `BD` suggests `BD2026003`).
+
 **Recipient** — the billing identity of a **Client**: legal name + postal address printed on the invoice PDF. Not a separate entity — these are fields on the Client (nullable until the Client is first invoiced). One Client has exactly one Recipient identity.
 _Avoid_: modeling Recipient as its own table (collapsed into Client — see ADR-0002)
 
-**Invoice** — a PDF request for payment covering a **Billing Period** for one Recipient, built from grouped Time Entries (by date + description). Sequential **Invoice Number** per Recipient per calendar year. Before issue, the Operator can edit the suggested number in preview; HourDen warns if that number already exists for the Client. When the number is changed, the Operator chooses whether future invoices for that Client/year continue the original suggested sequence (count-based, e.g. 2026001 → 2026002 even after issuing 2026010) or continue from the edited number (suffix-based, e.g. 2026010 → 2026011). That choice is stored per Client per calendar year. Once **issued** it is immutable: it can be reconstructed exactly as sent and is never rewritten by later edits to a Client or Time Entry. HourDen owns only the invoices it issues; invoices predating the switch from the legacy script live in the `Outgoing/` archive.
+**Invoice** — a PDF request for payment covering a **Billing Period** for one Recipient, built from grouped Time Entries (by date + description). Each **Invoice Number** is assigned once across the whole **Workspace** (German compliance: no duplicate numbers on separate invoices). Default format is **Invoice Prefix** + calendar year + per-**Client** sequence (e.g. `BAN2026003` — Bandao's 3rd invoice in 2026), with a minimum three-digit suffix that grows beyond 999 when needed (`BAN20261000`). The Operator may turn off "Use prefix" on preview for a single issue to get a plain **Workspace**-global number instead (`2026001`, `2026002`, …); only plain-format invoices advance that counter. The **Client**'s saved prefix is unchanged. HourDen warns if a number already exists anywhere in the Workspace. When the number is changed, the Operator chooses whether future invoices continue the original suggested sequence (count-based) or from the edited number (suffix-based). That override policy is per **Client** per calendar year for prefixed numbers, and **Workspace**-wide per calendar year for plain numbers. **Voided** invoices keep their number — it is never reused. Once **issued** an invoice is immutable: it can be reconstructed exactly as sent and is never rewritten by later edits to a Client or Time Entry. HourDen owns only the invoices it issues; invoices predating the switch from the legacy script live in the `Outgoing/` archive.
 _Avoid_: Bill
 
 **Billing Period** — the date range of work included on an Invoice (typically one calendar month). On the Invoices tab, month quick controls (`< last this >`) above the date pickers set this/last calendar month or step one month from the current filter.
@@ -58,4 +60,4 @@ _Avoid_: Summary, timesheet
 >
 > **Operator**: Generate June's invoice for Bandao.
 >
-> **System**: Billing Period 01.06–30.06.2026. Client Bandao maps to Recipient BANDAO Guidance GmbH. Grouping 47 entries by date + description → Invoice 2026006, PDF to Outgoing/BANDAO/2026/.
+> **System**: Billing Period 01.06–30.06.2026. Client Bandao maps to Recipient BANDAO Guidance GmbH. Grouping 47 entries by date + description → Invoice BAN2026006, PDF to Outgoing/BANDAO/2026/.
