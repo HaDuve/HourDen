@@ -78,4 +78,19 @@ describe("migration definitions", () => {
     expect(migration?.sql).toContain("strategy text");
     expect(migration?.sql).toContain("'sequential', 'from_last'");
   });
+
+  it("adds invoice_prefix and enforces workspace-wide invoice number uniqueness", () => {
+    const migration = MIGRATIONS.find(
+      (m) => m.id === "010_workspace_invoice_numbering",
+    );
+    expect(migration).toBeDefined();
+    expect(migration?.sql).toContain("invoice_prefix");
+    expect(migration?.sql).toContain(
+      "invoices_workspace_invoice_number_unique_idx",
+    );
+    expect(migration?.sql).toContain(
+      "DROP INDEX IF EXISTS invoices_client_invoice_number_unique_idx",
+    );
+    expect(migration?.preCheck).toBeTypeOf("function");
+  });
 });

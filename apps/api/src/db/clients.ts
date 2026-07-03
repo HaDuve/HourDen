@@ -8,6 +8,7 @@ type ClientRow = {
   legal_name: string | null;
   address_line1: string | null;
   address_line2: string | null;
+  invoice_prefix: string | null;
 };
 
 function rowToClient(row: ClientRow): Client {
@@ -18,6 +19,7 @@ function rowToClient(row: ClientRow): Client {
     legalName: row.legal_name,
     addressLine1: row.address_line1,
     addressLine2: row.address_line2,
+    invoicePrefix: row.invoice_prefix,
   };
 }
 
@@ -37,7 +39,7 @@ export async function createClient(
         address_line2
       )
       VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, name, default_rate, legal_name, address_line1, address_line2
+      RETURNING id, name, default_rate, legal_name, address_line1, address_line2, invoice_prefix
     `,
     [
       workspaceId,
@@ -52,13 +54,30 @@ export async function createClient(
   return rowToClient(result.rows[0]!);
 }
 
+export async function getClientById(
+  pool: Pool,
+  workspaceId: string,
+  clientId: string,
+): Promise<Client | null> {
+  const result = await pool.query<ClientRow>(
+    `
+      SELECT id, name, default_rate, legal_name, address_line1, address_line2, invoice_prefix
+      FROM clients
+      WHERE id = $1 AND workspace_id = $2
+    `,
+    [clientId, workspaceId],
+  );
+
+  return result.rows[0] ? rowToClient(result.rows[0]) : null;
+}
+
 export async function listClients(
   pool: Pool,
   workspaceId: string,
 ): Promise<Client[]> {
   const result = await pool.query<ClientRow>(
     `
-      SELECT id, name, default_rate, legal_name, address_line1, address_line2
+      SELECT id, name, default_rate, legal_name, address_line1, address_line2, invoice_prefix
       FROM clients
       WHERE workspace_id = $1
       ORDER BY name ASC
@@ -92,7 +111,7 @@ export async function updateClient(
   if (assignments.length === 0) {
     const existing = await pool.query<ClientRow>(
       `
-        SELECT id, name, default_rate, legal_name, address_line1, address_line2
+        SELECT id, name, default_rate, legal_name, address_line1, address_line2, invoice_prefix
         FROM clients
         WHERE id = $1 AND workspace_id = $2
       `,
@@ -108,7 +127,7 @@ export async function updateClient(
       UPDATE clients
       SET ${assignments.join(", ")}
       WHERE id = $1 AND workspace_id = $2
-      RETURNING id, name, default_rate, legal_name, address_line1, address_line2
+      RETURNING id, name, default_rate, legal_name, address_line1, address_line2, invoice_prefix
     `,
     values,
   );

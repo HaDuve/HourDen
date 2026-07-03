@@ -120,7 +120,8 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", () => {
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
+      expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
       expect(screen.getByTitle(/invoice preview/i)).toBeInTheDocument();
     });
 
@@ -147,14 +148,14 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", () => {
 
     await waitFor(() => {
       expect(screen.getByText("BANDAO Guidance GmbH")).toBeInTheDocument();
-      expect(screen.getAllByText("2026001").length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText("BAN2026001").length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText("2026-06-01 – 2026-06-30")).toBeInTheDocument();
       expect(screen.getByText("60.00 EUR")).toBeInTheDocument();
     });
 
     const clickSpy2 = vi.spyOn(HTMLAnchorElement.prototype, "click");
     fireEvent.click(
-      screen.getByRole("button", { name: /download invoice 2026001/i }),
+      screen.getByRole("button", { name: /download invoice BAN2026001/i }),
     );
 
     await waitFor(() => {

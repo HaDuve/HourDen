@@ -5,6 +5,7 @@ export type Client = {
   legalName: string | null;
   addressLine1: string | null;
   addressLine2: string | null;
+  invoicePrefix: string | null;
 };
 
 export type CreateClientInput = {

@@ -5,7 +5,13 @@ import {
 } from "@hourden/domain/invoice-pdf";
 import type { InvoiceIssuanceSnapshot } from "@hourden/domain/invoice-issuance-snapshot";
 import type { GroupedReportLine, InvoiceNumberingStrategy } from "@hourden/domain";
-import { isValidInvoiceNumber } from "@hourden/domain";
+import {
+  isValidInvoiceNumber,
+  isValidInvoicePrefix,
+  isValidPrefixedInvoiceNumber,
+  isValidAnyInvoiceNumber,
+  normalizeInvoicePrefix,
+} from "@hourden/domain";
 import { Hono } from "hono";
 import type { Pool } from "pg";
 import {
@@ -15,11 +21,12 @@ import {
   getClientForInvoice,
   getIssuedInvoiceById,
   getInvoiceNumberingPreview,
-  invoiceNumberExistsForClient,
+  invoiceNumberExistsInWorkspace,
   listInvoiceableEntriesForClient,
   listIssuedInvoiceDetails,
   listIssuedInvoices,
   peekNextInvoiceNumber,
+  resolveInvoicePrefix,
   rowsToGroupedInvoiceLines,
   type IssuedInvoiceDetail,
 } from "./db/invoices.js";
@@ -40,6 +47,7 @@ type InvoiceRequestBody = {
   from?: string;
   to?: string;
   invoiceNumber?: string;
+  invoicePrefix?: string;
   numberingStrategy?: InvoiceNumberingStrategy;
 };
 
@@ -49,6 +57,7 @@ type InvoiceClient = {
   legalName: string;
   addressLine1: string;
   addressLine2: string;
+  invoicePrefix: string | null;
 };
 
 type PreparedInvoice = {
@@ -102,7 +111,7 @@ function invoiceConflictMessage(
     return "Invoice already exists for this Client and billing month";
   }
   if (reason === "duplicate_number") {
-    return "Invoice Number already exists for this Client";
+    return "Invoice Number already exists in this Workspace";
   }
   return "Invoice already exists for this Client and Billing Period";
 }
@@ -119,8 +128,28 @@ function parseNumberingStrategy(
   return "invalid";
 }
 
-function invalidInvoiceNumberMessage(year: number): string {
-  return `Invoice Number must start with ${year} followed by at least three digits`;
+function invalidInvoiceNumberMessage(
+  prefix: string,
+  year: number,
+): string {
+  return `Invoice Number must be ${prefix}${year} followed by at least three digits, or ${year} followed by at least three digits for plain format`;
+}
+
+function isValidIssuedInvoiceNumber(
+  invoiceNumber: string,
+  year: number,
+): boolean {
+  return isValidAnyInvoiceNumber(invoiceNumber, year);
+}
+
+function resolveRequestInvoicePrefix(
+  body: InvoiceRequestBody,
+  client: { name: string; invoicePrefix: string | null },
+): string {
+  if (body.invoicePrefix) {
+    return normalizeInvoicePrefix(body.invoicePrefix);
+  }
+  return resolveInvoicePrefix(client);
 }
 
 async function prepareInvoice(
@@ -214,6 +243,7 @@ async function prepareInvoice(
       legalName: client.legalName,
       addressLine1: client.addressLine1,
       addressLine2: client.addressLine2,
+      invoicePrefix: client.invoicePrefix,
     },
     range,
     lines,
@@ -346,6 +376,7 @@ export function createInvoicesRouter(pool: Pool) {
     const clientId = c.req.query("clientId");
     const invoiceNumber = c.req.query("invoiceNumber");
     const yearParam = c.req.query("year");
+    const prefixParam = c.req.query("invoicePrefix");
 
     if (!clientId || !UUID_RE.test(clientId)) {
       return c.json({ error: "clientId is required" }, 400);
@@ -358,15 +389,31 @@ export function createInvoicesRouter(pool: Pool) {
     }
 
     const year = Number(yearParam);
-    if (!isValidInvoiceNumber(invoiceNumber, year)) {
-      return c.json({ error: invalidInvoiceNumberMessage(year) }, 400);
+    const client = await getClientForInvoice(
+      pool,
+      getCurrentWorkspaceId(),
+      clientId,
+    );
+    if (!client) {
+      return c.json({ error: "Client not found" }, 404);
+    }
+
+    const prefix = prefixParam
+      ? normalizeInvoicePrefix(prefixParam)
+      : resolveInvoicePrefix(client);
+    if (!isValidInvoicePrefix(prefix)) {
+      return c.json({ error: "invoicePrefix must be 1-6 letters or digits" }, 400);
+    }
+    if (!isValidIssuedInvoiceNumber(invoiceNumber, year)) {
+      return c.json({ error: invalidInvoiceNumberMessage(prefix, year) }, 400);
     }
 
     const preview = await getInvoiceNumberingPreview(
       pool,
-      clientId,
+      client,
       year,
       invoiceNumber,
+      prefix,
     );
 
     return c.json(preview);
@@ -431,23 +478,29 @@ export function createInvoicesRouter(pool: Pool) {
       return c.json({ error: prepared.error }, prepared.status);
     }
 
+    const prefix = resolveRequestInvoicePrefix(body, prepared.client);
+    if (!isValidInvoicePrefix(prefix)) {
+      return c.json({ error: "invoicePrefix must be 1-6 letters or digits" }, 400);
+    }
+
     const suggestedInvoiceNumber = await peekNextInvoiceNumber(
       pool,
-      prepared.client.id,
+      prepared.client,
       prepared.invoiceYear,
+      prefix,
     );
 
     const invoiceNumber = body.invoiceNumber ?? suggestedInvoiceNumber;
-    if (!isValidInvoiceNumber(invoiceNumber, prepared.invoiceYear)) {
+    if (!isValidIssuedInvoiceNumber(invoiceNumber, prepared.invoiceYear)) {
       return c.json(
-        { error: invalidInvoiceNumberMessage(prepared.invoiceYear) },
+        { error: invalidInvoiceNumberMessage(prefix, prepared.invoiceYear) },
         400,
       );
     }
 
-    const numberExists = await invoiceNumberExistsForClient(
+    const numberExists = await invoiceNumberExistsInWorkspace(
       pool,
-      prepared.client.id,
+      prepared.workspaceId,
       invoiceNumber,
     );
     const pdf = await renderInvoicePdf(prepared, invoiceNumber);
@@ -458,6 +511,7 @@ export function createInvoicesRouter(pool: Pool) {
       c.header(name, value);
     }
     c.header("X-Suggested-Invoice-Number", suggestedInvoiceNumber);
+    c.header("X-Suggested-Invoice-Prefix", prefix);
     c.header("X-Invoice-Number-Exists", numberExists ? "true" : "false");
 
     return c.body(new Uint8Array(pdf), 200);
@@ -474,16 +528,24 @@ export function createInvoicesRouter(pool: Pool) {
       return c.json({ error: prepared.error }, prepared.status);
     }
 
+    const client = prepared.client;
+
+    const prefix = resolveRequestInvoicePrefix(body, client);
+    if (!isValidInvoicePrefix(prefix)) {
+      return c.json({ error: "invoicePrefix must be 1-6 letters or digits" }, 400);
+    }
+
     const suggestedInvoiceNumber = await peekNextInvoiceNumber(
       pool,
-      prepared.client.id,
+      client,
       prepared.invoiceYear,
+      prefix,
     );
     const invoiceNumber = body.invoiceNumber ?? suggestedInvoiceNumber;
 
-    if (!isValidInvoiceNumber(invoiceNumber, prepared.invoiceYear)) {
+    if (!isValidIssuedInvoiceNumber(invoiceNumber, prepared.invoiceYear)) {
       return c.json(
-        { error: invalidInvoiceNumberMessage(prepared.invoiceYear) },
+        { error: invalidInvoiceNumberMessage(prefix, prepared.invoiceYear) },
         400,
       );
     }
@@ -505,6 +567,7 @@ export function createInvoicesRouter(pool: Pool) {
     const created = await createInvoice(pool, {
       workspaceId: prepared.workspaceId,
       clientId: prepared.client.id,
+      client,
       invoiceYear: prepared.invoiceYear,
       periodStart: prepared.range.from,
       periodEnd: prepared.range.to,
@@ -515,6 +578,7 @@ export function createInvoicesRouter(pool: Pool) {
       entryIds: prepared.entryIds,
       snapshot: prepared.snapshot,
       invoiceNumber,
+      invoicePrefix: prefix,
       numberingStrategy: editedNumber ? body.numberingStrategy : undefined,
     });
 

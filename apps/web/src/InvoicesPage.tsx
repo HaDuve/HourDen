@@ -1,5 +1,5 @@
 import type { Client, InvoiceNumberingStrategy } from "@hourden/domain";
-import { isValidInvoiceNumber } from "@hourden/domain";
+import { deriveDefaultInvoicePrefix, isValidAnyInvoiceNumber } from "@hourden/domain";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DateRangeFilter } from "./DateRangeFilter.js";
 import { currentMonthRange } from "./date-range.js";
@@ -48,11 +48,13 @@ async function fetchNumberingPreview(
   clientId: string,
   invoiceNumber: string,
   year: number,
+  invoicePrefix: string,
 ): Promise<NumberingPreview> {
   const params = new URLSearchParams({
     clientId,
     invoiceNumber,
     year: String(year),
+    invoicePrefix,
   });
   const res = await fetch(`/api/invoices/numbering-preview?${params}`);
   if (!res.ok) {
@@ -103,7 +105,11 @@ export default function InvoicesPage() {
   const [previewing, setPreviewing] = useState(false);
   const [issuing, setIssuing] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null);
+  const [invoicePrefix, setInvoicePrefix] = useState<string | null>(null);
   const [suggestedInvoiceNumber, setSuggestedInvoiceNumber] = useState<
+    string | null
+  >(null);
+  const [suggestedInvoicePrefix, setSuggestedInvoicePrefix] = useState<
     string | null
   >(null);
   const [invoiceNumberExists, setInvoiceNumberExists] = useState(false);
@@ -123,6 +129,9 @@ export default function InvoicesPage() {
   const invoiceNumberDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const invoicePrefixDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   const clearPreviewBlob = useCallback(() => {
     if (previewUrlRef.current) {
@@ -135,7 +144,9 @@ export default function InvoicesPage() {
   const clearPreview = useCallback(() => {
     clearPreviewBlob();
     setInvoiceNumber(null);
+    setInvoicePrefix(null);
     setSuggestedInvoiceNumber(null);
+    setSuggestedInvoicePrefix(null);
     setInvoiceNumberExists(false);
     setNumberingPreview(null);
     setNumberingStrategy(null);
@@ -183,6 +194,9 @@ export default function InvoicesPage() {
       if (invoiceNumberDebounceRef.current) {
         clearTimeout(invoiceNumberDebounceRef.current);
       }
+      if (invoicePrefixDebounceRef.current) {
+        clearTimeout(invoicePrefixDebounceRef.current);
+      }
     };
   }, []);
 
@@ -192,7 +206,7 @@ export default function InvoicesPage() {
     invoiceNumber !== suggestedInvoiceNumber;
 
   const refreshNumberingPreview = useCallback(
-    async (nextInvoiceNumber: string) => {
+    async (nextInvoiceNumber: string, nextInvoicePrefix: string) => {
       if (!clientId || !suggestedInvoiceNumber) {
         return;
       }
@@ -207,6 +221,7 @@ export default function InvoicesPage() {
           clientId,
           nextInvoiceNumber,
           invoiceYearFromPeriodEnd(to),
+          nextInvoicePrefix,
         );
         setNumberingPreview(preview);
         setNumberingStrategy((current) => current ?? "from_last");
@@ -220,7 +235,7 @@ export default function InvoicesPage() {
   );
 
   const requestPreview = useCallback(
-    async (invoiceNumberOverride?: string) => {
+    async (options?: { invoiceNumber?: string; invoicePrefix?: string }) => {
       if (!clientId) {
         setError("Select a Client before previewing");
         return;
@@ -236,9 +251,13 @@ export default function InvoicesPage() {
           from: string;
           to: string;
           invoiceNumber?: string;
+          invoicePrefix?: string;
         } = { clientId, from, to };
-        if (invoiceNumberOverride) {
-          body.invoiceNumber = invoiceNumberOverride;
+        if (options?.invoiceNumber) {
+          body.invoiceNumber = options.invoiceNumber;
+        }
+        if (options?.invoicePrefix) {
+          body.invoicePrefix = options.invoicePrefix;
         }
 
         const res = await fetch("/api/invoices/preview", {
@@ -258,6 +277,11 @@ export default function InvoicesPage() {
 
         const nextInvoiceNumber = res.headers.get("X-Invoice-Number");
         const nextSuggested = res.headers.get("X-Suggested-Invoice-Number");
+        const nextPrefix =
+          res.headers.get("X-Suggested-Invoice-Prefix") ??
+          deriveDefaultInvoicePrefix(
+            clients.find((client) => client.id === clientId)?.name ?? "",
+          );
         const exists =
           res.headers.get("X-Invoice-Number-Exists") === "true";
 
@@ -271,15 +295,18 @@ export default function InvoicesPage() {
         previewUrlRef.current = url;
         setPreviewUrl(url);
         setInvoiceNumber(nextInvoiceNumber);
+        setInvoicePrefix(nextPrefix);
         setSuggestedInvoiceNumber(nextSuggested);
+        setSuggestedInvoicePrefix(nextPrefix);
         setInvoiceNumberExists(exists);
 
         if (
           nextInvoiceNumber &&
           nextSuggested &&
-          nextInvoiceNumber !== nextSuggested
+          nextInvoiceNumber !== nextSuggested &&
+          nextPrefix
         ) {
-          await refreshNumberingPreview(nextInvoiceNumber);
+          await refreshNumberingPreview(nextInvoiceNumber, nextPrefix);
         } else {
           setNumberingPreview(null);
           setNumberingStrategy(null);
@@ -294,7 +321,7 @@ export default function InvoicesPage() {
         }
       }
     },
-    [clientId, from, to, clearPreviewBlob, refreshNumberingPreview],
+    [clientId, clients, from, to, clearPreviewBlob, refreshNumberingPreview],
   );
 
   async function handlePreview() {
@@ -306,7 +333,7 @@ export default function InvoicesPage() {
     setNumberingStrategy(null);
 
     const invoiceYear = invoiceYearFromPeriodEnd(to);
-    const isCompleteNumber = isValidInvoiceNumber(nextValue, invoiceYear);
+    const isCompleteNumber = isValidAnyInvoiceNumber(nextValue, invoiceYear);
 
     if (!isCompleteNumber) {
       setInvoiceNumberExists(false);
@@ -322,7 +349,35 @@ export default function InvoicesPage() {
     }
 
     invoiceNumberDebounceRef.current = setTimeout(() => {
-      void requestPreview(nextValue);
+      void requestPreview({
+        invoiceNumber: nextValue,
+        invoicePrefix: invoicePrefix ?? undefined,
+      });
+    }, 300);
+  }
+
+  function handleInvoicePrefixChange(nextValue: string) {
+    const normalized = nextValue.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+    setInvoicePrefix(normalized);
+    setNumberingStrategy(null);
+    setNumberingPreview(null);
+
+    if (invoicePrefixDebounceRef.current) {
+      clearTimeout(invoicePrefixDebounceRef.current);
+    }
+
+    if (!normalized) {
+      return;
+    }
+
+    invoicePrefixDebounceRef.current = setTimeout(() => {
+      void requestPreview({
+        invoicePrefix: normalized,
+        invoiceNumber:
+          invoiceNumber && invoiceNumber !== suggestedInvoiceNumber
+            ? invoiceNumber
+            : undefined,
+      });
     }, 300);
   }
 
@@ -349,8 +404,12 @@ export default function InvoicesPage() {
         from: string;
         to: string;
         invoiceNumber: string;
+        invoicePrefix?: string;
         numberingStrategy?: InvoiceNumberingStrategy;
       } = { clientId, from, to, invoiceNumber };
+      if (invoicePrefix) {
+        body.invoicePrefix = invoicePrefix;
+      }
       if (invoiceNumberEdited && numberingStrategy) {
         body.numberingStrategy = numberingStrategy;
       }
@@ -372,6 +431,7 @@ export default function InvoicesPage() {
       setInvoiceNumber(res.headers.get("X-Invoice-Number"));
       clearPreviewBlob();
       setSuggestedInvoiceNumber(null);
+      setSuggestedInvoicePrefix(null);
       setInvoiceNumberExists(false);
       setNumberingPreview(null);
       setNumberingStrategy(null);
@@ -509,6 +569,18 @@ export default function InvoicesPage() {
       {invoiceNumber ? (
         <div className="mb-4 space-y-3">
           <label className="flex max-w-xs flex-col gap-1 text-sm text-neutral-700">
+            Invoice Prefix
+            <input
+              type="text"
+              aria-label="Invoice Prefix"
+              value={invoicePrefix ?? ""}
+              onChange={(e) => handleInvoicePrefixChange(e.target.value)}
+              disabled={previewing || issuing}
+              className="rounded-md border border-neutral-300 px-3 py-2 font-medium uppercase text-neutral-900"
+            />
+          </label>
+
+          <label className="flex max-w-xs flex-col gap-1 text-sm text-neutral-700">
             Invoice Number
             <input
               type="text"
@@ -521,7 +593,7 @@ export default function InvoicesPage() {
 
           {invoiceNumberExists ? (
             <p className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              Invoice Number already exists for this Client.
+              Invoice Number already exists in this Workspace.
             </p>
           ) : null}
 

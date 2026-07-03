@@ -1,7 +1,7 @@
 import type { CreateClientInput, UpdateClientInput } from "@hourden/domain";
 import { Hono } from "hono";
 import type { Pool } from "pg";
-import { createClient, deleteClient, listClients, updateClient } from "./db/clients.js";
+import { createClient, deleteClient, getClientById, listClients, updateClient } from "./db/clients.js";
 import { getCurrentWorkspaceId } from "./workspace.js";
 
 async function readJsonBody<T>(
@@ -42,6 +42,20 @@ export function createClientsRouter(pool: Pool) {
     });
 
     return c.json(client, 201);
+  });
+
+  router.get("/:id", async (c) => {
+    const client = await getClientById(
+      pool,
+      getCurrentWorkspaceId(),
+      c.req.param("id"),
+    );
+
+    if (!client) {
+      return c.json({ error: "Client not found" }, 404);
+    }
+
+    return c.json(client);
   });
 
   router.patch("/:id", async (c) => {

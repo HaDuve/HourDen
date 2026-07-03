@@ -9,6 +9,7 @@ const bandaoClient = {
   legalName: "BANDAO Guidance GmbH",
   addressLine1: "Schloßbergstraße 1",
   addressLine2: "82319 Starnberg",
+  invoicePrefix: null,
 };
 
 const clientWithoutRecipient = {
@@ -18,6 +19,7 @@ const clientWithoutRecipient = {
   legalName: null,
   addressLine1: null,
   addressLine2: null,
+  invoicePrefix: null,
 };
 
 function emptyInvoicesListResponse() {
@@ -74,13 +76,14 @@ function clientsFetchMock(clients: unknown[]) {
   });
 }
 
-function previewPdfResponse(invoiceNumber: string) {
+function previewPdfResponse(invoiceNumber: string, invoicePrefix = "BAN") {
   return new Response(new Blob(["%PDF-preview"], { type: "application/pdf" }), {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
       "X-Invoice-Number": invoiceNumber,
       "X-Suggested-Invoice-Number": invoiceNumber,
+      "X-Suggested-Invoice-Prefix": invoicePrefix,
       "X-Invoice-Number-Exists": "false",
     },
   });
@@ -93,7 +96,7 @@ function issuePdfResponse(invoiceNumber: string) {
       "Content-Type": "application/pdf",
       "X-Invoice-Number": invoiceNumber,
       "Content-Disposition":
-        'attachment; filename="2026001_30_06_26_Invoice_Hannes_Duve_BANDAO.pdf"',
+        'attachment; filename="BAN2026001_30_06_26_Invoice_Hannes_Duve_BANDAO.pdf"',
     },
   });
 }
@@ -180,7 +183,7 @@ describe("InvoicesPage", () => {
   it("shows an inline error when issue fails because there are no billable entries", async () => {
     const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
       if (url === "/api/invoices/preview" && init?.method === "POST") {
-        return Promise.resolve(previewPdfResponse("2026001"));
+        return Promise.resolve(previewPdfResponse("BAN2026001"));
       }
       if (url === "/api/invoices" && init?.method === "POST") {
         return Promise.resolve({
@@ -203,7 +206,8 @@ describe("InvoicesPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
     await waitFor(() => {
-      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
+      expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
@@ -220,7 +224,7 @@ describe("InvoicesPage", () => {
       "fetch",
       createInvoicesPageFetchMock([bandaoClient], (url, init) => {
         if (url === "/api/invoices/preview" && init?.method === "POST") {
-          return Promise.resolve(previewPdfResponse("2026001"));
+          return Promise.resolve(previewPdfResponse("BAN2026001"));
         }
         if (url === "/api/invoices" && init?.method === "POST") {
           return Promise.resolve(
@@ -242,7 +246,8 @@ describe("InvoicesPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
     await waitFor(() => {
-      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
+      expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
@@ -259,7 +264,7 @@ describe("InvoicesPage", () => {
       "fetch",
       createInvoicesPageFetchMock([bandaoClient], (url, init) => {
         if (url === "/api/invoices/preview" && init?.method === "POST") {
-          return Promise.resolve(previewPdfResponse("2026001"));
+          return Promise.resolve(previewPdfResponse("BAN2026001"));
         }
         if (url === "/api/invoices" && init?.method === "POST") {
           return Promise.resolve(
@@ -281,7 +286,8 @@ describe("InvoicesPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
     await waitFor(() => {
-      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
+      expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
@@ -296,7 +302,7 @@ describe("InvoicesPage", () => {
   it("previews the invoice PDF and shows the next Invoice Number without issuing", async () => {
     const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
       if (url === "/api/invoices/preview" && init?.method === "POST") {
-        return Promise.resolve(previewPdfResponse("2026001"));
+        return Promise.resolve(previewPdfResponse("BAN2026001"));
       }
       return undefined;
     });
@@ -309,7 +315,8 @@ describe("InvoicesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
+      expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
       expect(screen.getByTitle(/invoice preview/i)).toHaveAttribute("src", "blob:test");
     });
 
@@ -335,7 +342,7 @@ describe("InvoicesPage", () => {
       "fetch",
       createInvoicesPageFetchMock([bandaoClient], (url, init) => {
         if (url === "/api/invoices/preview" && init?.method === "POST") {
-          return Promise.resolve(previewPdfResponse("2026001"));
+          return Promise.resolve(previewPdfResponse("BAN2026001"));
         }
         return undefined;
       }),
@@ -357,10 +364,10 @@ describe("InvoicesPage", () => {
   it("issues the invoice and downloads the PDF", async () => {
     const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
       if (url === "/api/invoices/preview" && init?.method === "POST") {
-        return Promise.resolve(previewPdfResponse("2026001"));
+        return Promise.resolve(previewPdfResponse("BAN2026001"));
       }
       if (url === "/api/invoices" && init?.method === "POST") {
-        return Promise.resolve(issuePdfResponse("2026001"));
+        return Promise.resolve(issuePdfResponse("BAN2026001"));
       }
       return undefined;
     });
@@ -373,7 +380,8 @@ describe("InvoicesPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
     await waitFor(() => {
-      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
+      expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
@@ -387,7 +395,8 @@ describe("InvoicesPage", () => {
             clientId: bandaoClient.id,
             from: currentMonthRange().from,
             to: currentMonthRange().to,
-            invoiceNumber: "2026001",
+            invoiceNumber: "BAN2026001",
+            invoicePrefix: "BAN",
           }),
         }),
       );
@@ -396,7 +405,8 @@ describe("InvoicesPage", () => {
 
     await waitFor(() => {
       expect(screen.queryByTitle(/invoice preview/i)).not.toBeInTheDocument();
-      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
+      expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
     });
 
     clickSpy.mockRestore();
@@ -406,7 +416,7 @@ describe("InvoicesPage", () => {
     const issuedInvoice = {
       id: "inv-00000000-0000-4000-8000-000000000001",
       recipient: "BANDAO Guidance GmbH",
-      invoiceNumber: "2026001",
+      invoiceNumber: "BAN2026001",
       periodStart: "2026-06-01",
       periodEnd: "2026-06-30",
       totalAmount: 60,
@@ -426,7 +436,7 @@ describe("InvoicesPage", () => {
             headers: {
               "Content-Type": "application/pdf",
               "Content-Disposition":
-                'attachment; filename="2026001_30_06_26_Invoice_Hannes_Duve_BANDAO.pdf"',
+                'attachment; filename="BAN2026001_30_06_26_Invoice_Hannes_Duve_BANDAO.pdf"',
             },
           }),
         );
@@ -440,14 +450,14 @@ describe("InvoicesPage", () => {
 
     await waitFor(() => {
       expect(screen.getByText("BANDAO Guidance GmbH")).toBeInTheDocument();
-      expect(screen.getByText("2026001")).toBeInTheDocument();
+      expect(screen.getByText("BAN2026001")).toBeInTheDocument();
       expect(screen.getByText("2026-06-01 – 2026-06-30")).toBeInTheDocument();
       expect(screen.getByText("60.00 EUR")).toBeInTheDocument();
     });
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: /download invoice 2026001/i,
+        name: /download invoice BAN2026001/i,
       }),
     );
 
@@ -505,14 +515,14 @@ describe("InvoicesPage", () => {
     const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
       if (url === "/api/invoices/preview" && init?.method === "POST") {
         const body = JSON.parse(init.body as string) as { invoiceNumber?: string };
-        const number = body.invoiceNumber ?? "2026001";
+        const number = body.invoiceNumber ?? "BAN2026001";
         return Promise.resolve(
           new Response(new Blob(["%PDF-preview"], { type: "application/pdf" }), {
             status: 200,
             headers: {
               "Content-Type": "application/pdf",
               "X-Invoice-Number": number,
-              "X-Suggested-Invoice-Number": "2026001",
+              "X-Suggested-Invoice-Number": "BAN2026001",
               "X-Invoice-Number-Exists": "false",
             },
           }),
@@ -528,7 +538,8 @@ describe("InvoicesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
+      expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
     });
 
     const previewCallsBeforeEdit = fetchMock.mock.calls.filter(
@@ -554,14 +565,14 @@ describe("InvoicesPage", () => {
     const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
       if (url === "/api/invoices/preview" && init?.method === "POST") {
         const body = JSON.parse(init.body as string) as { invoiceNumber?: string };
-        const number = body.invoiceNumber ?? "2026001";
+        const number = body.invoiceNumber ?? "BAN2026001";
         return Promise.resolve(
           new Response(new Blob(["%PDF-preview"], { type: "application/pdf" }), {
             status: 200,
             headers: {
               "Content-Type": "application/pdf",
               "X-Invoice-Number": number,
-              "X-Suggested-Invoice-Number": "2026001",
+              "X-Suggested-Invoice-Number": "BAN2026001",
               "X-Invoice-Number-Exists": "false",
             },
           }),
@@ -572,8 +583,8 @@ describe("InvoicesPage", () => {
           ok: true,
           json: async () => ({
             exists: false,
-            suggestedNumber: "2026001",
-            nextIfIssued: { sequential: "2026002", fromLast: "2026011" },
+            suggestedNumber: "BAN2026001",
+            nextIfIssued: { sequential: "BAN2026002", fromLast: "BAN2026001" },
           }),
         });
       }
@@ -587,7 +598,8 @@ describe("InvoicesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
+      expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
     });
 
     fireEvent.change(screen.getByLabelText(/^invoice number$/i), {
@@ -604,6 +616,7 @@ describe("InvoicesPage", () => {
             from: currentMonthRange().from,
             to: currentMonthRange().to,
             invoiceNumber: "2026010",
+            invoicePrefix: "BAN",
           }),
         }),
       );
@@ -620,7 +633,7 @@ describe("InvoicesPage", () => {
             headers: {
               "Content-Type": "application/pdf",
               "X-Invoice-Number": "2026010",
-              "X-Suggested-Invoice-Number": "2026001",
+              "X-Suggested-Invoice-Number": "BAN2026001",
               "X-Invoice-Number-Exists": "true",
             },
           }),
@@ -637,7 +650,7 @@ describe("InvoicesPage", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(/invoice number already exists for this client/i),
+        screen.getByText(/invoice number already exists in this workspace/i),
       ).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeDisabled();
     });
@@ -647,14 +660,14 @@ describe("InvoicesPage", () => {
     const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
       if (url === "/api/invoices/preview" && init?.method === "POST") {
         const body = JSON.parse(init.body as string) as { invoiceNumber?: string };
-        const number = body.invoiceNumber ?? "2026001";
+        const number = body.invoiceNumber ?? "BAN2026001";
         return Promise.resolve(
           new Response(new Blob(["%PDF-preview"], { type: "application/pdf" }), {
             status: 200,
             headers: {
               "Content-Type": "application/pdf",
               "X-Invoice-Number": number,
-              "X-Suggested-Invoice-Number": "2026001",
+              "X-Suggested-Invoice-Number": "BAN2026001",
               "X-Invoice-Number-Exists": "false",
             },
           }),
@@ -665,8 +678,8 @@ describe("InvoicesPage", () => {
           ok: true,
           json: async () => ({
             exists: false,
-            suggestedNumber: "2026001",
-            nextIfIssued: { sequential: "2026002", fromLast: "2026011" },
+            suggestedNumber: "BAN2026001",
+            nextIfIssued: { sequential: "BAN2026002", fromLast: "BAN2026001" },
           }),
         });
       }
@@ -680,7 +693,8 @@ describe("InvoicesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
+      expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
     });
 
     fireEvent.change(screen.getByLabelText(/^invoice number$/i), {
@@ -691,9 +705,9 @@ describe("InvoicesPage", () => {
       expect(
         screen.getByText(/continue suggested sequence/i),
       ).toBeInTheDocument();
-      expect(screen.getByText(/next: 2026002/i)).toBeInTheDocument();
+      expect(screen.getByText(/next: BAN2026002/i)).toBeInTheDocument();
       expect(screen.getByText(/continue from this number/i)).toBeInTheDocument();
-      expect(screen.getByText(/next: 2026011/i)).toBeInTheDocument();
+      expect(screen.getByText(/next: BAN2026001/i)).toBeInTheDocument();
     });
   });
 
@@ -701,14 +715,14 @@ describe("InvoicesPage", () => {
     const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
       if (url === "/api/invoices/preview" && init?.method === "POST") {
         const body = JSON.parse(init.body as string) as { invoiceNumber?: string };
-        const number = body.invoiceNumber ?? "2026001";
+        const number = body.invoiceNumber ?? "BAN2026001";
         return Promise.resolve(
           new Response(new Blob(["%PDF-preview"], { type: "application/pdf" }), {
             status: 200,
             headers: {
               "Content-Type": "application/pdf",
               "X-Invoice-Number": number,
-              "X-Suggested-Invoice-Number": "2026001",
+              "X-Suggested-Invoice-Number": "BAN2026001",
               "X-Invoice-Number-Exists": "false",
             },
           }),
@@ -719,8 +733,8 @@ describe("InvoicesPage", () => {
           ok: true,
           json: async () => ({
             exists: false,
-            suggestedNumber: "2026001",
-            nextIfIssued: { sequential: "2026002", fromLast: "2026011" },
+            suggestedNumber: "BAN2026001",
+            nextIfIssued: { sequential: "BAN2026002", fromLast: "BAN2026001" },
           }),
         });
       }
@@ -738,7 +752,8 @@ describe("InvoicesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
+      expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
     });
 
     fireEvent.change(screen.getByLabelText(/^invoice number$/i), {
@@ -762,6 +777,7 @@ describe("InvoicesPage", () => {
             from: currentMonthRange().from,
             to: currentMonthRange().to,
             invoiceNumber: "2026010",
+            invoicePrefix: "BAN",
             numberingStrategy: "from_last",
           }),
         }),
