@@ -1,7 +1,7 @@
 import "./test/load-env.js";
 
 import { Pool } from "pg";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../../api/src/app.js";
 import { runMigrations } from "../../api/src/db/migrate.js";
@@ -51,6 +51,16 @@ describe.skipIf(!databaseUrl)("App with live API", () => {
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
       expect(screen.getByText(/no time logged today yet/i)).toBeInTheDocument();
+    });
+  });
+
+  it("navigates to the Invoices page", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /^invoices$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /^invoices$/i })).toBeInTheDocument();
     });
   });
 });
