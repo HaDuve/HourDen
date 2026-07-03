@@ -179,12 +179,15 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", () => {
     fireEvent.change(screen.getByLabelText(/^client$/i), {
       target: { value: bandao.id },
     });
-    fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
+    expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
 
     await waitFor(() => {
       expect(
         screen.getByText(/no billable time entries in this billing period/i),
       ).toBeInTheDocument();
     });
+    expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeDisabled();
   });
 });

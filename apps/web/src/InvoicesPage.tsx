@@ -59,14 +59,18 @@ export default function InvoicesPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const previewUrlRef = useRef<string | null>(null);
 
-  const clearPreview = useCallback(() => {
+  const clearPreviewBlob = useCallback(() => {
     if (previewUrlRef.current) {
       URL.revokeObjectURL(previewUrlRef.current);
       previewUrlRef.current = null;
     }
     setPreviewUrl(null);
-    setInvoiceNumber(null);
   }, []);
+
+  const clearPreview = useCallback(() => {
+    clearPreviewBlob();
+    setInvoiceNumber(null);
+  }, [clearPreviewBlob]);
 
   const loadClients = useCallback(async () => {
     setLoading(true);
@@ -159,6 +163,7 @@ export default function InvoicesPage() {
       const disposition = res.headers.get("Content-Disposition") ?? "";
       downloadPdfBlob(blob, disposition);
       setInvoiceNumber(res.headers.get("X-Invoice-Number"));
+      clearPreviewBlob();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to issue invoice");
     } finally {
@@ -182,7 +187,7 @@ export default function InvoicesPage() {
           <button
             type="button"
             onClick={() => void handleIssue()}
-            disabled={previewing || issuing || loading || !clientId}
+            disabled={previewing || issuing || loading || !clientId || !previewUrl}
             className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
           >
             {issuing ? "Issuing…" : "Issue Invoice"}

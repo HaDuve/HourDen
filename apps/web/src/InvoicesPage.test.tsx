@@ -132,11 +132,39 @@ describe("InvoicesPage", () => {
   });
 
   it("shows an inline error when issue fails because there are no billable entries", async () => {
-    vi.stubGlobal("fetch", clientsFetchMock([bandaoClient]));
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/clients") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ clients: [bandaoClient] }),
+        });
+      }
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        return Promise.resolve(previewPdfResponse("2026001"));
+      }
+      if (url === "/api/invoices" && init?.method === "POST") {
+        return Promise.resolve({
+          ok: false,
+          status: 400,
+          json: async () => ({
+            error: "No billable Time Entries in this Billing Period",
+          }),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
 
     render(<InvoicesPage />);
 
     await waitForClientReady("Bandao", bandaoClient.id);
+
+    expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitFor(() => {
+      expect(screen.getByText("2026001")).toBeInTheDocument();
+    });
 
     fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
 
@@ -276,6 +304,36 @@ describe("InvoicesPage", () => {
     );
   });
 
+  it("keeps Issue Invoice disabled until preview succeeds for the current selection", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+        if (url === "/api/clients") {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ clients: [bandaoClient] }),
+          });
+        }
+        if (url === "/api/invoices/preview" && init?.method === "POST") {
+          return Promise.resolve(previewPdfResponse("2026001"));
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      }),
+    );
+
+    render(<InvoicesPage />);
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+
+    expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeEnabled();
+    });
+  });
+
   it("issues the invoice and downloads the PDF", async () => {
     const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
       if (url === "/api/clients") {
@@ -319,6 +377,11 @@ describe("InvoicesPage", () => {
         }),
       );
       expect(clickSpy).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTitle(/invoice preview/i)).not.toBeInTheDocument();
+      expect(screen.getByText("2026001")).toBeInTheDocument();
     });
 
     clickSpy.mockRestore();
