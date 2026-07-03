@@ -407,16 +407,6 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
   });
 
   it("lists today's entries for the today view", async () => {
-    await app.request("/api/time-entries", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        startedAt: "2026-07-02T10:00:00.000Z",
-        endedAt: "2026-07-02T11:00:00.000Z",
-        description: "Morning work",
-      }),
-    });
-
     const running = await (
       await app.request("/api/time-entries/timer", {
         method: "POST",
@@ -425,7 +415,19 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
       })
     ).json();
 
-    const listRes = await app.request("/api/time-entries?date=2026-07-02");
+    const date = running.startedAt.slice(0, 10);
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        startedAt: `${date}T10:00:00.000Z`,
+        endedAt: `${date}T11:00:00.000Z`,
+        description: "Morning work",
+      }),
+    });
+
+    const listRes = await app.request(`/api/time-entries?date=${date}`);
     expect(listRes.status).toBe(200);
     const { entries } = await listRes.json();
 

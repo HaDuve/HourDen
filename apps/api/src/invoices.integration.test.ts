@@ -9,6 +9,14 @@ import { runMigrations } from "./db/migrate.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 
+function expectedInvoiceOperator() {
+  return {
+    ...DEFAULT_INVOICE_OPERATOR,
+    name: process.env.HOURDEN_OPERATOR_NAME ?? DEFAULT_INVOICE_OPERATOR.name,
+    email: process.env.HOURDEN_OPERATOR_EMAIL ?? DEFAULT_INVOICE_OPERATOR.email,
+  };
+}
+
 async function pdfText(body: ArrayBuffer): Promise<string> {
   const parser = new PDFParse({ data: Buffer.from(body) });
   const result = await parser.getText();
@@ -429,7 +437,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
         addressLine1: "Schloßbergstraße 1",
         addressLine2: "82319 Starnberg",
       },
-      operator: DEFAULT_INVOICE_OPERATOR,
+      operator: expectedInvoiceOperator(),
       lines: [
         {
           date: "2026-06-18",

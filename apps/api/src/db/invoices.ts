@@ -62,11 +62,11 @@ function mapInvoiceInsertError(error: unknown): CreateInvoiceResult | "throw" {
 }
 
 async function listInvoiceNumbersForClientYear(
-  client: PoolClient,
+  executor: Pool | PoolClient,
   clientId: string,
   year: number,
 ): Promise<string[]> {
-  const result = await client.query<{ invoice_number: string }>(
+  const result = await executor.query<{ invoice_number: string }>(
     `
       SELECT invoice_number
       FROM invoices
@@ -84,20 +84,13 @@ export async function peekNextInvoiceNumber(
   clientId: string,
   year: number,
 ): Promise<string> {
-  const result = await pool.query<{ invoice_number: string }>(
-    `
-      SELECT invoice_number
-      FROM invoices
-      WHERE client_id = $1 AND invoice_number LIKE $2
-      ORDER BY invoice_number ASC
-    `,
-    [clientId, `${year}%`],
-  );
-
-  return nextInvoiceNumber(
-    result.rows.map((row) => row.invoice_number),
+  const existingNumbers = await listInvoiceNumbersForClientYear(
+    pool,
+    clientId,
     year,
   );
+
+  return nextInvoiceNumber(existingNumbers, year);
 }
 
 export async function getClientForInvoice(
