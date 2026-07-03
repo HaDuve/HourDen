@@ -121,11 +121,11 @@ export async function peekNextInvoiceNumber(
 }
 
 export async function getInvoiceNumberingStrategy(
-  pool: Pool,
+  executor: Pool | PoolClient,
   clientId: string,
   year: number,
 ): Promise<InvoiceNumberingStrategy> {
-  const result = await pool.query<{ strategy: InvoiceNumberingStrategy }>(
+  const result = await executor.query<{ strategy: InvoiceNumberingStrategy }>(
     `
       SELECT strategy
       FROM client_invoice_numbering
