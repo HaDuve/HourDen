@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import InvoicesPage from "./InvoicesPage.js";
 
@@ -121,6 +121,10 @@ describe("InvoicesPage", () => {
   beforeEach(() => {
     URL.createObjectURL = vi.fn(() => "blob:test") as typeof URL.createObjectURL;
     URL.revokeObjectURL = vi.fn() as typeof URL.revokeObjectURL;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("sets the Billing Period to last month when the last month quick control is clicked", async () => {

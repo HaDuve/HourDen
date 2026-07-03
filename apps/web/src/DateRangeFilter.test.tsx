@@ -1,8 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { DateRangeFilter } from "./DateRangeFilter.js";
 
 describe("DateRangeFilter", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("renders from/to date inputs and month quick controls", () => {
     render(
       <DateRangeFilter
