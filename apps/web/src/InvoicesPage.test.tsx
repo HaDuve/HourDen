@@ -827,4 +827,72 @@ describe("InvoicesPage", () => {
 
     clickSpy.mockRestore();
   });
+
+  it("calls numbering-preview with usePrefix=false when editing a plain Invoice Number", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        const body = JSON.parse(init.body as string) as {
+          invoiceNumber?: string;
+          usePrefix?: boolean;
+        };
+        const usePrefix = body.usePrefix !== false;
+        const number = body.invoiceNumber ?? (usePrefix ? "BAN2026001" : "2026001");
+        return Promise.resolve(
+          new Response(new Blob(["%PDF-preview"], { type: "application/pdf" }), {
+            status: 200,
+            headers: {
+              "Content-Type": "application/pdf",
+              "X-Invoice-Number": number,
+              "X-Suggested-Invoice-Number": usePrefix ? "BAN2026001" : "2026001",
+              "X-Invoice-Number-Exists": "false",
+            },
+          }),
+        );
+      }
+      if (url.startsWith("/api/invoices/numbering-preview")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            exists: false,
+            suggestedNumber: "2026001",
+            nextIfIssued: { sequential: "2026002", fromLast: "2026011" },
+          }),
+        });
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<InvoicesPage />);
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
+    });
+
+    fireEvent.click(screen.getByLabelText(/^use prefix$/i));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
+    });
+
+    fireEvent.change(screen.getByLabelText(/^invoice number$/i), {
+      target: { value: "2026010" },
+    });
+
+    await waitFor(() => {
+      const numberingPreviewCalls = fetchMock.mock.calls.filter(([url]) =>
+        String(url).includes("/api/invoices/numbering-preview"),
+      );
+      expect(numberingPreviewCalls).toHaveLength(1);
+      expect(numberingPreviewCalls[0]![0]).toMatch(/usePrefix=false/);
+      expect(
+        screen.getByText(/future plain invoices in this workspace for/i),
+      ).toBeInTheDocument();
+      expect(screen.getByText(/next: 2026002/i)).toBeInTheDocument();
+      expect(screen.getByText(/next: 2026011/i)).toBeInTheDocument();
+    });
+  });
 });

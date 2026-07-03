@@ -649,7 +649,9 @@ export default function InvoicesPage() {
           {invoiceNumberEdited && numberingPreview ? (
             <fieldset className="rounded-md border border-neutral-200 bg-neutral-50 px-4 py-3">
               <legend className="px-1 text-sm font-medium text-neutral-900">
-                Future invoices for this Client in {invoiceYearFromPeriodEnd(to)}
+                {usePrefix
+                  ? `Future invoices for this Client in ${invoiceYearFromPeriodEnd(to)}`
+                  : `Future plain invoices in this Workspace for ${invoiceYearFromPeriodEnd(to)}`}
               </legend>
               <div className="mt-2 space-y-2 text-sm text-neutral-700">
                 <label className="flex cursor-pointer items-start gap-2">
