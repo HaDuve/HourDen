@@ -1,9 +1,56 @@
 import { describe, expect, it } from "vitest";
 import {
+  deriveDefaultInvoicePrefix,
   invoiceNumberExists,
   nextInvoiceNumber,
+  nextPrefixedInvoiceNumber,
   previewNextInvoiceNumbers,
 } from "./invoice-number.js";
+
+describe("deriveDefaultInvoicePrefix", () => {
+  it("takes the first three letters from the Client name, uppercased", () => {
+    expect(deriveDefaultInvoicePrefix("Bandao")).toBe("BAN");
+    expect(deriveDefaultInvoicePrefix("Hannah")).toBe("HAN");
+  });
+
+  it("skips spaces, punctuation, and digits", () => {
+    expect(deriveDefaultInvoicePrefix("123 Bandao")).toBe("BAN");
+    expect(deriveDefaultInvoicePrefix("A&B Co")).toBe("ABC");
+  });
+
+  it("uses available letters when the name has fewer than three", () => {
+    expect(deriveDefaultInvoicePrefix("AB")).toBe("AB");
+  });
+});
+
+describe("nextPrefixedInvoiceNumber", () => {
+  it("returns PREFIX+YYYY001 when no invoices exist for the Client year", () => {
+    expect(nextPrefixedInvoiceNumber([], "BAN", 2026)).toBe("BAN2026001");
+  });
+
+  it("increments the per-Client per-year counter", () => {
+    expect(
+      nextPrefixedInvoiceNumber(["BAN2026001", "BAN2026002"], "BAN", 2026),
+    ).toBe("BAN2026003");
+  });
+
+  it("counts plain-format invoices toward the same Client year counter", () => {
+    expect(nextPrefixedInvoiceNumber(["2026001"], "BAN", 2026)).toBe(
+      "BAN2026002",
+    );
+  });
+
+  it("continues from the highest suffix when strategy is from_last", () => {
+    expect(
+      nextPrefixedInvoiceNumber(
+        ["BAN2026001", "BAN2026010"],
+        "BAN",
+        2026,
+        "from_last",
+      ),
+    ).toBe("BAN2026011");
+  });
+});
 
 describe("nextInvoiceNumber", () => {
   it("returns YYYY001 when no invoices exist for the year", () => {

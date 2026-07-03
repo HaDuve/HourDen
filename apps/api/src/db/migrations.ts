@@ -1,6 +1,13 @@
 import { DEFAULT_WORKSPACE_ID } from "@hourden/domain";
+import type { Pool } from "pg";
 
-export const MIGRATIONS = [
+export type Migration = {
+  id: string;
+  sql: string;
+  preCheck?: (pool: Pool) => Promise<void>;
+};
+
+export const MIGRATIONS: Migration[] = [
   {
     id: "001_workspaces",
     sql: `
@@ -141,6 +148,35 @@ export const MIGRATIONS = [
         updated_at timestamptz NOT NULL DEFAULT now(),
         PRIMARY KEY (client_id, invoice_year)
       );
+    `,
+  },
+  {
+    id: "010_workspace_invoice_numbering",
+    preCheck: async (pool) => {
+      const result = await pool.query<{ invoice_number: string }>(
+        `
+          SELECT invoice_number
+          FROM invoices
+          GROUP BY workspace_id, invoice_number
+          HAVING count(*) > 1
+          LIMIT 1
+        `,
+      );
+
+      if (result.rows.length > 0) {
+        throw new Error(
+          `Migration 010 aborted: duplicate invoice_number "${result.rows[0]!.invoice_number}" exists within a Workspace. Resolve cross-Client duplicates before migrating.`,
+        );
+      }
+    },
+    sql: `
+      ALTER TABLE clients
+        ADD COLUMN IF NOT EXISTS invoice_prefix text;
+
+      DROP INDEX IF EXISTS invoices_client_invoice_number_unique_idx;
+
+      CREATE UNIQUE INDEX IF NOT EXISTS invoices_workspace_invoice_number_unique_idx
+        ON invoices (workspace_id, invoice_number);
     `,
   },
 ] as const;

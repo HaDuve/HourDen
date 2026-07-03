@@ -27,6 +27,15 @@ export {
   buildClientReport,
 } from "./report.js";
 export {
+  deriveDefaultInvoicePrefix,
+  normalizeInvoicePrefix,
+  isValidInvoicePrefix,
+  buildPrefixedInvoiceNumber,
+  parsePrefixedInvoiceNumber,
+  isValidPrefixedInvoiceNumber,
+  isValidAnyInvoiceNumber,
+  nextPrefixedInvoiceNumber,
+  previewNextPrefixedInvoiceNumbers,
   nextInvoiceNumber,
   previewNextInvoiceNumbers,
   invoiceNumberExists,
