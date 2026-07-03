@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import InvoicesPage from "./InvoicesPage.js";
 
 const bandaoClient = {
@@ -107,8 +107,11 @@ function currentMonthRange(): { from: string; to: string } {
 
 async function waitForClientReady(clientName: string, clientId: string) {
   await waitFor(() => {
-    expect(screen.getByRole("option", { name: clientName })).toBeInTheDocument();
-    expect(screen.getByLabelText(/^client$/i)).toHaveValue(clientId);
+    const clientSelect = screen.getByLabelText(/^client$/i);
+    expect(
+      within(clientSelect).getByRole("option", { name: clientName }),
+    ).toBeInTheDocument();
+    expect(clientSelect).toHaveValue(clientId);
   });
 }
 
@@ -125,8 +128,11 @@ describe("InvoicesPage", () => {
     render(<InvoicesPage />);
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/^client$/i)).toBeInTheDocument();
-      expect(screen.getByRole("option", { name: "Bandao" })).toBeInTheDocument();
+      const clientSelect = screen.getByLabelText(/^client$/i);
+      expect(clientSelect).toBeInTheDocument();
+      expect(
+        within(clientSelect).getByRole("option", { name: "Bandao" }),
+      ).toBeInTheDocument();
     });
 
     expect(screen.getByLabelText(/^from$/i)).toHaveValue(expectedRange.from);
@@ -424,6 +430,48 @@ describe("InvoicesPage", () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(`/api/invoices/${issuedInvoice.id}/pdf`);
+      expect(clickSpy).toHaveBeenCalled();
+    });
+
+    clickSpy.mockRestore();
+  });
+
+  it("exports Outgoing.zip with optional client and year filters", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url) => {
+      if (url.startsWith("/api/invoices/export.zip")) {
+        return Promise.resolve(
+          new Response(new Blob(["PK"], { type: "application/zip" }), {
+            status: 200,
+            headers: {
+              "Content-Type": "application/zip",
+              "Content-Disposition": 'attachment; filename="Outgoing.zip"',
+            },
+          }),
+        );
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click");
+
+    render(<InvoicesPage />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/export client/i)).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText(/export client/i), {
+      target: { value: bandaoClient.id },
+    });
+    fireEvent.change(screen.getByLabelText(/export year/i), {
+      target: { value: "2026" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /export outgoing\.zip/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/invoices/export.zip?client=${bandaoClient.id}&year=2026`,
+      );
       expect(clickSpy).toHaveBeenCalled();
     });
 

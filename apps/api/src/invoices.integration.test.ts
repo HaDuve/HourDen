@@ -1,3 +1,4 @@
+import JSZip from "jszip";
 import { PDFParse } from "pdf-parse";
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -803,6 +804,247 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
 
     const pdf = await app.request(`/api/invoices/${invoiceId}/pdf`);
     expect(pdf.status).toBe(404);
+  });
+
+  it("exports issued invoices as Outgoing.zip with recipient/year tree layout", async () => {
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const ondojo = await createProject(app, bandao.id, "Ondojo");
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "Billable work",
+        startedAt: "2026-06-18T10:00:00.000Z",
+        endedAt: "2026-06-18T11:00:00.000Z",
+      }),
+    });
+
+    await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+
+    const res = await app.request("/api/invoices/export.zip");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("application/zip");
+    expect(res.headers.get("content-disposition")).toContain('filename="Outgoing.zip"');
+
+    const zip = await JSZip.loadAsync(await res.arrayBuffer());
+    const paths = Object.keys(zip.files).filter((path) => !zip.files[path]!.dir);
+    expect(paths).toEqual([
+      "BANDAO/2026/2026001_30_06_26_Invoice_Hannes_Duve_BANDAO.pdf",
+    ]);
+
+    const pdf = await zip.file(paths[0]!)!.async("nodebuffer");
+    expect(pdf.subarray(0, 4).toString()).toBe("%PDF");
+
+    const text = await pdfText(
+      pdf.buffer.slice(pdf.byteOffset, pdf.byteOffset + pdf.byteLength) as ArrayBuffer,
+    );
+    expect(text).toContain("BANDAO Guidance GmbH");
+  });
+
+  it("filters export.zip by client and year query parameters", async () => {
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const acme = await createClient(app, {
+      name: "Acme Corp",
+      legalName: "Acme Corporation",
+      addressLine1: "Main Street 1",
+      addressLine2: "10115 Berlin",
+    });
+    const bandaoProject = await createProject(app, bandao.id, "Ondojo");
+    const acmeProject = await createProject(app, acme.id, "Website");
+
+    const createEntry = (
+      projectId: string,
+      startedAt: string,
+      endedAt: string,
+    ) =>
+      app.request("/api/time-entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          description: "Billable work",
+          startedAt,
+          endedAt,
+        }),
+      });
+
+    await createEntry(
+      bandaoProject.id,
+      "2026-05-01T10:00:00.000Z",
+      "2026-05-01T11:00:00.000Z",
+    );
+    await createEntry(
+      bandaoProject.id,
+      "2026-06-01T10:00:00.000Z",
+      "2026-06-01T11:00:00.000Z",
+    );
+    await createEntry(
+      acmeProject.id,
+      "2026-06-01T10:00:00.000Z",
+      "2026-06-01T11:00:00.000Z",
+    );
+
+    await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-05-01",
+        to: "2026-05-31",
+      }),
+    });
+    await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+    await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: acme.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+
+    const clientFiltered = await app.request(
+      `/api/invoices/export.zip?client=${bandao.id}`,
+    );
+    const clientZip = await JSZip.loadAsync(await clientFiltered.arrayBuffer());
+    const clientPaths = Object.keys(clientZip.files).filter(
+      (path) => !clientZip.files[path]!.dir,
+    );
+    expect(clientPaths).toEqual([
+      "BANDAO/2026/2026001_31_05_26_Invoice_Hannes_Duve_BANDAO.pdf",
+      "BANDAO/2026/2026002_30_06_26_Invoice_Hannes_Duve_BANDAO.pdf",
+    ]);
+
+    const yearFiltered = await app.request("/api/invoices/export.zip?year=2026");
+    const yearZip = await JSZip.loadAsync(await yearFiltered.arrayBuffer());
+    const yearPaths = Object.keys(yearZip.files).filter(
+      (path) => !yearZip.files[path]!.dir,
+    );
+    expect(yearPaths).toHaveLength(3);
+    expect(yearPaths).toContain(
+      "ACMECORP/2026/2026001_30_06_26_Invoice_Hannes_Duve_ACMECORP.pdf",
+    );
+
+    const bothFiltered = await app.request(
+      `/api/invoices/export.zip?client=${acme.id}&year=2026`,
+    );
+    const bothZip = await JSZip.loadAsync(await bothFiltered.arrayBuffer());
+    const bothPaths = Object.keys(bothZip.files).filter(
+      (path) => !bothZip.files[path]!.dir,
+    );
+    expect(bothPaths).toEqual([
+      "ACMECORP/2026/2026001_30_06_26_Invoice_Hannes_Duve_ACMECORP.pdf",
+    ]);
+  });
+
+  it("rejects invalid export.zip query filters with 400", async () => {
+    const invalidYear = await app.request("/api/invoices/export.zip?year=abc");
+    expect(invalidYear.status).toBe(400);
+    expect(await invalidYear.json()).toEqual({
+      error: "year must be a four-digit calendar year",
+    });
+
+    const invalidClient = await app.request(
+      "/api/invoices/export.zip?client=not-a-uuid",
+    );
+    expect(invalidClient.status).toBe(400);
+    expect(await invalidClient.json()).toEqual({
+      error: "client must be a valid client id",
+    });
+  });
+
+  it("excludes voided and missing-snapshot invoices from export.zip", async () => {
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const ondojo = await createProject(app, bandao.id, "Ondojo");
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "Billable work",
+        startedAt: "2026-06-18T10:00:00.000Z",
+        endedAt: "2026-06-18T11:00:00.000Z",
+      }),
+    });
+
+    await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+
+    const issuedExport = await app.request("/api/invoices/export.zip");
+    const issuedZip = await JSZip.loadAsync(await issuedExport.arrayBuffer());
+    expect(
+      Object.keys(issuedZip.files).filter((path) => !issuedZip.files[path]!.dir),
+    ).toHaveLength(1);
+
+    const row = await pool.query<{ id: string }>("SELECT id FROM invoices LIMIT 1");
+    const invoiceId = row.rows[0]!.id;
+
+    await pool.query("UPDATE invoices SET status = 'voided' WHERE id = $1", [
+      invoiceId,
+    ]);
+
+    const voidedExport = await app.request("/api/invoices/export.zip");
+    const voidedZip = await JSZip.loadAsync(await voidedExport.arrayBuffer());
+    expect(
+      Object.keys(voidedZip.files).filter((path) => !voidedZip.files[path]!.dir),
+    ).toHaveLength(0);
+
+    await pool.query(
+      "UPDATE invoices SET status = 'issued', snapshot = NULL WHERE id = $1",
+      [invoiceId],
+    );
+
+    const missingSnapshotExport = await app.request("/api/invoices/export.zip");
+    const missingSnapshotZip = await JSZip.loadAsync(
+      await missingSnapshotExport.arrayBuffer(),
+    );
+    expect(
+      Object.keys(missingSnapshotZip.files).filter(
+        (path) => !missingSnapshotZip.files[path]!.dir,
+      ),
+    ).toHaveLength(0);
   });
 
   it("excludes Invoices with a missing snapshot from the list and PDF reconstruction", async () => {
