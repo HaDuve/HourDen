@@ -28,6 +28,12 @@ function mockAppFetch() {
         json: async () => ({ clients: [] }),
       });
     }
+    if (url === "/api/invoices") {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ invoices: [] }),
+      });
+    }
     return Promise.resolve({
       ok: true,
       json: async () => ({}),

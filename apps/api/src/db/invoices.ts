@@ -24,6 +24,29 @@ export type InvoiceRow = {
   period_end: string;
 };
 
+export type IssuedInvoiceDetail = {
+  id: string;
+  clientId: string;
+  clientName: string;
+  invoiceNumber: string;
+  periodStart: string;
+  periodEnd: string;
+  invoiceDate: string;
+  dueDate: string;
+  totalAmount: number;
+  snapshot: InvoiceIssuanceSnapshot;
+  status: string;
+};
+
+export type IssuedInvoiceListItem = {
+  id: string;
+  recipient: string;
+  invoiceNumber: string;
+  periodStart: string;
+  periodEnd: string;
+  totalAmount: number;
+};
+
 export type CreateInvoiceResult =
   | InvoiceRow
   | "duplicate_period"
@@ -327,4 +350,103 @@ export async function createInvoice(
   } finally {
     client.release();
   }
+}
+
+type IssuedInvoiceDbRow = {
+  id: string;
+  client_id: string;
+  client_name: string;
+  invoice_number: string;
+  period_start: string;
+  period_end: string;
+  invoice_date: string;
+  due_date: string;
+  total_amount: string;
+  snapshot: InvoiceIssuanceSnapshot;
+  status: string;
+};
+
+function mapIssuedInvoiceDetail(row: IssuedInvoiceDbRow): IssuedInvoiceDetail {
+  return {
+    id: row.id,
+    clientId: row.client_id,
+    clientName: row.client_name,
+    invoiceNumber: row.invoice_number,
+    periodStart: row.period_start,
+    periodEnd: row.period_end,
+    invoiceDate: row.invoice_date,
+    dueDate: row.due_date,
+    totalAmount: Number(row.total_amount),
+    snapshot: row.snapshot,
+    status: row.status,
+  };
+}
+
+export async function getIssuedInvoiceById(
+  pool: Pool,
+  workspaceId: string,
+  invoiceId: string,
+): Promise<IssuedInvoiceDetail | null> {
+  const result = await pool.query<IssuedInvoiceDbRow>(
+    `
+      SELECT
+        i.id,
+        i.client_id,
+        c.name AS client_name,
+        i.invoice_number,
+        i.period_start::text,
+        i.period_end::text,
+        i.invoice_date::text,
+        i.due_date::text,
+        i.total_amount::text,
+        i.snapshot,
+        i.status
+      FROM invoices i
+      INNER JOIN clients c ON c.id = i.client_id
+      WHERE i.id = $1 AND i.workspace_id = $2 AND i.status = 'issued' AND i.snapshot IS NOT NULL
+    `,
+    [invoiceId, workspaceId],
+  );
+
+  const row = result.rows[0];
+  if (!row) return null;
+
+  return mapIssuedInvoiceDetail(row);
+}
+
+export async function listIssuedInvoices(
+  pool: Pool,
+  workspaceId: string,
+): Promise<IssuedInvoiceListItem[]> {
+  const result = await pool.query<{
+    id: string;
+    invoice_number: string;
+    period_start: string;
+    period_end: string;
+    total_amount: string;
+    snapshot: InvoiceIssuanceSnapshot;
+  }>(
+    `
+      SELECT
+        i.id,
+        i.invoice_number,
+        i.period_start::text,
+        i.period_end::text,
+        i.total_amount::text,
+        i.snapshot
+      FROM invoices i
+      WHERE i.workspace_id = $1 AND i.status = 'issued' AND i.snapshot IS NOT NULL
+      ORDER BY i.invoice_date DESC, i.invoice_number DESC
+    `,
+    [workspaceId],
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    recipient: row.snapshot.recipient.legalName,
+    invoiceNumber: row.invoice_number,
+    periodStart: row.period_start,
+    periodEnd: row.period_end,
+    totalAmount: Number(row.total_amount),
+  }));
 }

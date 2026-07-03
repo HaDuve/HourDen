@@ -12,9 +12,12 @@ import {
   findInvoiceForBillingMonth,
   findInvoiceForPeriod,
   getClientForInvoice,
+  getIssuedInvoiceById,
   listInvoiceableEntriesForClient,
+  listIssuedInvoices,
   peekNextInvoiceNumber,
   rowsToGroupedInvoiceLines,
+  type IssuedInvoiceDetail,
 } from "./db/invoices.js";
 import { reportTimeZone } from "./db/reports.js";
 import { getCurrentWorkspaceId } from "./workspace.js";
@@ -226,9 +229,41 @@ async function renderInvoicePdf(
     periodEnd: prepared.range.to,
     dueDate: prepared.dueDate,
     recipient: prepared.snapshot.recipient,
-    lines: prepared.lines,
-    operator: prepared.operator,
+    lines: prepared.snapshot.lines,
+    operator: prepared.snapshot.operator,
   });
+}
+
+async function renderInvoicePdfFromSnapshot(
+  invoice: IssuedInvoiceDetail,
+): Promise<Buffer> {
+  return generateInvoicePdf({
+    invoiceNumber: invoice.invoiceNumber,
+    invoiceDate: invoice.invoiceDate,
+    periodStart: invoice.periodStart,
+    periodEnd: invoice.periodEnd,
+    dueDate: invoice.dueDate,
+    recipient: invoice.snapshot.recipient,
+    lines: invoice.snapshot.lines,
+    operator: invoice.snapshot.operator,
+  });
+}
+
+function invoicePdfHeadersFromSnapshot(
+  invoice: IssuedInvoiceDetail,
+): Record<string, string> {
+  const recipientCode = invoiceRecipientCode(invoice.clientName);
+  const filename = invoiceFilename(
+    invoice.invoiceNumber,
+    invoice.periodEnd,
+    recipientCode,
+  );
+
+  return {
+    "Content-Type": "application/pdf",
+    "Content-Disposition": `attachment; filename="${filename}"`,
+    "X-Invoice-Number": invoice.invoiceNumber,
+  };
 }
 
 function invoicePdfHeaders(
@@ -261,6 +296,32 @@ async function parseInvoiceBody(
 
 export function createInvoicesRouter(pool: Pool) {
   const router = new Hono();
+
+  router.get("/", async (c) => {
+    const invoices = await listIssuedInvoices(pool, getCurrentWorkspaceId());
+    return c.json({ invoices });
+  });
+
+  router.get("/:id/pdf", async (c) => {
+    const invoice = await getIssuedInvoiceById(
+      pool,
+      getCurrentWorkspaceId(),
+      c.req.param("id"),
+    );
+    if (!invoice) {
+      return c.json({ error: "Invoice not found" }, 404);
+    }
+
+    const pdf = await renderInvoicePdfFromSnapshot(invoice);
+
+    for (const [name, value] of Object.entries(
+      invoicePdfHeadersFromSnapshot(invoice),
+    )) {
+      c.header(name, value);
+    }
+
+    return c.body(new Uint8Array(pdf), 200);
+  });
 
   router.post("/preview", async (c) => {
     const body = await parseInvoiceBody(c);

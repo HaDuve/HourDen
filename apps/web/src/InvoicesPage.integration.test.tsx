@@ -139,6 +139,23 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", () => {
 
     const invoices = await pool.query("SELECT id FROM invoices");
     expect(invoices.rows).toHaveLength(1);
+
+    await waitFor(() => {
+      expect(screen.getByText("BANDAO Guidance GmbH")).toBeInTheDocument();
+      expect(screen.getAllByText("2026001").length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText("2026-06-01 – 2026-06-30")).toBeInTheDocument();
+      expect(screen.getByText("60.00 EUR")).toBeInTheDocument();
+    });
+
+    const clickSpy2 = vi.spyOn(HTMLAnchorElement.prototype, "click");
+    fireEvent.click(
+      screen.getByRole("button", { name: /download invoice 2026001/i }),
+    );
+
+    await waitFor(() => {
+      expect(clickSpy2).toHaveBeenCalled();
+    });
+    clickSpy2.mockRestore();
   });
 
   it("shows an inline error when Recipient fields are missing", async () => {
