@@ -600,6 +600,12 @@ export function createInvoicesRouter(pool: Pool) {
         409,
       );
     }
+    if (created === "invalid_prefix") {
+      return c.json(
+        { error: "invoicePrefix must be 1-6 letters or digits" },
+        400,
+      );
+    }
 
     const pdf = await renderInvoicePdf(prepared, created.invoice_number);
 

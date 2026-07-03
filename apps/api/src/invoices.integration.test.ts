@@ -1258,6 +1258,42 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     });
   });
 
+  it("rejects preview when the Client name yields no valid Invoice Prefix", async () => {
+    const numeric = await createClient(app, {
+      name: "123",
+      legalName: "Numeric Corp",
+      addressLine1: "Main Street 1",
+      addressLine2: "10115 Berlin",
+    });
+    const project = await createProject(app, numeric.id, "Work");
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: project.id,
+        description: "Billable work",
+        startedAt: "2026-06-18T10:00:00.000Z",
+        endedAt: "2026-06-18T11:00:00.000Z",
+      }),
+    });
+
+    const preview = await app.request("/api/invoices/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: numeric.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+
+    expect(preview.status).toBe(400);
+    expect(await preview.json()).toEqual({
+      error: "invoicePrefix must be 1-6 letters or digits",
+    });
+  });
+
   it("suggests prefixed Invoice Numbers per Client (Bandao BAN, Hannah HAN)", async () => {
     const bandao = await createClient(app, {
       name: "Bandao",

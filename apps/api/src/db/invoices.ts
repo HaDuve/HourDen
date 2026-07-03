@@ -57,7 +57,8 @@ export type CreateInvoiceResult =
   | InvoiceRow
   | "duplicate_period"
   | "duplicate_number"
-  | "duplicate_month";
+  | "duplicate_month"
+  | "invalid_prefix";
 
 function durationMinutes(startedAt: Date, endedAt: Date): number {
   return Math.max(
@@ -190,22 +191,6 @@ export async function invoiceNumberExistsInWorkspace(
   );
 
   return result.rows.length > 0;
-}
-
-/** @deprecated use invoiceNumberExistsInWorkspace */
-export async function invoiceNumberExistsForClient(
-  pool: Pool,
-  clientId: string,
-  invoiceNumber: string,
-): Promise<boolean> {
-  const year = Number(invoiceNumber.slice(0, 4));
-  const existingNumbers = await listInvoiceNumbersForClientYear(
-    pool,
-    clientId,
-    year,
-  );
-
-  return invoiceNumberExists(existingNumbers, invoiceNumber);
 }
 
 export async function getInvoiceNumberingPreview(
@@ -422,7 +407,7 @@ export async function createInvoice(
 
     if (!isValidInvoicePrefix(prefix)) {
       await client.query("ROLLBACK");
-      return "duplicate_period";
+      return "invalid_prefix";
     }
 
     const { year, month } = billingMonthKey(input.periodEnd);
