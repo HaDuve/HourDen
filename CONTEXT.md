@@ -43,7 +43,7 @@ _Avoid_: Bill
 
 **Billing Period** — the date range of work included on an Invoice (typically one calendar month).
 
-**Report** — a date-range view of Time Entries grouped by Client with duration and amount totals, used to review before invoicing. Can be exported as a Clockify-compatible CSV (full Clockify column set) that the existing `generate_invoice.py` consumes unchanged.
+**Report** — a date-range view of Time Entries grouped by Client with duration and amount totals, used to review before invoicing. Can be exported as a Clockify-compatible CSV (full Clockify column set) that the existing `generate_invoice.py` consumes unchanged. Month quick controls (`< last this >`) above the date pickers set this/last calendar month or step one month from the current filter.
 _Avoid_: Summary, timesheet
 
 ## Flagged ambiguities

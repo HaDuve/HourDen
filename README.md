@@ -210,7 +210,7 @@ curl -f -X POST http://localhost:3001/api/invoices \
   --output invoice.pdf
 ```
 
-The Client must have Recipient fields (`legalName`, `addressLine1`, `addressLine2`) set. Covered Time Entries in the Billing Period are marked **Invoiced** (read-only). One invoice per Client per billing month (calendar month of `to`).
+The Client must have Recipient fields (`legalName`, `addressLine1`, `addressLine2`) set. Covered Time Entries in the Billing Period are marked **Invoiced** (read-only). One invoice per Client per billing month (calendar month of `to`). On the **Invoices** tab, the Billing Period date pickers share the same month quick controls as Report (`< last this >`).
 
 ### Local smoke test
 
@@ -224,7 +224,7 @@ Compares the generated PDF layout against golden text snapshots. Use `UPDATE_SNA
 
 ### Report + CSV export (legacy path)
 
-- **Report** tab: pick a date range, review Time Entries grouped by Client (lines merged by date + description).
+- **Report** tab: pick a date range, review Time Entries grouped by Client (lines merged by date + description). Quick controls above the date pickers set **this month** or **last month**, or step one calendar month backward/forward from the current filter (`< last this >`).
 - **Export CSV**: downloads the full Clockify column set for the selected range — still consumable by `generate_invoice.py` if needed.
 
 ### HITL: compare against Python PDF

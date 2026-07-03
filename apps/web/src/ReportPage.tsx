@@ -1,24 +1,14 @@
 import type { ClientReport } from "@hourden/domain";
 import { formatDurationHMM } from "@hourden/domain";
 import { useCallback, useEffect, useState } from "react";
+import { DateRangeFilter } from "./DateRangeFilter.js";
+import { currentMonthRange } from "./date-range.js";
 
 type ReportResponse = {
   from: string;
   to: string;
   clients: ClientReport[];
 };
-
-function formatDateInput(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
-function currentMonthRange(): { from: string; to: string } {
-  const now = new Date();
-  const from = new Date(now.getFullYear(), now.getMonth(), 1);
-  const to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  return { from: formatDateInput(from), to: formatDateInput(to) };
-}
 
 function formatDisplayDate(isoDate: string): string {
   const [year, month, day] = isoDate.split("-");
@@ -108,25 +98,15 @@ export default function ReportPage() {
         </button>
       </div>
 
-      <div className="mb-6 flex flex-wrap gap-4">
-        <label className="flex flex-col gap-1 text-sm text-neutral-700">
-          From
-          <input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="rounded-md border border-neutral-300 px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm text-neutral-700">
-          To
-          <input
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="rounded-md border border-neutral-300 px-3 py-2"
-          />
-        </label>
+      <div className="mb-6">
+        <DateRangeFilter
+          from={from}
+          to={to}
+          onChange={({ from: nextFrom, to: nextTo }) => {
+            setFrom(nextFrom);
+            setTo(nextTo);
+          }}
+        />
       </div>
 
       {error ? (
