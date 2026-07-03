@@ -28,6 +28,12 @@ function clientsFetchMock(clients: unknown[]) {
         json: async () => ({ clients }),
       });
     }
+    if (url === "/api/invoices" && !init?.method) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ invoices: [] }),
+      });
+    }
     if (url === "/api/invoices/preview" && init?.method === "POST") {
       return Promise.resolve({
         ok: false,
@@ -97,9 +103,20 @@ describe("InvoicesPage", () => {
   it("loads Clients into a select and defaults the Billing Period to the current month", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ clients: [bandaoClient] }),
+      vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+        if (url === "/api/clients") {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ clients: [bandaoClient] }),
+          });
+        }
+        if (url === "/api/invoices" && !init?.method) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ invoices: [] }),
+          });
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
       }),
     );
 
@@ -382,6 +399,69 @@ describe("InvoicesPage", () => {
     await waitFor(() => {
       expect(screen.queryByTitle(/invoice preview/i)).not.toBeInTheDocument();
       expect(screen.getByText("2026001")).toBeInTheDocument();
+    });
+
+    clickSpy.mockRestore();
+  });
+
+  it("lists issued invoices and re-downloads a PDF", async () => {
+    const issuedInvoice = {
+      id: "inv-00000000-0000-4000-8000-000000000001",
+      recipient: "BANDAO Guidance GmbH",
+      invoiceNumber: "2026001",
+      periodStart: "2026-06-01",
+      periodEnd: "2026-06-30",
+      totalAmount: 60,
+    };
+
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/clients") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ clients: [bandaoClient] }),
+        });
+      }
+      if (url === "/api/invoices" && !init?.method) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ invoices: [issuedInvoice] }),
+        });
+      }
+      if (url === `/api/invoices/${issuedInvoice.id}/pdf`) {
+        return Promise.resolve(
+          new Response(new Blob(["%PDF-reconstructed"], { type: "application/pdf" }), {
+            status: 200,
+            headers: {
+              "Content-Type": "application/pdf",
+              "Content-Disposition":
+                'attachment; filename="2026001_30_06_26_Invoice_Hannes_Duve_BANDAO.pdf"',
+            },
+          }),
+        );
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click");
+
+    render(<InvoicesPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("BANDAO Guidance GmbH")).toBeInTheDocument();
+      expect(screen.getByText("2026001")).toBeInTheDocument();
+      expect(screen.getByText("2026-06-01 – 2026-06-30")).toBeInTheDocument();
+      expect(screen.getByText("60.00 EUR")).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /download invoice 2026001/i,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(`/api/invoices/${issuedInvoice.id}/pdf`);
+      expect(clickSpy).toHaveBeenCalled();
     });
 
     clickSpy.mockRestore();

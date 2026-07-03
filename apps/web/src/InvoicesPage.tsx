@@ -1,6 +1,15 @@
 import type { Client } from "@hourden/domain";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+type IssuedInvoice = {
+  id: string;
+  recipient: string;
+  invoiceNumber: string;
+  periodStart: string;
+  periodEnd: string;
+  totalAmount: number;
+};
+
 function formatDateInput(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
@@ -20,6 +29,23 @@ async function fetchClients(): Promise<Client[]> {
   }
   const data = (await res.json()) as { clients: Client[] };
   return data.clients;
+}
+
+async function fetchIssuedInvoices(): Promise<IssuedInvoice[]> {
+  const res = await fetch("/api/invoices");
+  if (!res.ok) {
+    throw new Error(`Failed to load invoices (${res.status})`);
+  }
+  const data = (await res.json()) as { invoices?: IssuedInvoice[] };
+  return data.invoices ?? [];
+}
+
+function formatAmount(amount: number): string {
+  return `${amount.toFixed(2)} EUR`;
+}
+
+function formatBillingPeriod(periodStart: string, periodEnd: string): string {
+  return `${periodStart} – ${periodEnd}`;
 }
 
 async function readApiError(res: Response): Promise<string> {
@@ -57,6 +83,8 @@ export default function InvoicesPage() {
   const [issuing, setIssuing] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [issuedInvoices, setIssuedInvoices] = useState<IssuedInvoice[]>([]);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const previewUrlRef = useRef<string | null>(null);
 
   const clearPreviewBlob = useCallback(() => {
@@ -72,6 +100,15 @@ export default function InvoicesPage() {
     setInvoiceNumber(null);
   }, [clearPreviewBlob]);
 
+  const loadIssuedInvoices = useCallback(async () => {
+    try {
+      const invoices = await fetchIssuedInvoices();
+      setIssuedInvoices(invoices);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load invoices");
+    }
+  }, []);
+
   const loadClients = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -81,12 +118,13 @@ export default function InvoicesPage() {
       if (loaded.length > 0) {
         setClientId((current) => current || loaded[0]!.id);
       }
+      await loadIssuedInvoices();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load clients");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadIssuedInvoices]);
 
   useEffect(() => {
     void loadClients();
@@ -164,10 +202,32 @@ export default function InvoicesPage() {
       downloadPdfBlob(blob, disposition);
       setInvoiceNumber(res.headers.get("X-Invoice-Number"));
       clearPreviewBlob();
+      await loadIssuedInvoices();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to issue invoice");
     } finally {
       setIssuing(false);
+    }
+  }
+
+  async function handleDownloadIssued(invoice: IssuedInvoice) {
+    setDownloadingId(invoice.id);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/invoices/${invoice.id}/pdf`);
+      if (!res.ok) {
+        setError(await readApiError(res));
+        return;
+      }
+
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") ?? "";
+      downloadPdfBlob(blob, disposition);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to download invoice");
+    } finally {
+      setDownloadingId(null);
     }
   }
 
@@ -254,6 +314,54 @@ export default function InvoicesPage() {
           className="h-[70vh] w-full rounded-md border border-neutral-200"
         />
       ) : null}
+
+      <section className="mt-10">
+        <h2 className="mb-4 text-lg font-medium text-slate-900">Issued Invoices</h2>
+        {issuedInvoices.length === 0 ? (
+          <p className="text-sm text-neutral-600">No issued invoices yet.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-md border border-neutral-200">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-neutral-50 text-neutral-700">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Recipient</th>
+                  <th className="px-4 py-3 font-medium">Invoice Number</th>
+                  <th className="px-4 py-3 font-medium">Billing Period</th>
+                  <th className="px-4 py-3 font-medium">Total</th>
+                  <th className="px-4 py-3 font-medium">
+                    <span className="sr-only">Download</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {issuedInvoices.map((invoice) => (
+                  <tr key={invoice.id} className="border-t border-neutral-200">
+                    <td className="px-4 py-3 text-neutral-900">{invoice.recipient}</td>
+                    <td className="px-4 py-3 text-neutral-900">{invoice.invoiceNumber}</td>
+                    <td className="px-4 py-3 text-neutral-700">
+                      {formatBillingPeriod(invoice.periodStart, invoice.periodEnd)}
+                    </td>
+                    <td className="px-4 py-3 text-neutral-700">
+                      {formatAmount(invoice.totalAmount)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => void handleDownloadIssued(invoice)}
+                        disabled={downloadingId === invoice.id}
+                        aria-label={`Download invoice ${invoice.invoiceNumber}`}
+                        className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
+                      >
+                        {downloadingId === invoice.id ? "Downloading…" : "Download"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </main>
   );
 }
