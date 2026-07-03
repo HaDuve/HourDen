@@ -1589,6 +1589,121 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     );
   });
 
+  it("rejects workspace-wide duplicate plain Invoice Numbers across Clients", async () => {
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const hannah = await createClient(app, {
+      name: "Hannah",
+      legalName: "Hannah Coaching",
+      addressLine1: "Main Street 1",
+      addressLine2: "10115 Berlin",
+    });
+    const bandaoProject = await createProject(app, bandao.id, "Ondojo");
+    const hannahProject = await createProject(app, hannah.id, "Coaching");
+
+    const createEntry = (projectId: string, from: string, to: string) =>
+      app.request("/api/time-entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          description: "Work",
+          startedAt: `${from}T10:00:00.000Z`,
+          endedAt: `${to}T11:00:00.000Z`,
+        }),
+      });
+
+    await createEntry(bandaoProject.id, "2026-06-01", "2026-06-01");
+    await createEntry(hannahProject.id, "2026-07-01", "2026-07-01");
+
+    const bandaoPlain = await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+        usePrefix: false,
+      }),
+    });
+    expect(bandaoPlain.status).toBe(201);
+    expect(bandaoPlain.headers.get("x-invoice-number")).toBe("2026001");
+
+    const hannahDuplicate = await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: hannah.id,
+        from: "2026-07-01",
+        to: "2026-07-31",
+        usePrefix: false,
+        invoiceNumber: "2026001",
+        numberingStrategy: "sequential",
+      }),
+    });
+
+    expect(hannahDuplicate.status).toBe(409);
+    expect(await hannahDuplicate.json()).toEqual({
+      error: "Invoice Number already exists in this Workspace",
+    });
+  });
+
+  it("returns plain numbering previews when usePrefix is false", async () => {
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const hannah = await createClient(app, {
+      name: "Hannah",
+      legalName: "Hannah Coaching",
+      addressLine1: "Main Street 1",
+      addressLine2: "10115 Berlin",
+    });
+    const bandaoProject = await createProject(app, bandao.id, "Ondojo");
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: bandaoProject.id,
+        description: "Work",
+        startedAt: "2026-06-01T10:00:00.000Z",
+        endedAt: "2026-06-01T11:00:00.000Z",
+      }),
+    });
+
+    await app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+        usePrefix: false,
+      }),
+    });
+
+    const res = await app.request(
+      `/api/invoices/numbering-preview?clientId=${hannah.id}&invoiceNumber=2026010&year=2026&usePrefix=false`,
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      exists: false,
+      suggestedNumber: "2026002",
+      nextIfIssued: {
+        sequential: "2026003",
+        fromLast: "2026011",
+      },
+    });
+  });
+
   it("persists Invoice Prefix to the Client on issue", async () => {
     const bandao = await createClient(app, {
       name: "Bandao",
