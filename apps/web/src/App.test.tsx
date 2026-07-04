@@ -188,6 +188,44 @@ describe("App", () => {
     expect(within(menu).getByRole("menuitem", { name: /^log out$/i })).toBeInTheDocument();
   });
 
+  it("closes the desktop overflow menu on outside click", async () => {
+    mockDesktopViewport();
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    renderApp("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^more$/i }));
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByRole("heading", { name: /today/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    });
+  });
+
+  it("closes the desktop overflow menu on Escape", async () => {
+    mockDesktopViewport();
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    renderApp("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^more$/i }));
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
   it("highlights the active primary route on desktop", async () => {
     mockDesktopViewport();
     vi.stubGlobal("fetch", mockAppFetch());
@@ -199,8 +237,35 @@ describe("App", () => {
     });
 
     const primaryNav = screen.getByRole("navigation", { name: /primary/i });
-    expect(within(primaryNav).getByRole("link", { name: /^invoices$/i })).toHaveClass("bg-slate-900");
-    expect(within(primaryNav).getByRole("link", { name: /^today$/i })).not.toHaveClass("bg-slate-900");
+    expect(within(primaryNav).getByRole("link", { name: /^invoices$/i })).toHaveAttribute("aria-current", "page");
+    expect(within(primaryNav).getByRole("link", { name: /^today$/i })).not.toHaveAttribute("aria-current", "page");
+  });
+
+  it("logs out from the desktop overflow menu", async () => {
+    mockDesktopViewport();
+    const fetchMock = mockAppFetch();
+    vi.stubGlobal("fetch", fetchMock);
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { href: "http://localhost/" },
+      writable: true,
+    });
+
+    renderApp("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^more$/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /^log out$/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/auth/logout",
+        expect.objectContaining({ method: "POST", credentials: "include" }),
+      );
+    });
   });
 
   it("navigates to Clients from the desktop overflow menu", async () => {
@@ -257,6 +322,24 @@ describe("App", () => {
     expect(within(sheet).getByRole("link", { name: /^report$/i })).toBeInTheDocument();
     expect(within(sheet).getByRole("link", { name: /^import$/i })).toBeInTheDocument();
     expect(within(sheet).getByRole("button", { name: /^log out$/i })).toBeInTheDocument();
+  });
+
+  it("toggles the mobile More sheet closed when More is clicked again", async () => {
+    mockMobileViewport();
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    renderApp("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+    });
+
+    const moreButton = screen.getByRole("button", { name: /^more$/i });
+    fireEvent.click(moreButton);
+    expect(screen.getByRole("dialog", { name: /more destinations/i })).toBeInTheDocument();
+
+    fireEvent.click(moreButton);
+    expect(screen.queryByRole("dialog", { name: /more destinations/i })).not.toBeInTheDocument();
   });
 
   it("navigates to Report from the mobile More sheet", async () => {

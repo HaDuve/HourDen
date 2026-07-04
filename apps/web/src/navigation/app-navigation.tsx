@@ -1,9 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { navLinkClass } from "./nav-link-class.js";
 import { TodayNavLink } from "./today-nav-link.js";
-import { DESKTOP_MEDIA_QUERY } from "./media-query.js";
-import { useMediaQuery } from "./use-media-query.js";
 
 const secondaryDestinations = [
   { to: "clients", label: "Clients" },
@@ -13,11 +11,39 @@ const secondaryDestinations = [
 ] as const;
 
 type AppNavigationProps = {
+  isDesktop: boolean;
   onLogout: () => void;
 };
 
-function DesktopNavigation({ onLogout }: AppNavigationProps) {
+function DesktopNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isMoreOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (moreMenuRef.current?.contains(event.target as Node)) {
+        return;
+      }
+      setIsMoreOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsMoreOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isMoreOpen]);
 
   return (
     <nav aria-label="Primary navigation" className="border-b border-neutral-200 bg-white">
@@ -27,7 +53,7 @@ function DesktopNavigation({ onLogout }: AppNavigationProps) {
           <NavLink to="invoices" className={navLinkClass}>
             Invoices
           </NavLink>
-          <div className="relative">
+          <div className="relative" ref={moreMenuRef}>
             <button
               type="button"
               aria-expanded={isMoreOpen}
@@ -77,7 +103,7 @@ function DesktopNavigation({ onLogout }: AppNavigationProps) {
   );
 }
 
-function MobileNavigation({ onLogout }: AppNavigationProps) {
+function MobileNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   return (
@@ -99,7 +125,7 @@ function MobileNavigation({ onLogout }: AppNavigationProps) {
             <button
               type="button"
               aria-expanded={isMoreOpen}
-              onClick={() => setIsMoreOpen(true)}
+              onClick={() => setIsMoreOpen((open) => !open)}
               className="rounded-md px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
             >
               More
@@ -162,8 +188,6 @@ function MobileNavigation({ onLogout }: AppNavigationProps) {
   );
 }
 
-export default function AppNavigation({ onLogout }: AppNavigationProps) {
-  const isDesktop = useMediaQuery(DESKTOP_MEDIA_QUERY);
-
+export default function AppNavigation({ isDesktop, onLogout }: AppNavigationProps) {
   return isDesktop ? <DesktopNavigation onLogout={onLogout} /> : <MobileNavigation onLogout={onLogout} />;
 }
