@@ -1,7 +1,11 @@
-export const WORKSPACE_EVENTS = ["timer-changed", "today-changed"] as const;
-export type WorkspaceEvent = (typeof WORKSPACE_EVENTS)[number];
+import {
+  WORKSPACE_EVENTS,
+  type WorkspaceEvent,
+} from "@hourden/domain";
 
-type Subscriber = (event: WorkspaceEvent) => void;
+export { WORKSPACE_EVENTS, type WorkspaceEvent };
+
+type Subscriber = (event: WorkspaceEvent) => void | Promise<void>;
 
 const subscribersByWorkspace = new Map<string, Set<Subscriber>>();
 
@@ -15,6 +19,17 @@ function getSubscribers(workspaceId: string): Set<Subscriber> {
     subscribersByWorkspace.set(workspaceId, subscribers);
   }
   return subscribers;
+}
+
+function notifySubscriber(onEvent: Subscriber, event: WorkspaceEvent): void {
+  try {
+    const result = onEvent(event);
+    if (result instanceof Promise) {
+      void result.catch(() => {});
+    }
+  } catch {
+    // Keep fan-out going when one subscriber fails.
+  }
 }
 
 export function subscribe(
@@ -42,6 +57,6 @@ export function publishWorkspaceEvent(
   }
 
   for (const onEvent of subscribers) {
-    onEvent(event);
+    notifySubscriber(onEvent, event);
   }
 }

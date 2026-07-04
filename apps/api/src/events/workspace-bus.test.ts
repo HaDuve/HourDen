@@ -6,8 +6,12 @@ describe("workspace bus", () => {
     const wsAEvents: string[] = [];
     const wsBEvents: string[] = [];
 
-    const unsubA = subscribe("workspace-a", (event) => wsAEvents.push(event));
-    const unsubB = subscribe("workspace-b", (event) => wsBEvents.push(event));
+    const unsubA = subscribe("workspace-a", (event) => {
+      wsAEvents.push(event);
+    });
+    const unsubB = subscribe("workspace-b", (event) => {
+      wsBEvents.push(event);
+    });
 
     publishWorkspaceEvent("workspace-a", "timer-changed");
 
@@ -16,5 +20,36 @@ describe("workspace bus", () => {
 
     unsubA();
     unsubB();
+  });
+
+  it("keeps notifying other subscribers when one subscriber fails", () => {
+    const received: string[] = [];
+
+    subscribe("workspace-a", () => {
+      throw new Error("subscriber failed");
+    });
+    const unsub = subscribe("workspace-a", (event) => {
+      received.push(event);
+    });
+
+    publishWorkspaceEvent("workspace-a", "today-changed");
+
+    expect(received).toEqual(["today-changed"]);
+    unsub();
+  });
+
+  it("keeps notifying other subscribers when one async subscriber rejects", async () => {
+    const received: string[] = [];
+
+    subscribe("workspace-a", () => Promise.reject(new Error("async failed")));
+    const unsub = subscribe("workspace-a", (event) => {
+      received.push(event);
+    });
+
+    publishWorkspaceEvent("workspace-a", "timer-changed");
+    await Promise.resolve();
+
+    expect(received).toEqual(["timer-changed"]);
+    unsub();
   });
 });

@@ -58,3 +58,42 @@ export function stripHourdenBasicAuth(caddyfile) {
 
   return out.join("\n");
 }
+
+const SSE_HANDLE_BLOCK = `    # SSE must not be compressed or buffered (ADR-0010).
+    handle /api/events* {
+        reverse_proxy host.docker.internal:3001 {
+            flush_interval -1
+        }
+    }
+`;
+
+/**
+ * Ensure the HourDen vhost proxies SSE without compression or buffering.
+ *
+ * @param {string} caddyfile
+ * @returns {string}
+ */
+export function ensureHourdenSseHandle(caddyfile) {
+  if (/handle \/api\/events\*/.test(caddyfile)) {
+    return caddyfile;
+  }
+
+  return caddyfile.replace(
+    /(hourden\.hannesduve\.com\s*\{)([\s\S]*?)(\n\})/,
+    (match, open, body, close) => {
+      let next = body.replace(/^\s*encode gzip zstd\s*$/m, "");
+
+      next = next.replace(
+        /(\n)(\s*)handle \/api\/\*\s*\{(\n)(?!\s*encode gzip zstd)/,
+        `\n${SSE_HANDLE_BLOCK}\n$2handle /api/* {$3$2    encode gzip zstd`,
+      );
+
+      next = next.replace(
+        /(\n)(\s*)handle\s*\{(\n)(?!\s*encode gzip zstd)(\s*root \* \/var\/www\/hourden)/,
+        `$1$2handle {$3$2    encode gzip zstd$3$4`,
+      );
+
+      return `${open}${next}${close}`;
+    },
+  );
+}

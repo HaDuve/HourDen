@@ -1,7 +1,10 @@
 import { useEffect, useRef } from "react";
+import {
+  WORKSPACE_EVENTS,
+  type WorkspaceEvent,
+} from "@hourden/domain";
 
-export const WORKSPACE_EVENTS = ["timer-changed", "today-changed"] as const;
-export type WorkspaceEvent = (typeof WORKSPACE_EVENTS)[number];
+export { WORKSPACE_EVENTS, type WorkspaceEvent };
 
 export type WorkspaceEventHandlers = Partial<
   Record<WorkspaceEvent, () => void>
@@ -73,6 +76,7 @@ export function useWorkspaceEvents(handlers: WorkspaceEventHandlers) {
       }
 
       source = new EventSource(EVENTS_URL, { withCredentials: true });
+      reconnectAttempt = 0;
 
       for (const eventName of WORKSPACE_EVENTS) {
         source.addEventListener(eventName, () => {

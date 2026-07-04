@@ -22,6 +22,15 @@ fi
 
 node "$STRIP_SCRIPT" "$CADDYFILE"
 
+node --input-type=module -e "
+import { readFileSync, writeFileSync } from 'node:fs';
+import { ensureHourdenSseHandle } from '${HOURDEN_REPO}/scripts/caddy-hourden-config.mjs';
+const path = process.argv[1];
+const current = readFileSync(path, 'utf8');
+const next = ensureHourdenSseHandle(current);
+if (next !== current) writeFileSync(path, next);
+" "$CADDYFILE"
+
 sed -i.bak-"$(date +%Y%m%d-%H%M%S)" \
   -e 's|reverse_proxy localhost:3001|reverse_proxy host.docker.internal:3001|g' \
   -e 's/handle_path \/api\/\*/handle \/api\/\*/g' \

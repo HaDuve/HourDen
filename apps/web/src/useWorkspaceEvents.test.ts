@@ -158,4 +158,44 @@ describe("useWorkspaceEvents", () => {
 
     expect(onTodayChanged).toHaveBeenCalledTimes(1);
   });
+
+  it("resets reconnect backoff after a successful connection", async () => {
+    const delays: number[] = [];
+    vi.spyOn(globalThis, "setTimeout").mockImplementation((fn, delay) => {
+      if (typeof delay === "number") {
+        delays.push(delay);
+      }
+      queueMicrotask(() => {
+        if (typeof fn === "function") {
+          fn();
+        }
+      });
+      return 0 as unknown as ReturnType<typeof setTimeout>;
+    });
+
+    renderHook(() =>
+      useWorkspaceEvents({
+        "timer-changed": vi.fn(),
+      }),
+    );
+
+    await flushPromises();
+    const first = MockEventSource.instances[0];
+
+    act(() => {
+      first.triggerError();
+    });
+    await flushPromises();
+
+    expect(delays[0]).toBe(1_000);
+    expect(MockEventSource.instances).toHaveLength(2);
+
+    const second = MockEventSource.instances[1];
+    act(() => {
+      second.triggerError();
+    });
+    await flushPromises();
+
+    expect(delays[1]).toBe(1_000);
+  });
 });

@@ -27,7 +27,7 @@ export function createApp(options: AppOptions = {}) {
   const api = new Hono();
   api.get("/health", (c) => c.json(healthPayload()));
   api.route("/auth", createAuthRouter(db));
-  api.route("/events", createEventsRouter());
+  api.route("/events", createEventsRouter(db));
   api.route("/clients", createClientsRouter(db));
   api.route("/import", createImportRouter(db));
   api.route("/projects", createProjectsRouter(db));
