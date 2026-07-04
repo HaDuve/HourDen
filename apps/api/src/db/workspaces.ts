@@ -225,6 +225,86 @@ export async function updateWorkspaceInvoiceSender(
   return getWorkspaceInvoiceOperator(pool, workspaceId);
 }
 
+export type WorkspaceOnboardingStatus = {
+  needsOnboarding: boolean;
+  completedAt: string | null;
+};
+
+export async function getWorkspaceOnboardingStatus(
+  pool: Pool,
+  workspaceId: string,
+): Promise<WorkspaceOnboardingStatus | null> {
+  const result = await pool.query<{
+    onboarding_completed_at: Date | null;
+    sender_name: string | null;
+    client_count: string;
+    project_count: string;
+  }>(
+    `
+      SELECT
+        w.onboarding_completed_at,
+        w.sender_name,
+        (SELECT COUNT(*)::text FROM clients c WHERE c.workspace_id = w.id) AS client_count,
+        (SELECT COUNT(*)::text FROM projects p WHERE p.workspace_id = w.id) AS project_count
+      FROM workspaces w
+      WHERE w.id = $1
+    `,
+    [workspaceId],
+  );
+
+  const row = result.rows[0];
+  if (!row) {
+    return null;
+  }
+
+  if (row.onboarding_completed_at) {
+    return {
+      needsOnboarding: false,
+      completedAt: row.onboarding_completed_at.toISOString(),
+    };
+  }
+
+  const clientCount = Number(row.client_count);
+  const projectCount = Number(row.project_count);
+  const senderConfigured = row.sender_name != null;
+
+  if (clientCount >= 1 && projectCount >= 1 && senderConfigured) {
+    return {
+      needsOnboarding: false,
+      completedAt: null,
+    };
+  }
+
+  return {
+    needsOnboarding: true,
+    completedAt: null,
+  };
+}
+
+export async function completeWorkspaceOnboarding(
+  pool: Pool,
+  workspaceId: string,
+): Promise<WorkspaceOnboardingStatus | null> {
+  const result = await pool.query<{ onboarding_completed_at: Date }>(
+    `
+      UPDATE workspaces
+      SET onboarding_completed_at = COALESCE(onboarding_completed_at, now())
+      WHERE id = $1
+      RETURNING onboarding_completed_at
+    `,
+    [workspaceId],
+  );
+
+  if (!result.rows[0]) {
+    return null;
+  }
+
+  return {
+    needsOnboarding: false,
+    completedAt: result.rows[0].onboarding_completed_at.toISOString(),
+  };
+}
+
 export async function createUserWithWorkspace(
   pool: Pool,
   input: CreateUserWithWorkspaceInput,

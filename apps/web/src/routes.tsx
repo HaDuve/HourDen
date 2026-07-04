@@ -5,6 +5,11 @@ import ClientsPage from "./ClientsPage.js";
 import ImportPage from "./ImportPage.js";
 import InvoicesPage from "./InvoicesPage.js";
 import LoginPage from "./LoginPage.js";
+import ClientStepPage from "./onboarding/ClientStepPage.js";
+import InvoiceSenderStepPage from "./onboarding/InvoiceSenderStepPage.js";
+import OnboardingGuard from "./onboarding/OnboardingGuard.js";
+import OnboardingLayout from "./onboarding/OnboardingLayout.js";
+import ProjectStepPage from "./onboarding/ProjectStepPage.js";
 import ProjectsPage from "./ProjectsPage.js";
 import ReportPage from "./ReportPage.js";
 import TodayPage from "./TodayPage.js";
@@ -20,11 +25,30 @@ export const appLayoutChildren: RouteObject[] = [
   { path: "*", element: <Navigate to="/" replace /> },
 ];
 
+export const onboardingRoutes: RouteObject[] = [
+  {
+    path: "onboarding",
+    element: <OnboardingLayout />,
+    children: [
+      { index: true, element: <Navigate to="client" replace /> },
+      { path: "client", element: <ClientStepPage /> },
+      { path: "project", element: <ProjectStepPage /> },
+      { path: "invoice-sender", element: <InvoiceSenderStepPage /> },
+    ],
+  },
+];
+
 export const authenticatedAppRoutes: RouteObject[] = [
   {
-    path: "/",
-    element: <AppLayout />,
-    children: appLayoutChildren,
+    element: <OnboardingGuard />,
+    children: [
+      ...onboardingRoutes,
+      {
+        path: "/",
+        element: <AppLayout />,
+        children: appLayoutChildren,
+      },
+    ],
   },
 ];
 
