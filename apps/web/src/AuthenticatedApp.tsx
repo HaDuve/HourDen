@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
+import { LocaleProvider } from "./LocaleProvider.js";
 
 type AuthState =
   | { status: "loading" }
@@ -51,5 +52,5 @@ export default function AuthenticatedApp() {
     return null;
   }
 
-  return <Outlet />;
+  return <LocaleProvider><Outlet /></LocaleProvider>;
 }

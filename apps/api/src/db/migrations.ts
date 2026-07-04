@@ -202,4 +202,12 @@ export const MIGRATIONS: Migration[] = [
     sql: AUTH_MIGRATION_SQL,
     apply: seedAuthMigration,
   },
+  {
+    id: "013_user_locale",
+    sql: `
+      ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS locale text
+        CHECK (locale IS NULL OR locale IN ('en', 'de'));
+    `,
+  },
 ] as const;

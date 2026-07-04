@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { Project, TimeEntry } from "@hourden/domain";
 import { useCallback, useEffect, useState } from "react";
 import { todayDateInTimeZone } from "./today-date.js";
@@ -75,6 +76,7 @@ async function fetchProjects(): Promise<Project[]> {
 }
 
 export default function TodayPage() {
+  const { t } = useTranslation();
   const [calendarTimezone, setCalendarTimezone] = useState<string | null>(null);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [running, setRunning] = useState<TimeEntry | null>(null);
@@ -286,7 +288,7 @@ export default function TodayPage() {
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 p-8">
       <header className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Today</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">{t("today.title")}</h1>
           <p className="text-neutral-600">
             {date} — track time with a running timer or manual entries.
           </p>
