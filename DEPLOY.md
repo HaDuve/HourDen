@@ -57,7 +57,7 @@ fi
 exit
 ```
 
-If the vhost was created earlier with Caddy `basic_auth`, remove that block from the Caddyfile and reload Caddy (see [ADR-0009](./docs/adr/0009-session-auth-and-workspace-isolation.md)).
+If the vhost was created earlier with Caddy `basic_auth`, remove that block from the Caddyfile and reload Caddy (see [ADR-0009](./docs/adr/0009-session-auth-and-workspace-isolation.md)). Or run `scripts/fix-caddy-vm.sh` on the VM — it strips `basic_auth` from the HourDen vhost automatically.
 
 ## Step 2: Operator env on the VM
 

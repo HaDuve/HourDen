@@ -217,8 +217,9 @@ ssh root@188.245.242.141 'bash -s' < scripts/fix-caddy-vm.sh
 Requires `HOURDEN_OPERATOR_EMAIL` and `HOURDEN_OPERATOR_PASSWORD` in `.env` (or the environment).
 
 - `https://hourden.hannesduve.com/` serves the SPA (no Caddy basic-auth prompt)
-- `GET /api/health` returns `{ "ok": true }`
-- `POST /api/auth/login` succeeds for the operator account
+- `GET /api/health` returns `{ "ok": true }` without auth
+- `POST /api/auth/login` succeeds for the operator account and sets a session cookie
+- `GET /api/auth/me` and `GET /api/clients` succeed with that session cookie
 
 ## Workspace seam
 
