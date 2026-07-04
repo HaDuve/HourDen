@@ -1,8 +1,5 @@
 import { DEFAULT_REPORT_TIMEZONE } from "@hourden/domain";
-import {
-  DEFAULT_INVOICE_OPERATOR,
-  type InvoiceOperator,
-} from "@hourden/domain/invoice-pdf";
+import type { InvoiceOperator } from "@hourden/domain/invoice-pdf";
 import type { Pool } from "pg";
 import { hashPassword, validatePassword } from "../auth/password.js";
 
@@ -44,20 +41,36 @@ export async function getWorkspaceSettings(
   return result.rows[0] ?? null;
 }
 
+export function isInvoiceSenderConfigured(
+  row: WorkspaceSettingsRow | null,
+): boolean {
+  return row?.sender_name != null;
+}
+
 export function workspaceRowToInvoiceOperator(
   row: WorkspaceSettingsRow | null,
 ): InvoiceOperator {
-  const defaults = DEFAULT_INVOICE_OPERATOR;
   return {
-    name: row?.sender_name ?? defaults.name,
-    street: row?.sender_street ?? defaults.street,
-    city: row?.sender_city ?? defaults.city,
-    taxNumber: row?.sender_tax_number ?? defaults.taxNumber,
-    email: row?.sender_email ?? defaults.email,
-    phone: row?.sender_phone ?? defaults.phone,
-    bankName: row?.sender_bank_name ?? defaults.bankName,
-    iban: row?.sender_iban ?? defaults.iban,
-    bic: row?.sender_bic ?? defaults.bic,
+    name: row?.sender_name ?? "",
+    street: row?.sender_street ?? "",
+    city: row?.sender_city ?? "",
+    taxNumber: row?.sender_tax_number ?? "",
+    email: row?.sender_email ?? "",
+    phone: row?.sender_phone ?? "",
+    bankName: row?.sender_bank_name ?? "",
+    iban: row?.sender_iban ?? "",
+    bic: row?.sender_bic ?? "",
+  };
+}
+
+export async function getWorkspaceInvoiceSenderStatus(
+  pool: Pool,
+  workspaceId: string,
+): Promise<{ invoiceSender: InvoiceOperator; configured: boolean }> {
+  const row = await getWorkspaceSettings(pool, workspaceId);
+  return {
+    invoiceSender: workspaceRowToInvoiceOperator(row),
+    configured: isInvoiceSenderConfigured(row),
   };
 }
 
@@ -111,6 +124,107 @@ export type CreateUserWithWorkspaceResult = {
   workspaceId: string;
 };
 
+export type UpdateInvoiceSenderInput = {
+  name?: string;
+  street?: string;
+  city?: string;
+  taxNumber?: string;
+  email?: string;
+  phone?: string;
+  bankName?: string;
+  iban?: string;
+  bic?: string;
+};
+
+function normalizeOptionalText(value: string | undefined): string | null {
+  if (value === undefined) {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+export async function updateWorkspaceInvoiceSender(
+  pool: Pool,
+  workspaceId: string,
+  input: UpdateInvoiceSenderInput,
+): Promise<InvoiceOperator | null> {
+  const current = await getWorkspaceSettings(pool, workspaceId);
+  if (!current) {
+    return null;
+  }
+
+  const next = {
+    name:
+      input.name !== undefined
+        ? normalizeOptionalText(input.name)
+        : current.sender_name,
+    street:
+      input.street !== undefined
+        ? normalizeOptionalText(input.street)
+        : current.sender_street,
+    city:
+      input.city !== undefined
+        ? normalizeOptionalText(input.city)
+        : current.sender_city,
+    taxNumber:
+      input.taxNumber !== undefined
+        ? normalizeOptionalText(input.taxNumber)
+        : current.sender_tax_number,
+    email:
+      input.email !== undefined
+        ? normalizeOptionalText(input.email)
+        : current.sender_email,
+    phone:
+      input.phone !== undefined
+        ? normalizeOptionalText(input.phone)
+        : current.sender_phone,
+    bankName:
+      input.bankName !== undefined
+        ? normalizeOptionalText(input.bankName)
+        : current.sender_bank_name,
+    iban:
+      input.iban !== undefined
+        ? normalizeOptionalText(input.iban)
+        : current.sender_iban,
+    bic:
+      input.bic !== undefined
+        ? normalizeOptionalText(input.bic)
+        : current.sender_bic,
+  };
+
+  await pool.query(
+    `
+      UPDATE workspaces
+      SET
+        sender_name = $2,
+        sender_street = $3,
+        sender_city = $4,
+        sender_tax_number = $5,
+        sender_email = $6,
+        sender_phone = $7,
+        sender_bank_name = $8,
+        sender_iban = $9,
+        sender_bic = $10
+      WHERE id = $1
+    `,
+    [
+      workspaceId,
+      next.name,
+      next.street,
+      next.city,
+      next.taxNumber,
+      next.email,
+      next.phone,
+      next.bankName,
+      next.iban,
+      next.bic,
+    ],
+  );
+
+  return getWorkspaceInvoiceOperator(pool, workspaceId);
+}
+
 export async function createUserWithWorkspace(
   pool: Pool,
   input: CreateUserWithWorkspaceInput,
@@ -120,17 +234,43 @@ export async function createUserWithWorkspace(
     throw new Error(passwordCheck.error);
   }
 
-  const defaults = DEFAULT_INVOICE_OPERATOR;
   const sender = {
-    name: input.sender?.name ?? `${input.workspaceName} Sender`,
-    street: input.sender?.street ?? defaults.street,
-    city: input.sender?.city ?? defaults.city,
-    taxNumber: input.sender?.taxNumber ?? defaults.taxNumber,
-    email: input.sender?.email ?? input.email,
-    phone: input.sender?.phone ?? defaults.phone,
-    bankName: input.sender?.bankName ?? defaults.bankName,
-    iban: input.sender?.iban ?? defaults.iban,
-    bic: input.sender?.bic ?? defaults.bic,
+    name:
+      input.sender?.name !== undefined
+        ? normalizeOptionalText(input.sender.name)
+        : null,
+    street:
+      input.sender?.street !== undefined
+        ? normalizeOptionalText(input.sender.street)
+        : null,
+    city:
+      input.sender?.city !== undefined
+        ? normalizeOptionalText(input.sender.city)
+        : null,
+    taxNumber:
+      input.sender?.taxNumber !== undefined
+        ? normalizeOptionalText(input.sender.taxNumber)
+        : null,
+    email:
+      input.sender?.email !== undefined
+        ? normalizeOptionalText(input.sender.email)
+        : null,
+    phone:
+      input.sender?.phone !== undefined
+        ? normalizeOptionalText(input.sender.phone)
+        : null,
+    bankName:
+      input.sender?.bankName !== undefined
+        ? normalizeOptionalText(input.sender.bankName)
+        : null,
+    iban:
+      input.sender?.iban !== undefined
+        ? normalizeOptionalText(input.sender.iban)
+        : null,
+    bic:
+      input.sender?.bic !== undefined
+        ? normalizeOptionalText(input.sender.bic)
+        : null,
   };
   const calendarTimezone =
     input.calendarTimezone ?? DEFAULT_REPORT_TIMEZONE;

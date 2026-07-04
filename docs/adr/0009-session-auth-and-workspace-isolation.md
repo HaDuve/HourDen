@@ -44,7 +44,8 @@ The next step is **Phase 1 auth**: real login, separate **User** accounts (opera
 
 - Public signup, email verification, abuse controls.
 - SSO providers.
-- Workspace switcher UI (until needed), workspace settings UI, invites.
+- Workspace switcher UI (until needed), invites.
+- **Invoice Sender** editing UI on a dedicated settings page (Phase 1 ships edit on the Invoices page instead).
 - Membership roles beyond `owner` (`admin`, `member`, …).
 - Billing, onboarding, marketing landing.
 

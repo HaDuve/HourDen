@@ -6,6 +6,7 @@ import { createInvoicesRouter } from "./invoices.js";
 import { createProjectsRouter } from "./projects.js";
 import { createReportsRouter } from "./reports.js";
 import { createTimeEntriesRouter } from "./time-entries.js";
+import { createWorkspaceSettingsRouter } from "./workspace-settings.js";
 import { createAuthRouter } from "./auth/routes.js";
 import { pool } from "./db/pool.js";
 import { healthPayload } from "./health.js";
@@ -31,6 +32,7 @@ export function createApp(options: AppOptions = {}) {
   api.route("/reports", createReportsRouter(db));
   api.route("/invoices", createInvoicesRouter(db));
   api.route("/time-entries", createTimeEntriesRouter(db));
+  api.route("/workspace", createWorkspaceSettingsRouter(db));
 
   app.route("/api", api);
 

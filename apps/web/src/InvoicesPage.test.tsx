@@ -41,6 +41,28 @@ type FetchHandler = (
   init?: RequestInit,
 ) => Promise<unknown> | undefined;
 
+const defaultInvoiceSender = {
+  name: "Hannes Duve",
+  street: "Am Deichfleet 116",
+  city: "28357 Bremen",
+  taxNumber: "06044/47008",
+  email: "hannes.duve@outlook.com",
+  phone: "+49 15734521445",
+  bankName: "Deutsche Kreditbank",
+  iban: "DE74 120300001060924758",
+  bic: "BYLADEM1001",
+};
+
+function invoiceSenderResponse(
+  sender = defaultInvoiceSender,
+  configured = true,
+) {
+  return Promise.resolve({
+    ok: true,
+    json: async () => ({ invoiceSender: sender, configured }),
+  });
+}
+
 function createInvoicesPageFetchMock(clients: unknown[], handler?: FetchHandler) {
   return vi.fn().mockImplementation((url: string, init?: RequestInit) => {
     const custom = handler?.(url, init);
@@ -48,6 +70,10 @@ function createInvoicesPageFetchMock(clients: unknown[], handler?: FetchHandler)
 
     if (url === "/api/clients") return clientsResponse(clients);
     if (url === "/api/invoices" && !init?.method) return emptyInvoicesListResponse();
+    if (url === "/api/workspace/invoice-sender" && init?.method === "PATCH") {
+      return invoiceSenderResponse();
+    }
+    if (url === "/api/workspace/invoice-sender") return invoiceSenderResponse();
     return Promise.reject(new Error(`Unexpected fetch: ${url}`));
   });
 }
@@ -1040,5 +1066,131 @@ describe("InvoicesPage", () => {
     });
 
     clickSpy.mockRestore();
+  });
+
+  it("loads and saves Invoice Sender settings from a modal", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/workspace/invoice-sender" && init?.method === "PATCH") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            invoiceSender: {
+              ...defaultInvoiceSender,
+              name: "QA Sender GmbH",
+              iban: "DE00 0000 0000 0000 0000 00",
+            },
+            configured: true,
+          }),
+        });
+      }
+      return undefined;
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    render(<InvoicesPage />);
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    fireEvent.click(screen.getByRole("button", { name: /^invoice sender$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue(defaultInvoiceSender.name)).toBeInTheDocument();
+      expect(screen.getByDisplayValue(defaultInvoiceSender.iban)).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText(/^name$/i), {
+      target: { value: "QA Sender GmbH" },
+    });
+    fireEvent.change(screen.getByLabelText(/^iban$/i), {
+      target: { value: "DE00 0000 0000 0000 0000 00" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, init]) =>
+            url === "/api/workspace/invoice-sender" &&
+            init?.method === "PATCH" &&
+            JSON.parse(init.body as string).name === "QA Sender GmbH",
+        ),
+      ).toBe(true);
+      expect(screen.queryByRole("heading", { name: /^invoice sender$/i })).not.toBeInTheDocument();
+    });
+  });
+
+  it("opens Invoice Sender modal after preview when sender is not configured", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/workspace/invoice-sender" && !init?.method) {
+        return invoiceSenderResponse(
+          {
+            name: "",
+            street: "",
+            city: "",
+            taxNumber: "",
+            email: "",
+            phone: "",
+            bankName: "",
+            iban: "",
+            bic: "",
+          },
+          false,
+        );
+      }
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        return Promise.resolve(
+          previewPdfResponse("BAN2026001"),
+        );
+      }
+      return undefined;
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    render(<InvoicesPage />);
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /^invoice sender$/i })).toBeInTheDocument();
+      expect(
+        screen.getByText(/add your business details before issuing/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("disables Issue Invoice until Invoice Sender is configured", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/workspace/invoice-sender" && !init?.method) {
+        return invoiceSenderResponse(
+          {
+            name: "",
+            street: "",
+            city: "",
+            taxNumber: "",
+            email: "",
+            phone: "",
+            bankName: "",
+            iban: "",
+            bic: "",
+          },
+          false,
+        );
+      }
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        return Promise.resolve(previewPdfResponse("BAN2026001"));
+      }
+      return undefined;
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    render(<InvoicesPage />);
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTitle(/invoice preview/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeDisabled();
+    });
   });
 });

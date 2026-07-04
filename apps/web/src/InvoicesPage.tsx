@@ -22,6 +22,56 @@ type NumberingPreview = {
   };
 };
 
+type InvoiceSender = {
+  name: string;
+  street: string;
+  city: string;
+  taxNumber: string;
+  email: string;
+  phone: string;
+  bankName: string;
+  iban: string;
+  bic: string;
+};
+
+type InvoiceSenderFormData = {
+  name: string;
+  street: string;
+  city: string;
+  taxNumber: string;
+  email: string;
+  phone: string;
+  bankName: string;
+  iban: string;
+  bic: string;
+};
+
+const emptyInvoiceSenderForm: InvoiceSenderFormData = {
+  name: "",
+  street: "",
+  city: "",
+  taxNumber: "",
+  email: "",
+  phone: "",
+  bankName: "",
+  iban: "",
+  bic: "",
+};
+
+function invoiceSenderToForm(sender: InvoiceSender): InvoiceSenderFormData {
+  return {
+    name: sender.name,
+    street: sender.street,
+    city: sender.city,
+    taxNumber: sender.taxNumber,
+    email: sender.email,
+    phone: sender.phone,
+    bankName: sender.bankName,
+    iban: sender.iban,
+    bic: sender.bic,
+  };
+}
+
 function invoiceYearFromPeriodEnd(periodEnd: string): number {
   return Number(periodEnd.slice(0, 4));
 }
@@ -42,6 +92,37 @@ async function fetchIssuedInvoices(): Promise<IssuedInvoice[]> {
   }
   const data = (await res.json()) as { invoices?: IssuedInvoice[] };
   return data.invoices ?? [];
+}
+
+async function fetchInvoiceSenderStatus(): Promise<{
+  invoiceSender: InvoiceSender;
+  configured: boolean;
+}> {
+  const res = await fetch("/api/workspace/invoice-sender");
+  if (!res.ok) {
+    throw new Error(`Failed to load invoice sender (${res.status})`);
+  }
+  return res.json() as Promise<{
+    invoiceSender: InvoiceSender;
+    configured: boolean;
+  }>;
+}
+
+async function saveInvoiceSender(
+  form: InvoiceSenderFormData,
+): Promise<{ invoiceSender: InvoiceSender; configured: boolean }> {
+  const res = await fetch("/api/workspace/invoice-sender", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(form),
+  });
+  if (!res.ok) {
+    throw new Error(await readApiError(res));
+  }
+  return res.json() as Promise<{
+    invoiceSender: InvoiceSender;
+    configured: boolean;
+  }>;
 }
 
 async function fetchNumberingPreview(
@@ -129,6 +210,13 @@ export default function InvoicesPage() {
   const [exportClientId, setExportClientId] = useState("");
   const [exportYear, setExportYear] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [editingSender, setEditingSender] = useState(false);
+  const [senderForm, setSenderForm] = useState<InvoiceSenderFormData>(
+    emptyInvoiceSenderForm,
+  );
+  const [loadingSender, setLoadingSender] = useState(false);
+  const [savingSender, setSavingSender] = useState(false);
+  const [invoiceSenderConfigured, setInvoiceSenderConfigured] = useState(true);
   const previewUrlRef = useRef<string | null>(null);
   const previewRequestIdRef = useRef(0);
   const invoiceNumberDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -167,6 +255,15 @@ export default function InvoicesPage() {
     }
   }, []);
 
+  const loadInvoiceSenderStatus = useCallback(async () => {
+    try {
+      const status = await fetchInvoiceSenderStatus();
+      setInvoiceSenderConfigured(status.configured);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load invoice sender");
+    }
+  }, []);
+
   const loadClients = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -176,13 +273,13 @@ export default function InvoicesPage() {
       if (loaded.length > 0) {
         setClientId((current) => current || loaded[0]!.id);
       }
-      await loadIssuedInvoices();
+      await Promise.all([loadIssuedInvoices(), loadInvoiceSenderStatus()]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load clients");
     } finally {
       setLoading(false);
     }
-  }, [loadIssuedInvoices]);
+  }, [loadIssuedInvoices, loadInvoiceSenderStatus]);
 
   useEffect(() => {
     void loadClients();
@@ -240,6 +337,22 @@ export default function InvoicesPage() {
     },
     [clientId, suggestedInvoiceNumber, to, usePrefix],
   );
+
+  const openSenderEditor = useCallback(async () => {
+    setEditingSender(true);
+    setLoadingSender(true);
+    setError(null);
+
+    try {
+      const status = await fetchInvoiceSenderStatus();
+      setSenderForm(invoiceSenderToForm(status.invoiceSender));
+    } catch (err) {
+      setEditingSender(false);
+      setError(err instanceof Error ? err.message : "Failed to load invoice sender");
+    } finally {
+      setLoadingSender(false);
+    }
+  }, []);
 
   const requestPreview = useCallback(
     async (options?: {
@@ -327,6 +440,10 @@ export default function InvoicesPage() {
           setNumberingPreview(null);
           setNumberingStrategy(null);
         }
+
+        if (!invoiceSenderConfigured) {
+          void openSenderEditor();
+        }
       } catch (err) {
         if (requestId === previewRequestIdRef.current) {
           setError(err instanceof Error ? err.message : "Failed to preview invoice");
@@ -337,7 +454,17 @@ export default function InvoicesPage() {
         }
       }
     },
-    [clientId, clients, from, to, usePrefix, clearPreviewBlob, refreshNumberingPreview],
+    [
+      clientId,
+      clients,
+      from,
+      to,
+      usePrefix,
+      clearPreviewBlob,
+      refreshNumberingPreview,
+      invoiceSenderConfigured,
+      openSenderEditor,
+    ],
   );
 
   function handleUsePrefixChange(checked: boolean) {
@@ -421,6 +548,11 @@ export default function InvoicesPage() {
     }
     if (!invoiceNumber) {
       setError("Preview the invoice before issuing");
+      return;
+    }
+    if (!invoiceSenderConfigured) {
+      setError("Set up your Invoice Sender before issuing");
+      void openSenderEditor();
       return;
     }
     if (invoiceNumberEdited && !numberingStrategy) {
@@ -534,12 +666,43 @@ export default function InvoicesPage() {
     }
   }
 
+  const closeSenderEditor = () => {
+    setEditingSender(false);
+    setSenderForm(emptyInvoiceSenderForm);
+  };
+
+  async function handleSaveSender(event: React.FormEvent) {
+    event.preventDefault();
+    setSavingSender(true);
+    setError(null);
+
+    try {
+      const status = await saveInvoiceSender(senderForm);
+      setInvoiceSenderConfigured(status.configured);
+      closeSenderEditor();
+      if (previewUrl) {
+        await requestPreview({
+          invoiceNumber:
+            invoiceNumber && invoiceNumber !== suggestedInvoiceNumber
+              ? invoiceNumber
+              : undefined,
+          invoicePrefix: invoicePrefix ?? undefined,
+        });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save invoice sender");
+    } finally {
+      setSavingSender(false);
+    }
+  }
+
   const issueDisabled =
     previewing ||
     issuing ||
     loading ||
     !clientId ||
     !previewUrl ||
+    !invoiceSenderConfigured ||
     invoiceNumberExists ||
     (invoiceNumberEdited && !numberingStrategy);
 
@@ -548,6 +711,14 @@ export default function InvoicesPage() {
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <h1 className="text-2xl font-semibold text-slate-900">Invoices</h1>
         <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => void openSenderEditor()}
+            disabled={loading || loadingSender}
+            className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
+          >
+            Invoice sender
+          </button>
           <button
             type="button"
             onClick={() => void handlePreview()}
@@ -787,6 +958,175 @@ export default function InvoicesPage() {
           </div>
         )}
       </section>
+
+      {editingSender && (
+        <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4">
+          <form
+            onSubmit={handleSaveSender}
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-neutral-200 bg-white p-6 shadow-lg"
+          >
+            <h2 className="text-lg font-semibold">Invoice sender</h2>
+            <p className="mt-1 text-sm text-neutral-600">
+              {invoiceSenderConfigured
+                ? "Business identity printed on invoice PDFs for this Workspace."
+                : "Add your business details before issuing — they appear on invoice PDFs."}
+            </p>
+
+            {loadingSender ? (
+              <p className="mt-4 text-sm text-neutral-600">Loading…</p>
+            ) : (
+              <div className="mt-4 grid gap-3">
+                <label className="grid gap-1 text-sm">
+                  <span>Name</span>
+                  <input
+                    required
+                    value={senderForm.name}
+                    onChange={(e) =>
+                      setSenderForm((current) => ({
+                        ...current,
+                        name: e.target.value,
+                      }))
+                    }
+                    className="rounded-md border border-neutral-300 px-3 py-2"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-sm">
+                  <span>Street</span>
+                  <input
+                    value={senderForm.street}
+                    onChange={(e) =>
+                      setSenderForm((current) => ({
+                        ...current,
+                        street: e.target.value,
+                      }))
+                    }
+                    className="rounded-md border border-neutral-300 px-3 py-2"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-sm">
+                  <span>City</span>
+                  <input
+                    value={senderForm.city}
+                    onChange={(e) =>
+                      setSenderForm((current) => ({
+                        ...current,
+                        city: e.target.value,
+                      }))
+                    }
+                    className="rounded-md border border-neutral-300 px-3 py-2"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-sm">
+                  <span>Tax number</span>
+                  <input
+                    value={senderForm.taxNumber}
+                    onChange={(e) =>
+                      setSenderForm((current) => ({
+                        ...current,
+                        taxNumber: e.target.value,
+                      }))
+                    }
+                    className="rounded-md border border-neutral-300 px-3 py-2"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-sm">
+                  <span>Email</span>
+                  <input
+                    required
+                    type="email"
+                    value={senderForm.email}
+                    onChange={(e) =>
+                      setSenderForm((current) => ({
+                        ...current,
+                        email: e.target.value,
+                      }))
+                    }
+                    className="rounded-md border border-neutral-300 px-3 py-2"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-sm">
+                  <span>Phone</span>
+                  <input
+                    value={senderForm.phone}
+                    onChange={(e) =>
+                      setSenderForm((current) => ({
+                        ...current,
+                        phone: e.target.value,
+                      }))
+                    }
+                    className="rounded-md border border-neutral-300 px-3 py-2"
+                  />
+                </label>
+
+                <fieldset className="grid gap-3 rounded-md border border-neutral-200 p-3">
+                  <legend className="px-1 text-sm font-medium">Bank details</legend>
+                  <label className="grid gap-1 text-sm">
+                    <span>Bank name</span>
+                    <input
+                      value={senderForm.bankName}
+                      onChange={(e) =>
+                        setSenderForm((current) => ({
+                          ...current,
+                          bankName: e.target.value,
+                        }))
+                      }
+                      className="rounded-md border border-neutral-300 px-3 py-2"
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    <span>IBAN</span>
+                    <input
+                      value={senderForm.iban}
+                      onChange={(e) =>
+                        setSenderForm((current) => ({
+                          ...current,
+                          iban: e.target.value,
+                        }))
+                      }
+                      className="rounded-md border border-neutral-300 px-3 py-2"
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    <span>BIC</span>
+                    <input
+                      value={senderForm.bic}
+                      onChange={(e) =>
+                        setSenderForm((current) => ({
+                          ...current,
+                          bic: e.target.value,
+                        }))
+                      }
+                      className="rounded-md border border-neutral-300 px-3 py-2"
+                    />
+                  </label>
+                </fieldset>
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeSenderEditor}
+                className="rounded-md border border-neutral-300 px-4 py-2 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={savingSender || loadingSender}
+                className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+              >
+                {savingSender ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </main>
   );
 }
