@@ -1,6 +1,56 @@
-import { describe, expect, it } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import App from "./App.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { createMemoryRouter, MemoryRouter, RouterProvider, useLocation, useNavigate, useRoutes } from "react-router-dom";
+import { authenticatedAppRoutes } from "./routes.js";
+
+function AppRoutes() {
+  return useRoutes(authenticatedAppRoutes);
+}
+
+function renderApp(initialPath = "/") {
+  const router = createMemoryRouter(authenticatedAppRoutes, { initialEntries: [initialPath] });
+  render(<RouterProvider router={router} />);
+  return router;
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+function renderAppWithMemoryRouter(initialPath = "/") {
+  let pathname = initialPath;
+  let navigate: ReturnType<typeof useNavigate> | undefined;
+
+  function LocationObserver() {
+    pathname = useLocation().pathname;
+    return null;
+  }
+
+  function NavigateCapture() {
+    navigate = useNavigate();
+    return null;
+  }
+
+  render(
+    <MemoryRouter initialEntries={[initialPath]}>
+      <LocationObserver />
+      <NavigateCapture />
+      <AppRoutes />
+    </MemoryRouter>,
+  );
+
+  return {
+    get pathname() {
+      return pathname;
+    },
+    goBack() {
+      if (!navigate) {
+        throw new Error("navigate not ready");
+      }
+      navigate(-1);
+    },
+  };
+}
 
 function mockAppFetch() {
   return vi.fn().mockImplementation((url: string) => {
@@ -45,22 +95,70 @@ describe("App", () => {
   it("renders the Today page by default", async () => {
     vi.stubGlobal("fetch", mockAppFetch());
 
-    render(<App />);
+    renderApp("/");
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
     });
   });
 
-  it("navigates to the Invoices page", async () => {
+  it("navigates to the Invoices page and updates the URL", async () => {
     vi.stubGlobal("fetch", mockAppFetch());
 
-    render(<App />);
+    const app = renderAppWithMemoryRouter("/");
 
-    fireEvent.click(screen.getByRole("button", { name: /^invoices$/i }));
+    fireEvent.click(screen.getByRole("link", { name: /^invoices$/i }));
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: /^invoices$/i })).toBeInTheDocument();
+      expect(app.pathname).toBe("/invoices");
+    });
+  });
+
+  it("renders the Invoices page from a deep link", async () => {
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    renderApp("/invoices");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /^invoices$/i })).toBeInTheDocument();
+    });
+  });
+
+  it("redirects unknown paths to Today", async () => {
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    const app = renderAppWithMemoryRouter("/unknown-page");
+
+    await waitFor(() => {
+      expect(app.pathname).toBe("/");
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+    });
+  });
+
+  it("supports browser back after navigating away from Today", async () => {
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    const app = renderAppWithMemoryRouter("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("link", { name: /^invoices$/i }));
+
+    await waitFor(() => {
+      expect(app.pathname).toBe("/invoices");
+      expect(screen.getByRole("heading", { name: /^invoices$/i })).toBeInTheDocument();
+    });
+
+    act(() => {
+      app.goBack();
+    });
+
+    await waitFor(() => {
+      expect(app.pathname).toBe("/");
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
     });
   });
 });

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import App from "./App.js";
+import { Outlet } from "react-router-dom";
 
 type AuthState =
   | { status: "loading" }
@@ -51,5 +51,5 @@ export default function AuthenticatedApp() {
     return null;
   }
 
-  return <App />;
+  return <Outlet />;
 }

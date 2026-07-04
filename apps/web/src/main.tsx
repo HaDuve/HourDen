@@ -1,13 +1,17 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import AuthenticatedApp from "./AuthenticatedApp.js";
-import LoginPage from "./LoginPage.js";
+import { BrowserRouter, useRoutes } from "react-router-dom";
+import { appRoutes } from "./routes.js";
 import "./index.css";
 
-const isLoginPage = window.location.pathname === "/login";
+function AppRouter() {
+  return useRoutes(appRoutes);
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    {isLoginPage ? <LoginPage /> : <AuthenticatedApp />}
+    <BrowserRouter>
+      <AppRouter />
+    </BrowserRouter>
   </StrictMode>,
 );

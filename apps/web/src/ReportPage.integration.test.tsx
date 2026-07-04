@@ -124,6 +124,7 @@ describe.skipIf(!databaseUrl)("ReportPage with live API", () => {
     });
 
     await waitFor(() => {
+      expect(screen.queryByText(/loading report/i)).not.toBeInTheDocument();
       expect(screen.getByText("Development Call")).toBeInTheDocument();
     });
 
