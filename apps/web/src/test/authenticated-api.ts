@@ -5,6 +5,16 @@ import { createApp } from "../../../api/src/app.js";
 import { runMigrations } from "../../../api/src/db/migrate.js";
 import { bindSessionAuth } from "../../../api/src/test/auth-helper.js";
 
+/** Hono app.request bodies are not always readable from jsdom fetch consumers. */
+async function materializeResponse(res: Response): Promise<Response> {
+  const body = res.body ? await res.arrayBuffer() : null;
+  return new Response(body, {
+    status: res.status,
+    statusText: res.statusText,
+    headers: res.headers,
+  });
+}
+
 export async function setupAuthenticatedApiFetch(
   pool: Pool,
 ): Promise<{ app: Hono; restoreFetch: () => void }> {
@@ -24,7 +34,7 @@ export async function setupAuthenticatedApiFetch(
           : input.url;
 
     if (url.startsWith("/api/")) {
-      return app.request(url, init);
+      return materializeResponse(await app.request(url, init));
     }
 
     return originalFetch(input, init);
