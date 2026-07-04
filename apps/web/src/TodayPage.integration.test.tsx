@@ -36,30 +36,40 @@ describe.skipIf(!databaseUrl)("TodayPage with live API", () => {
 
   it("lists today's entries and supports start/stop and manual add", async () => {
     const today = await workspaceToday();
-    const start = `${today}T09:00`;
-    const end = `${today}T10:00`;
+
+    const postRes = await fetch("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        description: "Planning session",
+        startedAt: `${today}T08:00:00.000Z`,
+        endedAt: `${today}T09:00:00.000Z`,
+      }),
+    });
+    expect(postRes.status).toBe(201);
 
     render(<TodayPage />);
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+      expect(screen.getByText("Planning session")).toBeInTheDocument();
+      expect(screen.getByText(/1 h/i)).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /add manual entry/i }));
     fireEvent.change(screen.getByLabelText(/^description$/i), {
-      target: { value: "Planning session" },
+      target: { value: "Follow-up work" },
     });
     fireEvent.change(screen.getByLabelText(/^start$/i), {
-      target: { value: start },
+      target: { value: `${today}T10:00` },
     });
     fireEvent.change(screen.getByLabelText(/^end$/i), {
-      target: { value: end },
+      target: { value: `${today}T11:00` },
     });
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("Planning session")).toBeInTheDocument();
-      expect(screen.getByText(/1 h/i)).toBeInTheDocument();
+      expect(screen.getByText("Follow-up work")).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /start timer/i }));
@@ -76,14 +86,14 @@ describe.skipIf(!databaseUrl)("TodayPage with live API", () => {
 
     const listRes = await fetch(`/api/time-entries?date=${today}`);
     const { entries } = (await listRes.json()) as { entries: unknown[] };
-    expect(entries.length).toBeGreaterThanOrEqual(2);
+    expect(entries.length).toBeGreaterThanOrEqual(3);
   });
 
   it("lets the Operator add a description to an incomplete stopped entry", async () => {
     render(<TodayPage />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /start timer/i })).toBeInTheDocument();
+      expect(screen.getByText(/\d{4}-\d{2}-\d{2} — track time/)).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /start timer/i }));
