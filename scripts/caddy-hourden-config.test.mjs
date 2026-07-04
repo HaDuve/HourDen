@@ -23,6 +23,11 @@ hourden.hannesduve.com {
 `;
 
 describe("stripHourdenBasicAuth", () => {
+  it("includes SPA fallback so deep links resolve to index.html", () => {
+    expect(WITH_BASIC_AUTH).toMatch(/try_files \{path\} \/index.html/);
+    expect(WITH_BASIC_AUTH).toMatch(/handle \/api\/\*/);
+  });
+
   it("removes basic_auth from the HourDen vhost block", () => {
     const result = stripHourdenBasicAuth(WITH_BASIC_AUTH);
 

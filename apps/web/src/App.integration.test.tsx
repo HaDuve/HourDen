@@ -3,8 +3,38 @@ import "./test/load-env.js";
 import { Pool } from "pg";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { setupAuthenticatedApiFetch } from "./test/authenticated-api.js";
-import App from "./App.js";
+import AppLayout from "./App.js";
+import ClientsPage from "./ClientsPage.js";
+import ImportPage from "./ImportPage.js";
+import InvoicesPage from "./InvoicesPage.js";
+import ProjectsPage from "./ProjectsPage.js";
+import ReportPage from "./ReportPage.js";
+import TodayPage from "./TodayPage.js";
+
+function renderApp() {
+  const router = createMemoryRouter(
+    [
+      {
+        path: "/",
+        element: <AppLayout />,
+        children: [
+          { index: true, element: <TodayPage /> },
+          { path: "today", element: <TodayPage /> },
+          { path: "clients", element: <ClientsPage /> },
+          { path: "projects", element: <ProjectsPage /> },
+          { path: "report", element: <ReportPage /> },
+          { path: "invoices", element: <InvoicesPage /> },
+          { path: "import", element: <ImportPage /> },
+        ],
+      },
+    ],
+    { initialEntries: ["/"] },
+  );
+  render(<RouterProvider router={router} />);
+  return router;
+}
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -28,7 +58,7 @@ describe.skipIf(!databaseUrl)("App with live API", () => {
   });
 
   it("loads the Today page from the live API", async () => {
-    render(<App />);
+    renderApp();
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
@@ -37,9 +67,9 @@ describe.skipIf(!databaseUrl)("App with live API", () => {
   });
 
   it("navigates to the Invoices page", async () => {
-    render(<App />);
+    renderApp();
 
-    fireEvent.click(screen.getByRole("button", { name: /^invoices$/i }));
+    fireEvent.click(screen.getByRole("link", { name: /^invoices$/i }));
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: /^invoices$/i })).toBeInTheDocument();
