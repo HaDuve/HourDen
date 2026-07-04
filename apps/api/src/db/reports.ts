@@ -24,7 +24,7 @@ function durationMinutes(startedAt: Date, endedAt: Date): number {
 }
 
 export function reportTimeZone(): string {
-  return process.env.HOURDEN_TIMEZONE ?? DEFAULT_REPORT_TIMEZONE;
+  return DEFAULT_REPORT_TIMEZONE;
 }
 
 export async function listReportEntriesForRange(

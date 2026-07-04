@@ -3,10 +3,13 @@ import { Hono } from "hono";
 import type { Pool } from "pg";
 import {
   listReportEntriesForRange,
-  reportTimeZone,
   rowsToClientReportInputs,
   rowsToClockifyExportEntries,
 } from "./db/reports.js";
+import {
+  getWorkspaceBillingContext,
+  getWorkspaceCalendarTimezone,
+} from "./db/workspaces.js";
 import { getCurrentWorkspaceId } from "./workspace.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -24,15 +27,6 @@ function parseDateRange(
   return { from, to };
 }
 
-function clockifyExportOptions() {
-  return {
-    operatorName: process.env.HOURDEN_OPERATOR_NAME ?? "Hannes Duve",
-    operatorEmail:
-      process.env.HOURDEN_OPERATOR_EMAIL ?? "hannes.duve@outlook.com",
-    timeZone: reportTimeZone(),
-  };
-}
-
 export function createReportsRouter(pool: Pool) {
   const router = new Hono();
 
@@ -48,10 +42,11 @@ export function createReportsRouter(pool: Pool) {
       );
     }
 
-    const timeZone = reportTimeZone();
+    const workspaceId = getCurrentWorkspaceId();
+    const timeZone = await getWorkspaceCalendarTimezone(pool, workspaceId);
     const rows = await listReportEntriesForRange(
       pool,
-      getCurrentWorkspaceId(),
+      workspaceId,
       range.from,
       range.to,
       timeZone,
@@ -77,17 +72,21 @@ export function createReportsRouter(pool: Pool) {
       );
     }
 
+    const workspaceId = getCurrentWorkspaceId();
+    const { calendarTimezone: timeZone, operator } =
+      await getWorkspaceBillingContext(pool, workspaceId);
     const rows = await listReportEntriesForRange(
       pool,
-      getCurrentWorkspaceId(),
+      workspaceId,
       range.from,
       range.to,
-      reportTimeZone(),
+      timeZone,
     );
-    const csv = serializeClockifyCsv(
-      rowsToClockifyExportEntries(rows),
-      clockifyExportOptions(),
-    );
+    const csv = serializeClockifyCsv(rowsToClockifyExportEntries(rows), {
+      operatorName: operator.name,
+      operatorEmail: operator.email,
+      timeZone,
+    });
 
     const filename = `Clockify_Time_Report_Detailed_${range.from}_${range.to}.csv`;
     c.header("Content-Type", "text/csv; charset=utf-8");

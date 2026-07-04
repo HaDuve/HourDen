@@ -10,7 +10,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
-    "migrate": "tsx src/db/migrate-cli.ts"
+    "migrate": "tsx src/db/migrate-cli.ts",
+    "create-user": "tsx src/auth/create-user-cli.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.14.4",

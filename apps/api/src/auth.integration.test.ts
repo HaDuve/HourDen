@@ -60,10 +60,12 @@ describe.skipIf(!databaseUrl)("Auth API", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({
+    const body = await res.json();
+    expect(body).toMatchObject({
       user: { email: TEST_OPERATOR_EMAIL },
       activeWorkspaceId: DEFAULT_WORKSPACE_ID,
     });
+    expect(body.calendarTimezone).toBeTruthy();
   });
 
   it("rejects protected routes without auth", async () => {

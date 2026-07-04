@@ -123,10 +123,22 @@ Migration integration tests run when `DATABASE_URL` is set (CI provides Postgres
 
 Production browser access uses **app login** at `/login` ([ADR-0009](./docs/adr/0009-session-auth-and-workspace-isolation.md)). Portfolio's Caddy terminates TLS and reverse-proxies `/api`; it does **not** use edge basic auth.
 
-- **Operator account**: created on migrate from `HOURDEN_OPERATOR_EMAIL` and `HOURDEN_OPERATOR_PASSWORD` (required on the VM before first deploy after auth slice 1).
+- **Operator account**: created on migrate from `HOURDEN_OPERATOR_EMAIL` and `HOURDEN_OPERATOR_PASSWORD` (required on the VM before first deploy after auth slice 1). Migration also seeds the Default Workspace **Invoice Sender** and **Calendar Timezone** from `HOURDEN_OPERATOR_*` / `HOURDEN_TIMEZONE` (request handling reads the Workspace row, not env).
+- **QA / additional testers**: provision with `npm run create-user -- --email … --password … --workspace …` (see below).
 - **Session**: httpOnly cookie; 30-day sliding expiry; logout clears the server-side row.
 - **`HOURDEN_API_KEY`** (optional): when set, middleware accepts a valid session **or** API key — useful for scripts hitting `:3001` directly.
 - **`GET /api/health`**: public; returns `{ ok: true }` only (no workspace metadata).
+
+### Create a QA user (CLI)
+
+```bash
+npm run create-user -- \
+  --email qa@example.com \
+  --password 'SecurePass1' \
+  --workspace 'QA Workspace'
+```
+
+Optional: `--sender-name`, `--sender-email`, `--calendar-timezone` (IANA). Password must meet policy (8+ chars, upper, lower, digit). The new **User** can sign in at `/login` and lands in an empty **Workspace**.
 
 ## Deploy to `hourden.hannesduve.com`
 
@@ -250,4 +262,4 @@ While we validate native PDFs in production, compare HourDen output against `gen
 
 Merge-time HITL sign-off is recorded on PR #18. See `docs/hitl/invoice-pdf-signoff.md`.
 
-Operator name/email in exports (`User`, `Email` columns) come from `HOURDEN_OPERATOR_NAME` and `HOURDEN_OPERATOR_EMAIL` (see `.env.example`).
+Operator name/email in Clockify CSV exports come from the active **Workspace** **Invoice Sender** (stored on `workspaces`, seeded at migration from env).

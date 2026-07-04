@@ -13,7 +13,8 @@
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "dev:api": "npm run dev -w @hourden/api",
-    "dev:web": "npm run dev -w @hourden/web"
+    "dev:web": "npm run dev -w @hourden/web",
+    "create-user": "npm run create-user -w @hourden/api --"
   },
   "engines": {
     "node": ">=20.0.0",

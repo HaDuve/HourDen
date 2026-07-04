@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import TodayPage from "./TodayPage.js";
 
 vi.mock("./today-date.js", () => ({
-  todayLocalDate: () => "2026-07-02",
+  todayDateInTimeZone: () => "2026-07-02",
 }));
 
 const morningEntry = {
@@ -42,6 +42,10 @@ function mockTodayLoad(
 ) {
   return vi
     .fn()
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ calendarTimezone: "UTC" }),
+    })
     .mockResolvedValueOnce({
       ok: true,
       json: async () => ({ entries }),

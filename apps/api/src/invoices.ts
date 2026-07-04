@@ -1,5 +1,4 @@
 import {
-  DEFAULT_INVOICE_OPERATOR,
   generateInvoicePdf,
   type InvoiceOperator,
 } from "@hourden/domain/invoice-pdf";
@@ -35,7 +34,7 @@ import {
   invoiceFilename,
   invoiceRecipientCode,
 } from "./invoice-path.js";
-import { reportTimeZone } from "./db/reports.js";
+import { getWorkspaceCalendarTimezone, getWorkspaceInvoiceOperator } from "./db/workspaces.js";
 import { getCurrentWorkspaceId } from "./workspace.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -97,66 +96,6 @@ function addDays(isoDate: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-function invoiceOperator(): InvoiceOperator {
-  return {
-    ...DEFAULT_INVOICE_OPERATOR,
-    name: process.env.HOURDEN_OPERATOR_NAME ?? DEFAULT_INVOICE_OPERATOR.name,
-    email: process.env.HOURDEN_OPERATOR_EMAIL ?? DEFAULT_INVOICE_OPERATOR.email,
-  };
-}
-
-function invoiceConflictMessage(
-  reason: "duplicate_period" | "duplicate_month" | "duplicate_number",
-): string {
-  if (reason === "duplicate_month") {
-    return "Invoice already exists for this Client and billing month";
-  }
-  if (reason === "duplicate_number") {
-    return "Invoice Number already exists in this Workspace";
-  }
-  return "Invoice already exists for this Client and Billing Period";
-}
-
-function parseUsePrefix(value: unknown): boolean {
-  return value !== false;
-}
-
-function parseNumberingStrategy(
-  value: string | undefined,
-): InvoiceNumberingStrategy | "invalid" {
-  if (value === undefined) {
-    return "invalid";
-  }
-  if (value === "sequential" || value === "from_last") {
-    return value;
-  }
-  return "invalid";
-}
-
-function invalidInvoiceNumberMessage(
-  prefix: string,
-  year: number,
-): string {
-  return `Invoice Number must be ${prefix}${year} followed by at least three digits, or ${year} followed by at least three digits for plain format`;
-}
-
-function isValidIssuedInvoiceNumber(
-  invoiceNumber: string,
-  year: number,
-): boolean {
-  return isValidAnyInvoiceNumber(invoiceNumber, year);
-}
-
-function resolveRequestInvoicePrefix(
-  body: InvoiceRequestBody,
-  client: { name: string; invoicePrefix: string | null },
-): string {
-  if (body.invoicePrefix) {
-    return normalizeInvoicePrefix(body.invoicePrefix);
-  }
-  return resolveInvoicePrefix(client);
-}
-
 async function prepareInvoice(
   pool: Pool,
   body: InvoiceRequestBody,
@@ -211,7 +150,7 @@ async function prepareInvoice(
     };
   }
 
-  const timeZone = reportTimeZone();
+  const timeZone = await getWorkspaceCalendarTimezone(pool, workspaceId);
   const entryRows = await listInvoiceableEntriesForClient(
     pool,
     workspaceId,
@@ -238,7 +177,7 @@ async function prepareInvoice(
   const invoiceYear = Number(range.to.slice(0, 4));
   const invoiceDate = range.to;
   const dueDate = addDays(invoiceDate, 14);
-  const operator = invoiceOperator();
+  const operator = await getWorkspaceInvoiceOperator(pool, workspaceId);
 
   return {
     workspaceId,
@@ -273,6 +212,58 @@ async function prepareInvoice(
     },
     entryIds: entryRows.map((row) => row.id),
   };
+}
+
+function invoiceConflictMessage(
+  reason: "duplicate_period" | "duplicate_month" | "duplicate_number",
+): string {
+  if (reason === "duplicate_month") {
+    return "Invoice already exists for this Client and billing month";
+  }
+  if (reason === "duplicate_number") {
+    return "Invoice Number already exists in this Workspace";
+  }
+  return "Invoice already exists for this Client and Billing Period";
+}
+
+function parseUsePrefix(value: unknown): boolean {
+  return value !== false;
+}
+
+function parseNumberingStrategy(
+  value: string | undefined,
+): InvoiceNumberingStrategy | "invalid" {
+  if (value === undefined) {
+    return "invalid";
+  }
+  if (value === "sequential" || value === "from_last") {
+    return value;
+  }
+  return "invalid";
+}
+
+function invalidInvoiceNumberMessage(
+  prefix: string,
+  year: number,
+): string {
+  return `Invoice Number must be ${prefix}${year} followed by at least three digits, or ${year} followed by at least three digits for plain format`;
+}
+
+function isValidIssuedInvoiceNumber(
+  invoiceNumber: string,
+  year: number,
+): boolean {
+  return isValidAnyInvoiceNumber(invoiceNumber, year);
+}
+
+function resolveRequestInvoicePrefix(
+  body: InvoiceRequestBody,
+  client: { name: string; invoicePrefix: string | null },
+): string {
+  if (body.invoicePrefix) {
+    return normalizeInvoicePrefix(body.invoicePrefix);
+  }
+  return resolveInvoicePrefix(client);
 }
 
 async function renderInvoicePdf(

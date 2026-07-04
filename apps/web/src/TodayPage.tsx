@@ -1,6 +1,6 @@
 import type { Project, TimeEntry } from "@hourden/domain";
 import { useCallback, useEffect, useState } from "react";
-import { todayLocalDate } from "./today-date.js";
+import { todayDateInTimeZone } from "./today-date.js";
 import { useDeleteDialog } from "./useDeleteDialog.js";
 
 type ManualFormData = {
@@ -56,6 +56,15 @@ async function fetchRunningTimer(): Promise<TimeEntry | null> {
   return data.entry;
 }
 
+async function fetchCalendarTimezone(): Promise<string> {
+  const res = await fetch("/api/auth/me", { credentials: "include" });
+  if (!res.ok) {
+    throw new Error(`Failed to load session (${res.status})`);
+  }
+  const data = (await res.json()) as { calendarTimezone: string };
+  return data.calendarTimezone;
+}
+
 async function fetchProjects(): Promise<Project[]> {
   const res = await fetch("/api/projects");
   if (!res.ok) {
@@ -66,6 +75,7 @@ async function fetchProjects(): Promise<Project[]> {
 }
 
 export default function TodayPage() {
+  const [calendarTimezone, setCalendarTimezone] = useState<string | null>(null);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [running, setRunning] = useState<TimeEntry | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -87,14 +97,38 @@ export default function TodayPage() {
     projectId: "",
   });
 
-  const date = todayLocalDate();
+  const date =
+    calendarTimezone === null ? null : todayDateInTimeZone(calendarTimezone);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchCalendarTimezone()
+      .then((timeZone) => {
+        if (!cancelled) {
+          setCalendarTimezone(timeZone);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load session");
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const load = useCallback(async () => {
+    if (!calendarTimezone) {
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
+      const today = todayDateInTimeZone(calendarTimezone);
       const [loadedEntries, loadedRunning, loadedProjects] = await Promise.all([
-        fetchEntries(date),
+        fetchEntries(today),
         fetchRunningTimer(),
         fetchProjects(),
       ]);
@@ -106,11 +140,13 @@ export default function TodayPage() {
     } finally {
       setLoading(false);
     }
-  }, [date]);
+  }, [calendarTimezone]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (calendarTimezone) {
+      void load();
+    }
+  }, [calendarTimezone, load]);
 
   const startTimer = async () => {
     setSaving(true);

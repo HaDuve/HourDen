@@ -439,4 +439,44 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
     );
     expect(entries.find((e: { id: string }) => e.id === running.id)?.isRunning).toBe(true);
   });
+
+  it("lists entries for a date using the workspace calendar timezone", async () => {
+    const workspaceBefore = await pool.query<{ calendar_timezone: string | null }>(
+      "SELECT calendar_timezone FROM workspaces WHERE id = $1",
+      [DEFAULT_WORKSPACE_ID],
+    );
+    const previousTz = workspaceBefore.rows[0]!.calendar_timezone;
+
+    try {
+      await pool.query(
+        "UPDATE workspaces SET calendar_timezone = $2 WHERE id = $1",
+        [DEFAULT_WORKSPACE_ID, "Europe/Berlin"],
+      );
+
+      const bandao = await createClient(app, "Bandao", 60);
+      const ondojo = await createProject(app, bandao.id, "Ondojo");
+
+      await app.request("/api/time-entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: ondojo.id,
+          description: "Late night work",
+          startedAt: "2026-05-31T22:30:00.000Z",
+          endedAt: "2026-05-31T23:30:00.000Z",
+        }),
+      });
+
+      const juneList = await app.request("/api/time-entries?date=2026-06-01");
+      const mayList = await app.request("/api/time-entries?date=2026-05-31");
+
+      expect((await juneList.json()).entries).toHaveLength(1);
+      expect((await mayList.json()).entries).toEqual([]);
+    } finally {
+      await pool.query(
+        "UPDATE workspaces SET calendar_timezone = $2 WHERE id = $1",
+        [DEFAULT_WORKSPACE_ID, previousTz],
+      );
+    }
+  });
 });
