@@ -1,6 +1,5 @@
 import { serve, type ServerType } from "@hono/node-server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { DEFAULT_WORKSPACE_ID } from "@hourden/domain";
 import { createApp } from "./app.js";
 
 describe("API health over HTTP", () => {
@@ -27,19 +26,13 @@ describe("API health over HTTP", () => {
     const res = await fetch(`${baseUrl}/api/health`);
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
-      status: "ok",
-      workspaceId: DEFAULT_WORKSPACE_ID,
-    });
+    expect(await res.json()).toEqual({ ok: true });
   });
 
   it("serves /health for Caddy handle_path stripping", async () => {
     const res = await fetch(`${baseUrl}/health`);
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({
-      status: "ok",
-      workspaceId: DEFAULT_WORKSPACE_ID,
-    });
+    expect(await res.json()).toEqual({ ok: true });
   });
 });

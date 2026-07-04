@@ -7,6 +7,7 @@ import { normalizeInvoicePdfText } from "@hourden/domain/invoice-pdf-snapshot";
 import type { InvoiceIssuanceSnapshot } from "@hourden/domain/invoice-issuance-snapshot";
 import { createApp } from "./app.js";
 import { runMigrations } from "./db/migrate.js";
+import { bindSessionAuth } from "./test/auth-helper.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -71,6 +72,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
 
   beforeAll(async () => {
     await runMigrations(pool);
+    await bindSessionAuth(app);
   });
 
   beforeEach(async () => {

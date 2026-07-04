@@ -3,6 +3,7 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "./app.js";
 import { runMigrations } from "./db/migrate.js";
+import { bindSessionAuth } from "./test/auth-helper.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -38,6 +39,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
 
   beforeAll(async () => {
     await runMigrations(pool);
+    await bindSessionAuth(app);
   });
 
   beforeEach(async () => {

@@ -3,8 +3,7 @@ import "./test/load-env.js";
 import { Pool } from "pg";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { createApp } from "../../api/src/app.js";
-import { runMigrations } from "../../api/src/db/migrate.js";
+import { setupAuthenticatedApiFetch } from "./test/authenticated-api.js";
 import InvoicesPage from "./InvoicesPage.js";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -38,27 +37,10 @@ async function createProject(
 
 describe.skipIf(!databaseUrl)("InvoicesPage with live API", () => {
   const pool = new Pool({ connectionString: databaseUrl });
-  let originalFetch: typeof fetch;
+  let restoreFetch: () => void;
 
   beforeAll(async () => {
-    originalFetch = globalThis.fetch;
-    await runMigrations(pool);
-
-    const app = createApp({ pool });
-    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url =
-        typeof input === "string"
-          ? input
-          : input instanceof URL
-            ? input.href
-            : input.url;
-
-      if (url.startsWith("/api/")) {
-        return app.request(url, init);
-      }
-
-      return originalFetch(input, init);
-    }) as typeof fetch;
+    ({ restoreFetch } = await setupAuthenticatedApiFetch(pool));
   });
 
   beforeEach(async () => {
@@ -74,7 +56,7 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", () => {
   });
 
   afterAll(async () => {
-    globalThis.fetch = originalFetch;
+    restoreFetch();
     await pool.end();
   });
 

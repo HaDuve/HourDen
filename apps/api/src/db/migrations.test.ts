@@ -103,4 +103,15 @@ describe("migration definitions", () => {
     expect(migration?.sql).toContain("strategy text");
     expect(migration?.sql).toContain("'sequential', 'from_last'");
   });
+
+  it("adds auth tables, workspace sender settings, and operator seeding", () => {
+    const migration = MIGRATIONS.find((m) => m.id === "012_auth");
+    expect(migration).toBeDefined();
+    expect(migration?.sql).toContain("CREATE TABLE IF NOT EXISTS users");
+    expect(migration?.sql).toContain("CREATE TABLE IF NOT EXISTS sessions");
+    expect(migration?.sql).toContain("workspace_memberships");
+    expect(migration?.sql).toContain("sender_name");
+    expect(migration?.sql).toContain("calendar_timezone");
+    expect(migration?.apply).toBeTypeOf("function");
+  });
 });
