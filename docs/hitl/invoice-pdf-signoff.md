@@ -1,30 +1,25 @@
 # HITL: Invoice PDF sign-off (issue #8)
 
-Before merging native invoice PDF generation, a human Operator must confirm billing correctness.
+## Merge sign-off (complete)
 
-## Steps
+PR #18 — HITL sign-off recorded 2026-07-02:
 
-1. Start API + Postgres locally (`docker compose up` or `npm run dev:api`).
-2. Run `./scripts/test-invoice-local.sh` **or** invoice a real Client/month:
+> HITL sign-off: compared native invoice PDF to Python reference — layout and totals match (LGTM).
 
-   ```bash
-   curl -f -X POST http://localhost:3001/api/invoices \
-     -H "Content-Type: application/json" \
-     -d '{"clientId":"<uuid>","from":"2026-06-01","to":"2026-06-30"}' \
-     --output native-invoice.pdf
-   ```
+Native PDF generation merged and shipped. Issue #8 closed.
 
-3. Open `native-invoice.pdf` beside a known-good PDF from `generate_invoice.py` (e.g. `Outgoing/BANDAO/2026/` in the parent Invoices repo).
-4. Verify:
+## Ongoing transition check (manual)
+
+`generate_invoice.py` is **not retired yet**. Over the next days, compare real billing-month PDFs from HourDen against Python references before dropping the script.
+
+1. Issue via the **Invoices** tab (or `./scripts/test-invoice-local.sh` / `POST /api/invoices` locally).
+2. Open the HourDen PDF beside a known-good PDF from `generate_invoice.py` (e.g. `Outgoing/BANDAO/2026/` in the parent Invoices repo).
+3. Verify:
    - Recipient address block
    - Grouped line items (date + description totals)
-   - Invoice number format (`YYYYnnn`)
+   - Invoice number format (prefixed or plain per ADR-0007/0008)
    - §19 UStG legal text
    - Payment details (IBAN, BIC, due date)
    - Overall layout matches (section order, two-column header)
 
-## PR sign-off
-
-Comment on the PR when complete, e.g.:
-
-> HITL sign-off: compared `invoice-test.pdf` to `2026006_30_06_26_Invoice_Hannes_Duve_BANDAO.pdf` — layout and totals match.
+When satisfied across real months, retire `generate_invoice.py` as a separate decision (no issue required for MVP closure).

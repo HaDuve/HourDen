@@ -5,3 +5,7 @@ MVP is a web-only time tracker for a solo Operator, with multi-user workspaces p
 **Considered options:** Expo + RN Web (rejected — mobile/native deferred, RN Web adds overhead for table-heavy reports); Next.js full-stack (rejected — Node runtime for UI we do not need; Portfolio uses static export, this app is different); new VM or managed DB (rejected — cost). MVP auth is env-based (Caddy basic auth or API key), not a SaaS provider.
 
 **Consequences:** AFK slices split cleanly into `apps/api`, `apps/web`, `packages/domain`. Future mobile is a new client against the same API, not a repo rewrite. RAM on VM1 must be monitored when Postgres is added alongside Portfolio services.
+
+---
+
+**Update (2026-07, MVP complete):** Native invoice PDF generation shipped in issue #8 (PR #18). HourDen is the primary invoicing path (`POST /api/invoices`, Invoices tab). The API still exports Clockify-compatible CSV from Report. `generate_invoice.py` is kept for manual cross-check during transition; retirement is a separate decision after production validation. See ADR-0006 (invoice snapshots), ADR-0007/0008 (numbering).
