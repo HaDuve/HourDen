@@ -42,6 +42,7 @@ async function waitForClientReady(clientName: string, clientId: string) {
       within(clientSelect).getByRole("option", { name: clientName }),
     ).toBeInTheDocument();
     expect(clientSelect).toHaveValue(clientId);
+    expect(screen.getByRole("button", { name: /^preview$/i })).toBeEnabled();
   });
 }
 
