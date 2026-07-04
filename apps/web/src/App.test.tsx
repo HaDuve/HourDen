@@ -1,52 +1,21 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes, useLocation, useNavigate } from "react-router-dom";
-import AppLayout from "./App.js";
-import ClientsPage from "./ClientsPage.js";
-import ImportPage from "./ImportPage.js";
-import InvoicesPage from "./InvoicesPage.js";
-import ProjectsPage from "./ProjectsPage.js";
-import ReportPage from "./ReportPage.js";
-import TodayPage from "./TodayPage.js";
+import { createMemoryRouter, MemoryRouter, RouterProvider, useLocation, useNavigate, useRoutes } from "react-router-dom";
+import { authenticatedAppRoutes } from "./routes.js";
 
 function AppRoutes() {
-  return (
-    <Routes>
-      <Route path="/" element={<AppLayout />}>
-        <Route index element={<TodayPage />} />
-        <Route path="today" element={<TodayPage />} />
-        <Route path="clients" element={<ClientsPage />} />
-        <Route path="projects" element={<ProjectsPage />} />
-        <Route path="report" element={<ReportPage />} />
-        <Route path="invoices" element={<InvoicesPage />} />
-        <Route path="import" element={<ImportPage />} />
-      </Route>
-    </Routes>
-  );
+  return useRoutes(authenticatedAppRoutes);
 }
 
 function renderApp(initialPath = "/") {
-  const router = createMemoryRouter(
-    [
-      {
-        path: "/",
-        element: <AppLayout />,
-        children: [
-          { index: true, element: <TodayPage /> },
-          { path: "today", element: <TodayPage /> },
-          { path: "clients", element: <ClientsPage /> },
-          { path: "projects", element: <ProjectsPage /> },
-          { path: "report", element: <ReportPage /> },
-          { path: "invoices", element: <InvoicesPage /> },
-          { path: "import", element: <ImportPage /> },
-        ],
-      },
-    ],
-    { initialEntries: [initialPath] },
-  );
+  const router = createMemoryRouter(authenticatedAppRoutes, { initialEntries: [initialPath] });
   render(<RouterProvider router={router} />);
   return router;
 }
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 function renderAppWithMemoryRouter(initialPath = "/") {
   let pathname = initialPath;
@@ -153,6 +122,17 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: /^invoices$/i })).toBeInTheDocument();
+    });
+  });
+
+  it("redirects unknown paths to Today", async () => {
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    const app = renderAppWithMemoryRouter("/unknown-page");
+
+    await waitFor(() => {
+      expect(app.pathname).toBe("/");
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
     });
   });
 
