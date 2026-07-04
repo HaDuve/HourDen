@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryRouter, MemoryRouter, RouterProvider, useLocation, useNavigate, useRoutes } from "react-router-dom";
 import { authenticatedAppRoutes } from "./routes.js";
+import { createMatchMedia } from "./test/match-media.js";
 
 function AppRoutes() {
   return useRoutes(authenticatedAppRoutes);
@@ -15,6 +16,7 @@ function renderApp(initialPath = "/") {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  window.matchMedia = createMatchMedia(false) as typeof window.matchMedia;
 });
 
 function renderAppWithMemoryRouter(initialPath = "/") {
@@ -52,6 +54,14 @@ function renderAppWithMemoryRouter(initialPath = "/") {
   };
 }
 
+function mockDesktopViewport() {
+  window.matchMedia = createMatchMedia(true) as typeof window.matchMedia;
+}
+
+function mockMobileViewport() {
+  window.matchMedia = createMatchMedia(false) as typeof window.matchMedia;
+}
+
 function mockAppFetch() {
   return vi.fn().mockImplementation((url: string) => {
     if (url.includes("/api/time-entries/running")) {
@@ -70,6 +80,12 @@ function mockAppFetch() {
       return Promise.resolve({
         ok: true,
         json: async () => ({ projects: [] }),
+      });
+    }
+    if (url.includes("/api/reports")) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ from: "2026-07-01", to: "2026-07-31", clients: [] }),
       });
     }
     if (url.includes("/api/clients")) {
@@ -133,6 +149,215 @@ describe("App", () => {
     await waitFor(() => {
       expect(app.pathname).toBe("/");
       expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+    });
+  });
+
+  it("shows Today and Invoices as primary links on desktop", async () => {
+    mockDesktopViewport();
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    renderApp("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+    });
+
+    const primaryNav = screen.getByRole("navigation", { name: /primary/i });
+    expect(within(primaryNav).getByRole("link", { name: /^today$/i })).toBeInTheDocument();
+    expect(within(primaryNav).getByRole("link", { name: /^invoices$/i })).toBeInTheDocument();
+    expect(within(primaryNav).queryByRole("link", { name: /^clients$/i })).not.toBeInTheDocument();
+  });
+
+  it("opens the desktop overflow menu with secondary destinations", async () => {
+    mockDesktopViewport();
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    renderApp("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^more$/i }));
+
+    const menu = screen.getByRole("menu");
+    expect(within(menu).getByRole("menuitem", { name: /^clients$/i })).toBeInTheDocument();
+    expect(within(menu).getByRole("menuitem", { name: /^projects$/i })).toBeInTheDocument();
+    expect(within(menu).getByRole("menuitem", { name: /^report$/i })).toBeInTheDocument();
+    expect(within(menu).getByRole("menuitem", { name: /^import$/i })).toBeInTheDocument();
+    expect(within(menu).getByRole("menuitem", { name: /^log out$/i })).toBeInTheDocument();
+  });
+
+  it("closes the desktop overflow menu on outside click", async () => {
+    mockDesktopViewport();
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    renderApp("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^more$/i }));
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByRole("heading", { name: /today/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    });
+  });
+
+  it("closes the desktop overflow menu on Escape", async () => {
+    mockDesktopViewport();
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    renderApp("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^more$/i }));
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("highlights the active primary route on desktop", async () => {
+    mockDesktopViewport();
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    renderApp("/invoices");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /^invoices$/i })).toBeInTheDocument();
+    });
+
+    const primaryNav = screen.getByRole("navigation", { name: /primary/i });
+    expect(within(primaryNav).getByRole("link", { name: /^invoices$/i })).toHaveAttribute("aria-current", "page");
+    expect(within(primaryNav).getByRole("link", { name: /^today$/i })).not.toHaveAttribute("aria-current", "page");
+  });
+
+  it("logs out from the desktop overflow menu", async () => {
+    mockDesktopViewport();
+    const fetchMock = mockAppFetch();
+    vi.stubGlobal("fetch", fetchMock);
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { href: "http://localhost/" },
+      writable: true,
+    });
+
+    renderApp("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^more$/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /^log out$/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/auth/logout",
+        expect.objectContaining({ method: "POST", credentials: "include" }),
+      );
+    });
+  });
+
+  it("navigates to Clients from the desktop overflow menu", async () => {
+    mockDesktopViewport();
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    const app = renderAppWithMemoryRouter("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^more$/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /^clients$/i }));
+
+    await waitFor(() => {
+      expect(app.pathname).toBe("/clients");
+      expect(screen.getByRole("heading", { name: /^clients$/i })).toBeInTheDocument();
+    });
+  });
+
+  it("shows a mobile bottom tab bar with Today, Invoices, and More", async () => {
+    mockMobileViewport();
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    renderApp("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+    });
+
+    const mobileNav = screen.getByRole("navigation", { name: /mobile/i });
+    expect(within(mobileNav).getByRole("link", { name: /^today$/i })).toBeInTheDocument();
+    expect(within(mobileNav).getByRole("link", { name: /^invoices$/i })).toBeInTheDocument();
+    expect(within(mobileNav).getByRole("button", { name: /^more$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: /primary/i })).not.toBeInTheDocument();
+  });
+
+  it("opens the mobile More sheet with secondary destinations", async () => {
+    mockMobileViewport();
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    renderApp("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^more$/i }));
+
+    const sheet = screen.getByRole("dialog", { name: /more destinations/i });
+    expect(within(sheet).getByRole("link", { name: /^clients$/i })).toBeInTheDocument();
+    expect(within(sheet).getByRole("link", { name: /^projects$/i })).toBeInTheDocument();
+    expect(within(sheet).getByRole("link", { name: /^report$/i })).toBeInTheDocument();
+    expect(within(sheet).getByRole("link", { name: /^import$/i })).toBeInTheDocument();
+    expect(within(sheet).getByRole("button", { name: /^log out$/i })).toBeInTheDocument();
+  });
+
+  it("toggles the mobile More sheet closed when More is clicked again", async () => {
+    mockMobileViewport();
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    renderApp("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+    });
+
+    const moreButton = screen.getByRole("button", { name: /^more$/i });
+    fireEvent.click(moreButton);
+    expect(screen.getByRole("dialog", { name: /more destinations/i })).toBeInTheDocument();
+
+    fireEvent.click(moreButton);
+    expect(screen.queryByRole("dialog", { name: /more destinations/i })).not.toBeInTheDocument();
+  });
+
+  it("navigates to Report from the mobile More sheet", async () => {
+    mockMobileViewport();
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    const app = renderAppWithMemoryRouter("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^more$/i }));
+    fireEvent.click(screen.getByRole("link", { name: /^report$/i }));
+
+    await waitFor(() => {
+      expect(app.pathname).toBe("/report");
+      expect(screen.getByRole("heading", { name: /^report$/i })).toBeInTheDocument();
     });
   });
 
