@@ -61,6 +61,35 @@ describe.skipIf(!databaseUrl)("create-user", () => {
     expect(membership.rows[0]?.role).toBe("owner");
   });
 
+  it("creates a Workspace with empty Invoice Sender fields", async () => {
+    const created = await createUserWithWorkspace(pool, {
+      email: QA_EMAIL,
+      password: QA_PASSWORD,
+      workspaceName: QA_WORKSPACE,
+    });
+
+    const workspace = await pool.query<{
+      sender_name: string | null;
+      sender_street: string | null;
+      sender_email: string | null;
+      sender_iban: string | null;
+    }>(
+      `
+        SELECT sender_name, sender_street, sender_email, sender_iban
+        FROM workspaces
+        WHERE id = $1
+      `,
+      [created.workspaceId],
+    );
+
+    expect(workspace.rows[0]).toEqual({
+      sender_name: null,
+      sender_street: null,
+      sender_email: null,
+      sender_iban: null,
+    });
+  });
+
   it("rejects weak passwords", async () => {
     await expect(
       createUserWithWorkspace(pool, {
