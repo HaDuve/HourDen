@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { completeOnboarding } from "./onboarding-api.js";
 
 const steps = [
@@ -10,7 +10,6 @@ const steps = [
 
 export default function OnboardingLayout() {
   const location = useLocation();
-  const navigate = useNavigate();
   const [dismissing, setDismissing] = useState(false);
   const currentStepIndex = steps.findIndex((step) =>
     location.pathname.startsWith(step.path),
@@ -20,7 +19,6 @@ export default function OnboardingLayout() {
     setDismissing(true);
     try {
       await completeOnboarding();
-      navigate("/today", { replace: true });
     } catch {
       setDismissing(false);
     }

@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { completeOnboarding } from "./onboarding-api.js";
 
 type InvoiceSenderFormData = {
@@ -38,7 +37,6 @@ async function fetchInvoiceSender(): Promise<InvoiceSenderFormData> {
 }
 
 export default function InvoiceSenderStepPage() {
-  const navigate = useNavigate();
   const [form, setForm] = useState<InvoiceSenderFormData>(emptyForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -93,7 +91,6 @@ export default function InvoiceSenderStepPage() {
       }
 
       await completeOnboarding();
-      navigate("/today", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save invoice sender");
     } finally {

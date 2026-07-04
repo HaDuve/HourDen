@@ -1,3 +1,17 @@
+{
+  const NativeRequest = globalThis.Request;
+  globalThis.Request = class PatchedRequest extends NativeRequest {
+    constructor(input: RequestInfo | URL, init?: RequestInit) {
+      if (init?.signal) {
+        const { signal: _signal, ...rest } = init;
+        super(input, rest);
+      } else {
+        super(input, init);
+      }
+    }
+  } as typeof Request;
+}
+
 import "./load-env.js";
 import "@testing-library/jest-dom/vitest";
 import "../i18n/i18n.js";

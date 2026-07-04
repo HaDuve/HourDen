@@ -1,8 +1,8 @@
 import "../test/load-env.js";
 
 import { Pool } from "pg";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { setupFreshUserApiFetch } from "../test/authenticated-api.js";
 import { authenticatedAppRoutes } from "../routes.js";
@@ -57,6 +57,10 @@ describe.skipIf(!databaseUrl)("Onboarding flow with live API", () => {
     );
   });
 
+  afterEach(() => {
+    cleanup();
+  });
+
   afterAll(async () => {
     restoreFetch();
     await pool.end();
@@ -68,6 +72,15 @@ describe.skipIf(!databaseUrl)("Onboarding flow with live API", () => {
     expect(await res.json()).toEqual({ needsOnboarding: true, completedAt: null });
   });
 
+  it("redirects a fresh workspace from Today to the client onboarding step", async () => {
+    renderApp("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /get started/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /add your first client/i })).toBeInTheDocument();
+    });
+  });
+
   it("shows the client onboarding step for a fresh workspace", async () => {
     renderApp("/onboarding/client");
 
@@ -77,7 +90,7 @@ describe.skipIf(!databaseUrl)("Onboarding flow with live API", () => {
     });
   });
 
-  it("completes onboarding when the user skips", async () => {
+  it("lands on Today after skipping and does not reopen onboarding", async () => {
     renderApp("/onboarding/client");
 
     await waitFor(() => {
@@ -86,11 +99,16 @@ describe.skipIf(!databaseUrl)("Onboarding flow with live API", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^skip$/i }));
 
-    await waitFor(async () => {
-      const res = await fetch("/api/workspace/onboarding");
-      const body = await res.json();
-      expect(body.needsOnboarding).toBe(false);
-      expect(body.completedAt).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+    });
+
+    cleanup();
+    renderApp("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: /get started/i })).not.toBeInTheDocument();
     });
   });
 });
