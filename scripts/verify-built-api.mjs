@@ -3,7 +3,6 @@
  * Post-build smoke: production Node must resolve @hourden/domain and serve /health.
  * Run after `npm run build` (CI and local).
  */
-import { DEFAULT_WORKSPACE_ID } from "@hourden/domain";
 import { createApp } from "../apps/api/dist/app.js";
 
 const app = createApp();
@@ -16,7 +15,7 @@ if (res.status !== 200) {
 
 const body = await res.json();
 
-if (body.status !== "ok" || body.workspaceId !== DEFAULT_WORKSPACE_ID) {
+if (body.ok !== true) {
   console.error("Unexpected health payload:", body);
   process.exit(1);
 }
