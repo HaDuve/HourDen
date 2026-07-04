@@ -2,13 +2,20 @@
 # After the hannesduve.com block, add:
 
 hourden.hannesduve.com {
-    encode gzip zstd
+    # SSE must not be compressed or buffered (ADR-0010).
+    handle /api/events* {
+        reverse_proxy host.docker.internal:3001 {
+            flush_interval -1
+        }
+    }
 
     handle /api/* {
+        encode gzip zstd
         reverse_proxy host.docker.internal:3001
     }
 
     handle {
+        encode gzip zstd
         root * /var/www/hourden
         try_files {path} /index.html
         file_server
