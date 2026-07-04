@@ -35,7 +35,7 @@ async function createProject(
   return res.json() as Promise<{ id: string }>;
 }
 
-describe.skipIf(!databaseUrl)("InvoicesPage with live API", () => {
+describe.skipIf(!databaseUrl)("InvoicesPage with live API", { timeout: 30_000 }, () => {
   const pool = new Pool({ connectionString: databaseUrl });
   let restoreFetch: () => void;
 
@@ -102,14 +102,11 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
 
-    await waitFor(
-      () => {
-        expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
-        expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
-        expect(screen.getByTitle(/invoice preview/i)).toBeInTheDocument();
-      },
-      { timeout: 5000 },
-    );
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
+      expect(screen.getByTitle(/invoice preview/i)).toBeInTheDocument();
+    });
 
     const beforeIssue = await (
       await fetch("/api/time-entries?date=2026-06-18")
@@ -168,14 +165,11 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
 
-    await waitFor(
-      () => {
-        expect(
-          screen.getByText(/client recipient fields are required before invoicing/i),
-        ).toBeInTheDocument();
-      },
-      { timeout: 5000 },
-    );
+    await waitFor(() => {
+      expect(
+        screen.getByText(/client recipient fields are required before invoicing/i),
+      ).toBeInTheDocument();
+    });
   });
 
   it("shows an inline error when there are no billable entries", async () => {
@@ -203,14 +197,11 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
 
-    await waitFor(
-      () => {
-        expect(
-          screen.getByText(/no billable time entries in this billing period/i),
-        ).toBeInTheDocument();
-      },
-      { timeout: 5000 },
-    );
+    await waitFor(() => {
+      expect(
+        screen.getByText(/no billable time entries in this billing period/i),
+      ).toBeInTheDocument();
+    });
     expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeDisabled();
   });
 });

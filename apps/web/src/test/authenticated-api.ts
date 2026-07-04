@@ -1,5 +1,6 @@
 import type { Hono } from "hono";
 import type { Pool } from "pg";
+import { vi } from "vitest";
 import { createApp } from "../../../api/src/app.js";
 import { runMigrations } from "../../../api/src/db/migrate.js";
 import { bindSessionAuth } from "../../../api/src/test/auth-helper.js";
@@ -7,6 +8,7 @@ import { bindSessionAuth } from "../../../api/src/test/auth-helper.js";
 export async function setupAuthenticatedApiFetch(
   pool: Pool,
 ): Promise<{ app: Hono; restoreFetch: () => void }> {
+  vi.unstubAllGlobals();
   const originalFetch = globalThis.fetch;
   await runMigrations(pool);
 

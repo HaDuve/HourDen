@@ -128,6 +128,7 @@ describe("InvoicesPage", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it("sets the Billing Period to last month when the last month quick control is clicked", async () => {
