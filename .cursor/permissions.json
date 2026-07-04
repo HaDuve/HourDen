@@ -1,0 +1,62 @@
+{
+  "terminalAllowlist": [
+    "git status",
+    "git diff",
+    "git log",
+    "git show",
+    "git fetch",
+    "npm test",
+    "npm run test",
+    "npm run typecheck",
+    "npm run lint",
+    "npm run build",
+    "npm run verify:build",
+    "vitest run",
+    "ls",
+    "cat",
+    "head",
+    "tail",
+    "wc",
+    "rg",
+    "grep",
+    "find"
+  ],
+  "mcpAllowlist": [
+    "plugin-deploy-on-aws-awsknowledge:*",
+    "plugin-deploy-on-aws-awspricing:*",
+    "user-open-design:get_*",
+    "user-open-design:list_*",
+    "user-open-design:search_*",
+    "plugin-figma-figma:get_design_context",
+    "plugin-figma-figma:get_screenshot",
+    "plugin-figma-figma:get_metadata",
+    "plugin-figma-figma:get_figjam",
+    "plugin-figma-figma:search_design_system",
+    "plugin-figma-figma:list_code_components"
+  ],
+  "autoRun": {
+    "allow_instructions": [
+      "Read-only filesystem operations are fine: ls, cat, head, tail, wc, grep, rg, find, file size checks.",
+      "Type checks, lints, and test runs are fine: tsc, vitest, npm test, npm run test, npm run typecheck, npm run lint, npm run build, npm run verify:build.",
+      "Package manager read and in-repo install commands are fine: npm ls, npm view, npm outdated, npm install, npm ci when run inside the HourDen repo.",
+      "Git read commands are fine: git status, git diff, git log, git show. Git fetch is fine.",
+      "Local Docker Compose for dev is fine: docker compose up, docker compose start, docker compose ps, docker compose logs against the repo docker-compose.yml.",
+      "MCP read calls against documentation, search, design inspection, and internal wikis are fine.",
+      "Browser MCP against localhost:5173 and localhost:3001 for local dev verification is fine.",
+      "Read-only production checks are fine: curl or fetch to hourden.hannesduve.com health or verify-production scripts that only inspect state.",
+      "Fetch calls to github.com, raw.githubusercontent.com, npmjs.com, registry.npmjs.org, cursor.com, nodejs.org, vite.dev, hono.dev, vitest.dev, postgresql.org, react.dev, and tailwindcss.com are fine."
+    ],
+    "block_instructions": [
+      "Anything that writes to .env, .env.local, .env.example secrets, or other credential files requires approval.",
+      "npm run migrate, npm run create-user, and any psql or SQL against a non-localhost DATABASE_URL require approval.",
+      "Any git commit, git push, git reset --hard, git clean -fd, git rebase, or branch deletion requires approval.",
+      "Any ssh, scp, rsync, or scripts/deploy-remote, setup-caddy-vm, fix-caddy-vm, or fix-caddy-routes-vm requires approval.",
+      "Any docker compose or docker command targeting /opt/HourDen, /opt/Portfolio, or remote production hosts requires approval.",
+      "Any MCP call that deploys or mutates AWS infrastructure (plugin-deploy-on-aws-awsiac) requires approval.",
+      "Figma write tools (use_figma, create_new_file, generate_figma_design, upload_assets) require approval.",
+      "Browser MCP that logs into or submits forms on hourden.hannesduve.com requires approval.",
+      "Any installation command that touches global state (npm install -g, brew install, pipx install) requires approval.",
+      "Any fetch call to an unknown external host requires approval."
+    ]
+  }
+}
