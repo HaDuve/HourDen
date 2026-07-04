@@ -10,9 +10,10 @@ import {
 
 type LocaleProviderProps = {
   children: ReactNode;
+  userLocale: SupportedLocale | null;
 };
 
-export function LocaleProvider({ children }: LocaleProviderProps) {
+export function LocaleProvider({ children, userLocale }: LocaleProviderProps) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -22,20 +23,6 @@ export function LocaleProvider({ children }: LocaleProviderProps) {
       const storedLocale = readStoredLocale();
       if (storedLocale) {
         await applyLocale(storedLocale);
-      }
-
-      const res = await fetch("/api/auth/me", { credentials: "include" });
-      if (cancelled) {
-        return;
-      }
-
-      let userLocale: SupportedLocale | null = null;
-      if (res.ok) {
-        const data = (await res.json()) as {
-          user?: { locale?: SupportedLocale | null };
-        };
-        const value = data.user?.locale;
-        userLocale = isSupportedLocale(value) ? value : null;
       }
 
       const locale = resolveLocale({
@@ -57,7 +44,7 @@ export function LocaleProvider({ children }: LocaleProviderProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [userLocale]);
 
   if (!ready) {
     return (
