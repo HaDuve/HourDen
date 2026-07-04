@@ -32,6 +32,14 @@ describe("stripHourdenBasicAuth", () => {
     expect(result).toMatch(/reverse_proxy host\.docker\.internal:3001/);
   });
 
+  it("removes legacy basicauth from the HourDen vhost block", () => {
+    const input = WITH_BASIC_AUTH.replace("basic_auth", "basicauth");
+    const result = stripHourdenBasicAuth(input);
+
+    expect(result).not.toMatch(/basicauth/);
+    expect(result).toMatch(/encode gzip zstd/);
+  });
+
   it("leaves other vhosts unchanged", () => {
     const input = `hannesduve.com {
     basic_auth {

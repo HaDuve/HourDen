@@ -82,4 +82,12 @@ export async function verifyProduction({
   if (meBody.user?.email !== operatorEmail) {
     throw new Error("/api/auth/me did not return the operator user");
   }
+
+  const clientsRes = await fetchFn(`${root}/api/clients`, {
+    headers: { cookie: sessionCookie },
+  });
+  if (clientsRes.status === 401) {
+    throw new Error("Protected GET /api/clients rejected the session cookie");
+  }
+  await expectOk(clientsRes, "GET /api/clients");
 }

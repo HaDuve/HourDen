@@ -12,47 +12,15 @@ if [ ! -f "$CADDYFILE" ]; then
 fi
 
 echo "Patching Caddyfile proxy target and removing HourDen basic_auth (if present)..."
-awk '
-function brace_delta(s,    tmp, opens, closes) {
-  tmp = s
-  opens = gsub(/\{/, "&", tmp)
-  tmp = s
-  closes = gsub(/\}/, "&", tmp)
-  return opens - closes
-}
-BEGIN { in_hourden = 0; hourden_depth = 0; skip_basic = 0; basic_depth = 0 }
-{
-  line = $0
-  trimmed = line
-  sub(/^[ \t]+/, "", trimmed)
+HOURDEN_REPO="${HOURDEN_REPO:-/opt/HourDen}"
+STRIP_SCRIPT="$HOURDEN_REPO/scripts/strip-caddy-hourden.mjs"
 
-  if (!in_hourden && trimmed ~ /^hourden\.hannesduve\.com[ \t]*\{/) {
-    in_hourden = 1
-    hourden_depth = 1
-    print line
-    next
-  }
+if [ ! -f "$STRIP_SCRIPT" ]; then
+  echo "Missing $STRIP_SCRIPT — deploy HourDen to $HOURDEN_REPO first (or set HOURDEN_REPO)." >&2
+  exit 1
+fi
 
-  if (in_hourden) {
-    if (!skip_basic && trimmed ~ /^basic_auth[ \t]*\{/) {
-      skip_basic = 1
-      basic_depth = 1
-      next
-    }
-    if (skip_basic) {
-      basic_depth += brace_delta(line)
-      if (basic_depth <= 0) skip_basic = 0
-      next
-    }
-    hourden_depth += brace_delta(line)
-    print line
-    if (hourden_depth <= 0) in_hourden = 0
-    next
-  }
-
-  print line
-}
-' "$CADDYFILE" > "${CADDYFILE}.tmp" && mv "${CADDYFILE}.tmp" "$CADDYFILE"
+node "$STRIP_SCRIPT" "$CADDYFILE"
 
 sed -i.bak-"$(date +%Y%m%d-%H%M%S)" \
   -e 's|reverse_proxy localhost:3001|reverse_proxy host.docker.internal:3001|g' \

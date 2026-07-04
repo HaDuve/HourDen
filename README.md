@@ -219,7 +219,7 @@ Requires `HOURDEN_OPERATOR_EMAIL` and `HOURDEN_OPERATOR_PASSWORD` in `.env` (or 
 - `https://hourden.hannesduve.com/` serves the SPA (no Caddy basic-auth prompt)
 - `GET /api/health` returns `{ "ok": true }` without auth
 - `POST /api/auth/login` succeeds for the operator account and sets a session cookie
-- `GET /api/auth/me` succeeds with that session cookie
+- `GET /api/auth/me` and `GET /api/clients` succeed with that session cookie
 
 ## Workspace seam
 

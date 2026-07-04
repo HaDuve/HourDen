@@ -28,7 +28,7 @@ export function stripHourdenBasicAuth(caddyfile) {
     }
 
     if (inHourdenBlock) {
-      if (!skippingBasicAuth && /^basic_auth\s*\{/.test(trimmed)) {
+      if (!skippingBasicAuth && /^basic_?auth\s*\{/.test(trimmed)) {
         skippingBasicAuth = true;
         basicAuthBraceDepth = 1;
         continue;
