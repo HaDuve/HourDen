@@ -77,6 +77,17 @@ export async function getWorkspaceCalendarTimezone(
   return row?.calendar_timezone ?? DEFAULT_REPORT_TIMEZONE;
 }
 
+export async function getWorkspaceBillingContext(
+  pool: Pool,
+  workspaceId: string,
+): Promise<{ operator: InvoiceOperator; calendarTimezone: string }> {
+  const row = await getWorkspaceSettings(pool, workspaceId);
+  return {
+    operator: workspaceRowToInvoiceOperator(row),
+    calendarTimezone: row?.calendar_timezone ?? DEFAULT_REPORT_TIMEZONE,
+  };
+}
+
 export type CreateUserWithWorkspaceInput = {
   email: string;
   password: string;
@@ -152,6 +163,7 @@ export async function createUserWithWorkspace(
     const workspaceRow = await client.query<{ id: string }>(
       `
         INSERT INTO workspaces (
+          id,
           name,
           sender_name,
           sender_street,
@@ -164,7 +176,7 @@ export async function createUserWithWorkspace(
           sender_bic,
           calendar_timezone
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING id
       `,
       [

@@ -7,6 +7,7 @@ import {
   findOwnerWorkspaceIdForUser,
   findUserByEmail,
 } from "../db/auth.js";
+import { getWorkspaceCalendarTimezone } from "../db/workspaces.js";
 import { verifyPassword } from "./password.js";
 import { SESSION_COOKIE, sessionExpiresAt } from "./session.js";
 
@@ -42,6 +43,8 @@ export function createAuthRouter(pool: Pool) {
       return c.json({ error: "No workspace membership" }, 403);
     }
 
+    const calendarTimezone = await getWorkspaceCalendarTimezone(pool, workspaceId);
+
     const sessionId = await createSession(pool, {
       userId: user.id,
       activeWorkspaceId: workspaceId,
@@ -53,6 +56,7 @@ export function createAuthRouter(pool: Pool) {
     return c.json({
       user: { id: user.id, email: user.email },
       activeWorkspaceId: workspaceId,
+      calendarTimezone,
     });
   });
 
@@ -91,9 +95,15 @@ export function createAuthRouter(pool: Pool) {
       return c.json({ error: "Unauthorized" }, 401);
     }
 
+    const calendarTimezone = await getWorkspaceCalendarTimezone(
+      pool,
+      row.active_workspace_id,
+    );
+
     return c.json({
       user: { id: row.id, email: row.email },
       activeWorkspaceId: row.active_workspace_id,
+      calendarTimezone,
     });
   });
 

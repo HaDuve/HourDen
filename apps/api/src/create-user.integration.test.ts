@@ -71,7 +71,7 @@ describe.skipIf(!databaseUrl)("create-user", () => {
     ).rejects.toThrow(/at least 8 characters/);
   });
 
-  it("lets a new User log in and see an empty Clients list", async () => {
+  it("lets a new User log in and see empty Clients, Projects, and Time Entries", async () => {
     await createUserWithWorkspace(pool, {
       email: QA_EMAIL,
       password: QA_PASSWORD,
@@ -79,10 +79,30 @@ describe.skipIf(!databaseUrl)("create-user", () => {
     });
 
     const cookie = await loginAsOperator(app, QA_EMAIL, QA_PASSWORD);
-    const res = await app.request("/api/clients", withSessionCookie({}, cookie));
 
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ clients: [] });
+    const clientsRes = await app.request("/api/clients", withSessionCookie({}, cookie));
+    expect(clientsRes.status).toBe(200);
+    expect(await clientsRes.json()).toEqual({ clients: [] });
+
+    const projectsRes = await app.request("/api/projects", withSessionCookie({}, cookie));
+    expect(projectsRes.status).toBe(200);
+    expect(await projectsRes.json()).toEqual({ projects: [] });
+
+    const meRes = await app.request("/api/auth/me", withSessionCookie({}, cookie));
+    const { calendarTimezone } = (await meRes.json()) as { calendarTimezone: string };
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: calendarTimezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+
+    const entriesRes = await app.request(
+      `/api/time-entries?date=${today}`,
+      withSessionCookie({}, cookie),
+    );
+    expect(entriesRes.status).toBe(200);
+    expect(await entriesRes.json()).toEqual({ entries: [] });
   });
 
   it("keeps operator and QA workspace data isolated", async () => {

@@ -7,8 +7,8 @@ import {
   rowsToClockifyExportEntries,
 } from "./db/reports.js";
 import {
+  getWorkspaceBillingContext,
   getWorkspaceCalendarTimezone,
-  getWorkspaceInvoiceOperator,
 } from "./db/workspaces.js";
 import { getCurrentWorkspaceId } from "./workspace.js";
 
@@ -73,10 +73,8 @@ export function createReportsRouter(pool: Pool) {
     }
 
     const workspaceId = getCurrentWorkspaceId();
-    const [timeZone, operator] = await Promise.all([
-      getWorkspaceCalendarTimezone(pool, workspaceId),
-      getWorkspaceInvoiceOperator(pool, workspaceId),
-    ]);
+    const { calendarTimezone: timeZone, operator } =
+      await getWorkspaceBillingContext(pool, workspaceId);
     const rows = await listReportEntriesForRange(
       pool,
       workspaceId,

@@ -7,17 +7,43 @@ import { DEFAULT_INVOICE_OPERATOR } from "@hourden/domain/invoice-pdf";
 import { normalizeInvoicePdfText } from "@hourden/domain/invoice-pdf-snapshot";
 import type { InvoiceIssuanceSnapshot } from "@hourden/domain/invoice-issuance-snapshot";
 import { createApp } from "./app.js";
+import { workspaceRowToInvoiceOperator } from "./db/workspaces.js";
 import { runMigrations } from "./db/migrate.js";
 import { bindSessionAuth } from "./test/auth-helper.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 
-function expectedInvoiceOperator() {
-  return {
-    ...DEFAULT_INVOICE_OPERATOR,
-    name: process.env.HOURDEN_OPERATOR_NAME ?? DEFAULT_INVOICE_OPERATOR.name,
-    email: process.env.HOURDEN_OPERATOR_EMAIL ?? DEFAULT_INVOICE_OPERATOR.email,
-  };
+async function expectedInvoiceOperator(pool: Pool) {
+  const row = await pool.query<{
+    sender_name: string | null;
+    sender_street: string | null;
+    sender_city: string | null;
+    sender_tax_number: string | null;
+    sender_email: string | null;
+    sender_phone: string | null;
+    sender_bank_name: string | null;
+    sender_iban: string | null;
+    sender_bic: string | null;
+    calendar_timezone: string | null;
+  }>(
+    `
+      SELECT
+        sender_name,
+        sender_street,
+        sender_city,
+        sender_tax_number,
+        sender_email,
+        sender_phone,
+        sender_bank_name,
+        sender_iban,
+        sender_bic,
+        calendar_timezone
+      FROM workspaces
+      WHERE id = $1
+    `,
+    [DEFAULT_WORKSPACE_ID],
+  );
+  return workspaceRowToInvoiceOperator(row.rows[0] ?? null);
 }
 
 async function pdfText(body: ArrayBuffer): Promise<string> {
@@ -396,7 +422,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
         addressLine1: "Schloßbergstraße 1",
         addressLine2: "82319 Starnberg",
       },
-      operator: expectedInvoiceOperator(),
+      operator: await expectedInvoiceOperator(pool),
       lines: [
         {
           date: "2026-06-18",

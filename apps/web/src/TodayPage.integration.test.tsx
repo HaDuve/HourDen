@@ -5,7 +5,13 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { setupAuthenticatedApiFetch } from "./test/authenticated-api.js";
 import TodayPage from "./TodayPage.js";
-import { todayLocalDate } from "./today-date.js";
+import { todayDateInTimeZone } from "./today-date.js";
+
+async function workspaceToday(): Promise<string> {
+  const res = await fetch("/api/auth/me");
+  const { calendarTimezone } = (await res.json()) as { calendarTimezone: string };
+  return todayDateInTimeZone(calendarTimezone);
+}
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -29,7 +35,7 @@ describe.skipIf(!databaseUrl)("TodayPage with live API", () => {
   });
 
   it("lists today's entries and supports start/stop and manual add", async () => {
-    const today = todayLocalDate();
+    const today = await workspaceToday();
     const start = `${today}T09:00`;
     const end = `${today}T10:00`;
 
