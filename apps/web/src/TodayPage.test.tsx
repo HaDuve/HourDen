@@ -1,52 +1,16 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { TimeEntry } from "@hourden/domain";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import i18n from "./i18n/i18n.js";
 import TodayPage from "./TodayPage.js";
+import { MockEventSource, jsonResponse, stubWorkspaceEventsEnvironment } from "./test/mock-event-source.js";
+import { resolveFetchUrl } from "./test/resolve-fetch-url.js";
 
 vi.mock("./today-date.js", () => ({
   todayDateInTimeZone: () => "2026-07-02",
 }));
 
-type Listener = (event: MessageEvent) => void;
-
-class MockEventSource {
-  static instances: MockEventSource[] = [];
-
-  url: string;
-  withCredentials: boolean;
-  onerror: (() => void) | null = null;
-  private listeners = new Map<string, Set<Listener>>();
-  closed = false;
-
-  constructor(url: string, options?: { withCredentials?: boolean }) {
-    this.url = url;
-    this.withCredentials = options?.withCredentials ?? false;
-    MockEventSource.instances.push(this);
-  }
-
-  addEventListener(type: string, listener: Listener) {
-    const set = this.listeners.get(type) ?? new Set();
-    set.add(listener);
-    this.listeners.set(type, set);
-  }
-
-  close() {
-    this.closed = true;
-  }
-
-  emit(type: string) {
-    const listeners = this.listeners.get(type);
-    if (!listeners) {
-      return;
-    }
-    const event = new MessageEvent(type, { data: "" });
-    for (const listener of listeners) {
-      listener(event);
-    }
-  }
-}
-
-const morningEntry = {
+const morningEntry: TimeEntry = {
   id: "e0000000-0000-4000-8000-000000000001",
   projectId: null,
   startedAt: "2026-07-02T08:00:00.000Z",
@@ -61,7 +25,7 @@ const morningEntry = {
   invoiced: false,
 };
 
-const afternoonEntry = {
+const afternoonEntry: TimeEntry = {
   id: "e0000000-0000-4000-8000-000000000002",
   projectId: null,
   startedAt: "2026-07-02T13:00:00.000Z",
@@ -76,7 +40,7 @@ const afternoonEntry = {
   invoiced: false,
 };
 
-const runningEntry = {
+const runningEntry: TimeEntry = {
   id: "e0000000-0000-4000-8000-000000000099",
   projectId: null,
   startedAt: "2026-07-02T09:59:30.000Z",
@@ -91,56 +55,30 @@ const runningEntry = {
   invoiced: false,
 };
 
-const remoteRunningEntry = {
+const remoteRunningEntry: TimeEntry = {
   ...runningEntry,
   id: "e0000000-0000-4000-8000-000000000088",
   description: "Started elsewhere",
 };
 
-function resolveFetchUrl(input: RequestInfo | URL): string {
-  if (typeof input === "string") {
-    return input;
-  }
-  if (input instanceof URL) {
-    return input.href;
-  }
-  return input.url;
-}
-
 function mockTodayLoad(
-  entries: typeof morningEntry[],
-  running: typeof morningEntry | null = null,
+  entries: TimeEntry[],
+  running: TimeEntry | null = null,
 ) {
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = resolveFetchUrl(input);
 
     if (url === "/api/auth/me") {
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ calendarTimezone: "UTC" }),
-      };
+      return jsonResponse({ calendarTimezone: "UTC" });
     }
     if (url.startsWith("/api/time-entries?date=")) {
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ entries }),
-      };
+      return jsonResponse({ entries });
     }
     if (url === "/api/time-entries/running") {
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ entry: running }),
-      };
+      return jsonResponse({ entry: running });
     }
     if (url === "/api/projects") {
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({ projects: [] }),
-      };
+      return jsonResponse({ projects: [] });
     }
     if (init?.method === "DELETE") {
       return { ok: true, status: 204 };
@@ -159,9 +97,7 @@ async function flushPromises() {
 
 describe("TodayPage", () => {
   beforeEach(async () => {
-    MockEventSource.instances = [];
-    globalThis.EventSource = MockEventSource as unknown as typeof EventSource;
-    vi.stubGlobal("location", { replace: vi.fn() });
+    stubWorkspaceEventsEnvironment();
     await i18n.changeLanguage("en");
   });
 
@@ -343,5 +279,54 @@ describe("TodayPage", () => {
         ),
       ).toBeInTheDocument();
     });
+  });
+
+  it("does not show the remote-stop notice after stopping the timer locally", async () => {
+    let runningFetches = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = resolveFetchUrl(input);
+
+      if (url === `/api/time-entries/${runningEntry.id}/stop` && init?.method === "POST") {
+        return jsonResponse({
+          ...runningEntry,
+          endedAt: "2026-07-02T10:05:00.000Z",
+          isRunning: false,
+          durationMinutes: 5,
+        });
+      }
+      if (url === "/api/time-entries/running") {
+        runningFetches += 1;
+        return jsonResponse({
+          entry: runningFetches === 1 ? runningEntry : null,
+        });
+      }
+
+      return mockTodayLoad([], runningEntry)(input, init);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<TodayPage />);
+    await flushPromises();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^stop timer$/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^stop timer$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^start timer$/i })).toBeInTheDocument();
+    });
+
+    act(() => {
+      MockEventSource.instances[0]!.emit("timer-changed");
+    });
+    await flushPromises();
+
+    expect(
+      screen.queryByText(
+        "Timer stopped — a new one was started on another device",
+      ),
+    ).not.toBeInTheDocument();
   });
 });

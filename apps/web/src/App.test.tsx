@@ -1,8 +1,9 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryRouter, MemoryRouter, RouterProvider, useLocation, useNavigate, useRoutes } from "react-router-dom";
 import { authenticatedAppRoutes } from "./routes.js";
 import { createMatchMedia } from "./test/match-media.js";
+import { jsonResponse, stubWorkspaceEventsEnvironment } from "./test/mock-event-source.js";
 
 function AppRoutes() {
   return useRoutes(authenticatedAppRoutes);
@@ -16,6 +17,7 @@ function renderApp(initialPath = "/") {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   window.matchMedia = createMatchMedia(false) as typeof window.matchMedia;
 });
 
@@ -64,50 +66,37 @@ function mockMobileViewport() {
 
 function mockAppFetch() {
   return vi.fn().mockImplementation((url: string) => {
+    if (url === "/api/auth/me") {
+      return Promise.resolve(jsonResponse({ calendarTimezone: "UTC" }));
+    }
     if (url.includes("/api/time-entries/running")) {
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ entry: null }),
-      });
+      return Promise.resolve(jsonResponse({ entry: null }));
     }
     if (url.includes("/api/time-entries?")) {
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ entries: [] }),
-      });
+      return Promise.resolve(jsonResponse({ entries: [] }));
     }
     if (url.includes("/api/projects")) {
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ projects: [] }),
-      });
+      return Promise.resolve(jsonResponse({ projects: [] }));
     }
     if (url.includes("/api/reports")) {
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ from: "2026-07-01", to: "2026-07-31", clients: [] }),
-      });
+      return Promise.resolve(
+        jsonResponse({ from: "2026-07-01", to: "2026-07-31", clients: [] }),
+      );
     }
     if (url.includes("/api/clients")) {
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ clients: [] }),
-      });
+      return Promise.resolve(jsonResponse({ clients: [] }));
     }
     if (url === "/api/invoices") {
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ invoices: [] }),
-      });
+      return Promise.resolve(jsonResponse({ invoices: [] }));
     }
-    return Promise.resolve({
-      ok: true,
-      json: async () => ({}),
-    });
+    return Promise.resolve(jsonResponse({}));
   });
 }
 
 describe("App", () => {
+  beforeEach(() => {
+    stubWorkspaceEventsEnvironment();
+  });
   it("renders the Today page by default", async () => {
     vi.stubGlobal("fetch", mockAppFetch());
 
