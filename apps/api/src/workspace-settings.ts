@@ -27,6 +27,13 @@ function validateInvoiceSenderInput(
   if (body.email !== undefined && !body.email.trim()) {
     return "email cannot be empty";
   }
+  const hasName = body.name !== undefined;
+  const hasEmail = body.email !== undefined;
+  if (hasName !== hasEmail) {
+    return hasName
+      ? "email is required when name is provided"
+      : "name is required when email is provided";
+  }
   return null;
 }
 
@@ -62,7 +69,11 @@ export function createWorkspaceSettingsRouter(pool: Pool) {
       return c.json({ error: "Workspace not found" }, 404);
     }
 
-    return c.json({ invoiceSender, configured: true });
+    const status = await getWorkspaceInvoiceSenderStatus(
+      pool,
+      getCurrentWorkspaceId(),
+    );
+    return c.json(status);
   });
 
   return router;

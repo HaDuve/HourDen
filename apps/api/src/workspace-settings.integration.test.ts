@@ -30,6 +30,15 @@ describe.skipIf(!databaseUrl)("workspace invoice sender settings", () => {
     await pool.query("DELETE FROM workspace_memberships WHERE user_id IN (SELECT id FROM users WHERE email = $1)", [
       QA_EMAIL,
     ]);
+    await pool.query("DELETE FROM time_entries WHERE workspace_id IN (SELECT id FROM workspaces WHERE name = $1)", [
+      QA_WORKSPACE,
+    ]);
+    await pool.query("DELETE FROM invoices WHERE workspace_id IN (SELECT id FROM workspaces WHERE name = $1)", [
+      QA_WORKSPACE,
+    ]);
+    await pool.query("DELETE FROM clients WHERE workspace_id IN (SELECT id FROM workspaces WHERE name = $1)", [
+      QA_WORKSPACE,
+    ]);
     await pool.query("DELETE FROM workspaces WHERE name = $1", [QA_WORKSPACE]);
     await pool.query("DELETE FROM users WHERE email = $1", [QA_EMAIL]);
 
@@ -173,5 +182,146 @@ describe.skipIf(!databaseUrl)("workspace invoice sender settings", () => {
       iban: "",
       bic: "",
     });
+  });
+
+  it("returns configured false after a partial PATCH that does not set name", async () => {
+    const res = await app.request(
+      "/api/workspace/invoice-sender",
+      withSessionCookie(
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ street: "Teststraße 1" }),
+        },
+        qaCookie,
+      ),
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.configured).toBe(false);
+    expect(body.invoiceSender.street).toBe("Teststraße 1");
+    expect(body.invoiceSender.name).toBe("");
+  });
+
+  it("requires name and email together when either is provided", async () => {
+    const res = await app.request(
+      "/api/workspace/invoice-sender",
+      withSessionCookie(
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "QA Sender GmbH" }),
+        },
+        qaCookie,
+      ),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "email is required when name is provided",
+    });
+  });
+
+  it("captures updated Invoice Sender on issue after PATCH", async () => {
+    await app.request(
+      "/api/workspace/invoice-sender",
+      withSessionCookie(
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: "QA Sender GmbH",
+            email: QA_EMAIL,
+            street: "Teststraße 1",
+            city: "12345 Teststadt",
+            iban: "DE00 0000 0000 0000 0000 00",
+            bic: "TESTBICXXX",
+          }),
+        },
+        qaCookie,
+      ),
+    );
+
+    const clientRes = await app.request(
+      "/api/clients",
+      withSessionCookie(
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: "Bandao",
+            defaultRate: 60,
+            legalName: "BANDAO Guidance GmbH",
+            addressLine1: "Schloßbergstraße 1",
+            addressLine2: "82319 Starnberg",
+          }),
+        },
+        qaCookie,
+      ),
+    );
+    const client = (await clientRes.json()) as { id: string };
+
+    const projectRes = await app.request(
+      "/api/projects",
+      withSessionCookie(
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientId: client.id, name: "Ondojo" }),
+        },
+        qaCookie,
+      ),
+    );
+    const project = (await projectRes.json()) as { id: string };
+
+    await app.request(
+      "/api/time-entries",
+      withSessionCookie(
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            projectId: project.id,
+            description: "Billable work",
+            startedAt: "2026-06-18T10:00:00.000Z",
+            endedAt: "2026-06-18T11:00:00.000Z",
+          }),
+        },
+        qaCookie,
+      ),
+    );
+
+    const issueRes = await app.request(
+      "/api/invoices",
+      withSessionCookie(
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId: client.id,
+            from: "2026-06-01",
+            to: "2026-06-30",
+          }),
+        },
+        qaCookie,
+      ),
+    );
+
+    expect(issueRes.status).toBe(201);
+
+    const row = await pool.query<{ snapshot: { operator: { name: string; iban: string } } }>(
+      `
+        SELECT snapshot
+        FROM invoices
+        WHERE workspace_id = $1
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+      [qaWorkspaceId],
+    );
+
+    expect(row.rows[0]!.snapshot.operator.name).toBe("QA Sender GmbH");
+    expect(row.rows[0]!.snapshot.operator.iban).toBe("DE00 0000 0000 0000 0000 00");
   });
 });

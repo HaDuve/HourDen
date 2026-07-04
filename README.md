@@ -138,7 +138,9 @@ npm run create-user -- \
   --workspace 'QA Workspace'
 ```
 
-Optional: `--sender-name`, `--sender-email`, `--calendar-timezone` (IANA). Password must meet policy (8+ chars, upper, lower, digit). The new **User** can sign in at `/login` and lands in an empty **Workspace**.
+Optional: `--sender-name`, `--sender-email`, `--calendar-timezone` (IANA). Password must meet policy (8+ chars, upper, lower, digit). The new **User** can sign in at `/login` and lands in an empty **Workspace** with empty **Invoice Sender** fields — the first invoice preview prompts setup on the Invoices page (**Invoice sender** button).
+
+Each **Workspace** owner can edit **Invoice Sender** on the Invoices page or via `GET`/`PATCH /api/workspace/invoice-sender`.
 
 ## Deploy to `hourden.hannesduve.com`
 

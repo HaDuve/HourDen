@@ -110,7 +110,7 @@ async function fetchInvoiceSenderStatus(): Promise<{
 
 async function saveInvoiceSender(
   form: InvoiceSenderFormData,
-): Promise<InvoiceSender> {
+): Promise<{ invoiceSender: InvoiceSender; configured: boolean }> {
   const res = await fetch("/api/workspace/invoice-sender", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -119,11 +119,10 @@ async function saveInvoiceSender(
   if (!res.ok) {
     throw new Error(await readApiError(res));
   }
-  const data = (await res.json()) as {
+  return res.json() as Promise<{
     invoiceSender: InvoiceSender;
     configured: boolean;
-  };
-  return data.invoiceSender;
+  }>;
 }
 
 async function fetchNumberingPreview(
@@ -551,6 +550,11 @@ export default function InvoicesPage() {
       setError("Preview the invoice before issuing");
       return;
     }
+    if (!invoiceSenderConfigured) {
+      setError("Set up your Invoice Sender before issuing");
+      void openSenderEditor();
+      return;
+    }
     if (invoiceNumberEdited && !numberingStrategy) {
       setError("Choose how future invoices should be numbered");
       return;
@@ -673,8 +677,8 @@ export default function InvoicesPage() {
     setError(null);
 
     try {
-      await saveInvoiceSender(senderForm);
-      setInvoiceSenderConfigured(true);
+      const status = await saveInvoiceSender(senderForm);
+      setInvoiceSenderConfigured(status.configured);
       closeSenderEditor();
       if (previewUrl) {
         await requestPreview({
@@ -698,6 +702,7 @@ export default function InvoicesPage() {
     loading ||
     !clientId ||
     !previewUrl ||
+    !invoiceSenderConfigured ||
     invoiceNumberExists ||
     (invoiceNumberEdited && !numberingStrategy);
 

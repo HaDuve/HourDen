@@ -1157,4 +1157,40 @@ describe("InvoicesPage", () => {
       ).toBeInTheDocument();
     });
   });
+
+  it("disables Issue Invoice until Invoice Sender is configured", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/workspace/invoice-sender" && !init?.method) {
+        return invoiceSenderResponse(
+          {
+            name: "",
+            street: "",
+            city: "",
+            taxNumber: "",
+            email: "",
+            phone: "",
+            bankName: "",
+            iban: "",
+            bic: "",
+          },
+          false,
+        );
+      }
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        return Promise.resolve(previewPdfResponse("BAN2026001"));
+      }
+      return undefined;
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    render(<InvoicesPage />);
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTitle(/invoice preview/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeDisabled();
+    });
+  });
 });
