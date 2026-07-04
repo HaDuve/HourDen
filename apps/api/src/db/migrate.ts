@@ -24,7 +24,12 @@ export async function runMigrations(pool: Pool): Promise<void> {
       if (migration.preCheck) {
         await migration.preCheck(pool);
       }
-      await pool.query(migration.sql);
+      if (migration.sql) {
+        await pool.query(migration.sql);
+      }
+      if (migration.apply) {
+        await migration.apply(pool);
+      }
       await pool.query(
         "INSERT INTO schema_migrations (id) VALUES ($1)",
         [migration.id],

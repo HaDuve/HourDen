@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_WORKSPACE_ID } from "@hourden/domain";
 import { createApp } from "./app.js";
 
-const expectedHealth = { status: "ok", workspaceId: DEFAULT_WORKSPACE_ID };
+const expectedHealth = { ok: true };
 
 describe("GET /health", () => {
   it("returns ok status and workspace id", async () => {

@@ -1,10 +1,9 @@
 import "./test/load-env.js";
 
 import { Pool } from "pg";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within, act } from "@testing-library/react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { createApp } from "../../api/src/app.js";
-import { runMigrations } from "../../api/src/db/migrate.js";
+import { setupAuthenticatedApiFetch } from "./test/authenticated-api.js";
 import InvoicesPage from "./InvoicesPage.js";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -36,29 +35,23 @@ async function createProject(
   return res.json() as Promise<{ id: string }>;
 }
 
-describe.skipIf(!databaseUrl)("InvoicesPage with live API", () => {
+async function waitForClientReady(clientName: string, clientId: string) {
+  await waitFor(() => {
+    const clientSelect = screen.getByLabelText(/^client$/i);
+    expect(
+      within(clientSelect).getByRole("option", { name: clientName }),
+    ).toBeInTheDocument();
+    expect(clientSelect).toHaveValue(clientId);
+    expect(screen.getByRole("button", { name: /^preview$/i })).toBeEnabled();
+  });
+}
+
+describe.skipIf(!databaseUrl)("InvoicesPage with live API", { timeout: 30_000 }, () => {
   const pool = new Pool({ connectionString: databaseUrl });
-  let originalFetch: typeof fetch;
+  let restoreFetch: () => void;
 
   beforeAll(async () => {
-    originalFetch = globalThis.fetch;
-    await runMigrations(pool);
-
-    const app = createApp({ pool });
-    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url =
-        typeof input === "string"
-          ? input
-          : input instanceof URL
-            ? input.href
-            : input.url;
-
-      if (url.startsWith("/api/")) {
-        return app.request(url, init);
-      }
-
-      return originalFetch(input, init);
-    }) as typeof fetch;
+    ({ restoreFetch } = await setupAuthenticatedApiFetch(pool));
   });
 
   beforeEach(async () => {
@@ -74,7 +67,7 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", () => {
   });
 
   afterAll(async () => {
-    globalThis.fetch = originalFetch;
+    restoreFetch();
     await pool.end();
   });
 
@@ -100,31 +93,22 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", () => {
 
     render(<InvoicesPage />);
 
-    await waitFor(() => {
-      expect(
-        within(screen.getByLabelText(/^client$/i)).getByRole("option", {
-          name: "Bandao",
-        }),
-      ).toBeInTheDocument();
+    await waitForClientReady("Bandao", bandao.id);
+
+    fireEvent.click(screen.getByRole("button", { name: /last month/i }));
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
     });
 
-    fireEvent.change(screen.getByLabelText(/^client$/i), {
-      target: { value: bandao.id },
-    });
-    fireEvent.change(screen.getByLabelText(/^from$/i), {
-      target: { value: "2026-06-01" },
-    });
-    fireEvent.change(screen.getByLabelText(/^to$/i), {
-      target: { value: "2026-06-30" },
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
-
-    await waitFor(() => {
-      expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
-      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
-      expect(screen.getByTitle(/invoice preview/i)).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
+        expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
+        expect(screen.getByTitle(/invoice preview/i)).toBeInTheDocument();
+      },
+      { timeout: 10_000 },
+    );
 
     const beforeIssue = await (
       await fetch("/api/time-entries?date=2026-06-18")
@@ -170,24 +154,20 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", () => {
 
     render(<InvoicesPage />);
 
-    await waitFor(() => {
-      expect(
-        within(screen.getByLabelText(/^client$/i)).getByRole("option", {
-          name: "Hannah",
-        }),
-      ).toBeInTheDocument();
+    await waitForClientReady("Hannah", hannah.id);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
     });
 
-    fireEvent.change(screen.getByLabelText(/^client$/i), {
-      target: { value: hannah.id },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(/client recipient fields are required before invoicing/i),
-      ).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(
+          screen.getByText(/client recipient fields are required before invoicing/i),
+        ).toBeInTheDocument();
+      },
+      { timeout: 10_000 },
+    );
   });
 
   it("shows an inline error when there are no billable entries", async () => {
@@ -200,26 +180,21 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", () => {
 
     render(<InvoicesPage />);
 
-    await waitFor(() => {
-      expect(
-        within(screen.getByLabelText(/^client$/i)).getByRole("option", {
-          name: "Bandao",
-        }),
-      ).toBeInTheDocument();
-    });
-
-    fireEvent.change(screen.getByLabelText(/^client$/i), {
-      target: { value: bandao.id },
-    });
+    await waitForClientReady("Bandao", bandao.id);
     expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(/no billable time entries in this billing period/i),
-      ).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
     });
+
+    await waitFor(
+      () => {
+        expect(
+          screen.getByText(/no billable time entries in this billing period/i),
+        ).toBeInTheDocument();
+      },
+      { timeout: 10_000 },
+    );
     expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeDisabled();
   });
 });

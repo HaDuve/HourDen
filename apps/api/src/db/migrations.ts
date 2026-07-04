@@ -1,9 +1,14 @@
 import { DEFAULT_WORKSPACE_ID } from "@hourden/domain";
 import type { Pool } from "pg";
+import {
+  AUTH_MIGRATION_SQL,
+  seedAuthMigration,
+} from "./migrations/012-auth.js";
 
 export type Migration = {
   id: string;
-  sql: string;
+  sql?: string;
+  apply?: (pool: Pool) => Promise<void>;
   preCheck?: (pool: Pool) => Promise<void>;
 };
 
@@ -191,5 +196,10 @@ export const MIGRATIONS: Migration[] = [
         PRIMARY KEY (workspace_id, invoice_year)
       );
     `,
+  },
+  {
+    id: "012_auth",
+    sql: AUTH_MIGRATION_SQL,
+    apply: seedAuthMigration,
   },
 ] as const;

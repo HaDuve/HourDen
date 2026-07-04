@@ -23,6 +23,10 @@ services:
       DATABASE_URL: postgresql://hourden:hourden@postgres:5432/hourden
       PORT: 3001
       HOURDEN_API_KEY: ${HOURDEN_API_KEY:-}
+      HOURDEN_OPERATOR_EMAIL: ${HOURDEN_OPERATOR_EMAIL:-operator@test.hourden.local}
+      HOURDEN_OPERATOR_PASSWORD: ${HOURDEN_OPERATOR_PASSWORD:-TestPass1}
+      HOURDEN_OPERATOR_NAME: ${HOURDEN_OPERATOR_NAME:-}
+      HOURDEN_TIMEZONE: ${HOURDEN_TIMEZONE:-Europe/Berlin}
     ports:
       - "3001:3001"
     depends_on:
