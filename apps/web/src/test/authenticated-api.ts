@@ -7,11 +7,15 @@ import { bindSessionAuth } from "../../../api/src/test/auth-helper.js";
 
 /** Hono app.request bodies are not always readable from jsdom fetch consumers. */
 async function materializeResponse(res: Response): Promise<Response> {
+  const headers = new Headers();
+  res.headers.forEach((value, key) => {
+    headers.set(key, value);
+  });
   const body = res.body ? await res.arrayBuffer() : null;
   return new Response(body, {
     status: res.status,
     statusText: res.statusText,
-    headers: res.headers,
+    headers,
   });
 }
 
