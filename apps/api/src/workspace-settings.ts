@@ -2,7 +2,9 @@ import type { InvoiceOperator } from "@hourden/domain/invoice-pdf";
 import { Hono } from "hono";
 import type { Pool } from "pg";
 import {
+  completeWorkspaceOnboarding,
   getWorkspaceInvoiceSenderStatus,
+  getWorkspaceOnboardingStatus,
   updateWorkspaceInvoiceSender,
   type UpdateInvoiceSenderInput,
 } from "./db/workspaces.js";
@@ -73,6 +75,32 @@ export function createWorkspaceSettingsRouter(pool: Pool) {
       pool,
       getCurrentWorkspaceId(),
     );
+    return c.json(status);
+  });
+
+  router.get("/onboarding", async (c) => {
+    const status = await getWorkspaceOnboardingStatus(
+      pool,
+      getCurrentWorkspaceId(),
+    );
+
+    if (!status) {
+      return c.json({ error: "Workspace not found" }, 404);
+    }
+
+    return c.json(status);
+  });
+
+  router.patch("/onboarding", async (c) => {
+    const status = await completeWorkspaceOnboarding(
+      pool,
+      getCurrentWorkspaceId(),
+    );
+
+    if (!status) {
+      return c.json({ error: "Workspace not found" }, 404);
+    }
+
     return c.json(status);
   });
 

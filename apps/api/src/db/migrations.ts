@@ -210,4 +210,15 @@ export const MIGRATIONS: Migration[] = [
         CHECK (locale IS NULL OR locale IN ('en', 'de'));
     `,
   },
+  {
+    id: "014_onboarding",
+    sql: `
+      ALTER TABLE workspaces
+        ADD COLUMN IF NOT EXISTS onboarding_completed_at timestamptz;
+
+      UPDATE workspaces
+      SET onboarding_completed_at = COALESCE(onboarding_completed_at, now())
+      WHERE onboarding_completed_at IS NULL;
+    `,
+  },
 ] as const;

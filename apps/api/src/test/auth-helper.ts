@@ -59,8 +59,11 @@ export function bindSessionFetch(
           ? input.href
           : input.url;
 
-    if (url.startsWith("/api/")) {
-      return app.request(url, withSessionCookie(init ?? {}, cookie));
+    if (url.startsWith("/api/") || url.includes("/api/")) {
+      const path = url.startsWith("/api/")
+        ? url
+        : url.slice(url.indexOf("/api/"));
+      return app.request(path, withSessionCookie(init ?? {}, cookie));
     }
 
     return originalFetch(input, init);

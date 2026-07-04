@@ -100,6 +100,15 @@ function mockAppFetch() {
         json: async () => ({ invoices: [] }),
       });
     }
+    if (url === "/api/workspace/onboarding") {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          needsOnboarding: false,
+          completedAt: "2026-01-01T00:00:00.000Z",
+        }),
+      });
+    }
     return Promise.resolve({
       ok: true,
       json: async () => ({}),
@@ -122,6 +131,10 @@ describe("App", () => {
     vi.stubGlobal("fetch", mockAppFetch());
 
     const app = renderAppWithMemoryRouter("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+    });
 
     fireEvent.click(screen.getByRole("link", { name: /^invoices$/i }));
 
