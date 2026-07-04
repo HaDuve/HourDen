@@ -2,10 +2,6 @@
 # After the hannesduve.com block, add:
 
 hourden.hannesduve.com {
-    basic_auth {
-        operator $2a$14$Hhcab4yh26gYSIWyztWgPuU0kfsJ2kx9D46jDfXRJjESEPaUtGgyS
-    }
-
     encode gzip zstd
 
     handle /api/* {

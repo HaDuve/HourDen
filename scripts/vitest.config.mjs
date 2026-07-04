@@ -2,8 +2,8 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    projects: ["packages/*", "apps/*", "scripts"],
+    environment: "node",
     fileParallelism: false,
-    maxWorkers: 1,
+    include: ["**/*.test.mjs"],
   },
 });

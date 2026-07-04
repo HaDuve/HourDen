@@ -11,11 +11,52 @@ if [ ! -f "$CADDYFILE" ]; then
   exit 1
 fi
 
-echo "Patching Caddyfile proxy target..."
+echo "Patching Caddyfile proxy target and removing HourDen basic_auth (if present)..."
+awk '
+function brace_delta(s,    tmp, opens, closes) {
+  tmp = s
+  opens = gsub(/\{/, "&", tmp)
+  tmp = s
+  closes = gsub(/\}/, "&", tmp)
+  return opens - closes
+}
+BEGIN { in_hourden = 0; hourden_depth = 0; skip_basic = 0; basic_depth = 0 }
+{
+  line = $0
+  trimmed = line
+  sub(/^[ \t]+/, "", trimmed)
+
+  if (!in_hourden && trimmed ~ /^hourden\.hannesduve\.com[ \t]*\{/) {
+    in_hourden = 1
+    hourden_depth = 1
+    print line
+    next
+  }
+
+  if (in_hourden) {
+    if (!skip_basic && trimmed ~ /^basic_auth[ \t]*\{/) {
+      skip_basic = 1
+      basic_depth = 1
+      next
+    }
+    if (skip_basic) {
+      basic_depth += brace_delta(line)
+      if (basic_depth <= 0) skip_basic = 0
+      next
+    }
+    hourden_depth += brace_delta(line)
+    print line
+    if (hourden_depth <= 0) in_hourden = 0
+    next
+  }
+
+  print line
+}
+' "$CADDYFILE" > "${CADDYFILE}.tmp" && mv "${CADDYFILE}.tmp" "$CADDYFILE"
+
 sed -i.bak-"$(date +%Y%m%d-%H%M%S)" \
   -e 's|reverse_proxy localhost:3001|reverse_proxy host.docker.internal:3001|g' \
   -e 's/handle_path \/api\/\*/handle \/api\/\*/g' \
-  -e 's/basicauth {/basic_auth {/g' \
   "$CADDYFILE"
 
 if ! grep -q "host.docker.internal:host-gateway" "$COMPOSE" 2>/dev/null; then
