@@ -1,49 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MockEventSource } from "./test/mock-event-source.js";
 import { useWorkspaceEvents } from "./useWorkspaceEvents.js";
-
-type Listener = (event: MessageEvent) => void;
-
-class MockEventSource {
-  static instances: MockEventSource[] = [];
-
-  url: string;
-  withCredentials: boolean;
-  onerror: (() => void) | null = null;
-  private listeners = new Map<string, Set<Listener>>();
-  closed = false;
-
-  constructor(url: string, options?: { withCredentials?: boolean }) {
-    this.url = url;
-    this.withCredentials = options?.withCredentials ?? false;
-    MockEventSource.instances.push(this);
-  }
-
-  addEventListener(type: string, listener: Listener) {
-    const set = this.listeners.get(type) ?? new Set();
-    set.add(listener);
-    this.listeners.set(type, set);
-  }
-
-  close() {
-    this.closed = true;
-  }
-
-  emit(type: string) {
-    const listeners = this.listeners.get(type);
-    if (!listeners) {
-      return;
-    }
-    const event = new MessageEvent(type, { data: "" });
-    for (const listener of listeners) {
-      listener(event);
-    }
-  }
-
-  triggerError() {
-    this.onerror?.();
-  }
-}
 
 async function flushPromises() {
   await act(async () => {

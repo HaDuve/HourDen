@@ -1,5 +1,8 @@
 {
   "today": {
-    "title": "Heute"
+    "title": "Heute",
+    "timerRunning": "Timer läuft — {{duration}}",
+    "timerStoppedRemotely": "Timer gestoppt — auf einem anderen Gerät wurde ein neuer gestartet",
+    "dismissNotice": "Schließen"
   }
 }
