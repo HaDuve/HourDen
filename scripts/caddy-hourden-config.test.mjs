@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { stripHourdenBasicAuth } from "./caddy-hourden-config.mjs";
+import {
+  ensureHourdenSseHandle,
+  stripHourdenBasicAuth,
+} from "./caddy-hourden-config.mjs";
 
 const WITH_BASIC_AUTH = `# Add this to Portfolio's /opt/Portfolio/caddy/Caddyfile on VM1
 
@@ -59,5 +62,23 @@ ${WITH_BASIC_AUTH}`;
 
     expect(result).toMatch(/hannesduve\.com[\s\S]*basic_auth/);
     expect(result).not.toMatch(/hourden\.hannesduve\.com[\s\S]*basic_auth/);
+  });
+});
+
+describe("ensureHourdenSseHandle", () => {
+  it("adds an unbuffered /api/events handle before the general API proxy", () => {
+    const input = stripHourdenBasicAuth(WITH_BASIC_AUTH);
+    const result = ensureHourdenSseHandle(input);
+
+    expect(result).toMatch(/handle \/api\/events\*/);
+    expect(result).toMatch(/flush_interval -1/);
+    expect(result.indexOf("handle /api/events*")).toBeLessThan(
+      result.indexOf("handle /api/*"),
+    );
+  });
+
+  it("leaves an already-patched HourDen vhost unchanged", () => {
+    const patched = ensureHourdenSseHandle(stripHourdenBasicAuth(WITH_BASIC_AUTH));
+    expect(ensureHourdenSseHandle(patched)).toBe(patched);
   });
 });

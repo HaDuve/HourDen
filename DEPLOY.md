@@ -26,13 +26,20 @@ else
   cat >> "$CADDYFILE" <<'EOF'
 
 hourden.hannesduve.com {
-    encode gzip zstd
+    # SSE must not be compressed or buffered (ADR-0010).
+    handle /api/events* {
+        reverse_proxy host.docker.internal:3001 {
+            flush_interval -1
+        }
+    }
 
     handle /api/* {
+        encode gzip zstd
         reverse_proxy host.docker.internal:3001
     }
 
     handle {
+        encode gzip zstd
         root * /var/www/hourden
         try_files {path} /index.html
         file_server
@@ -95,3 +102,7 @@ Just push to main and run:
 ```
 
 No Caddy changes needed after initial setup.
+
+### SSE (live updates)
+
+`GET /api/events` streams `text/event-stream` for workspace invalidation signals (`timer-changed`, `today-changed`). Caddy must **not** gzip or buffer this path — the vhost above routes `/api/events*` through `reverse_proxy` with `flush_interval -1` and keeps `encode` off that handle. If you added HourDen before this block existed, append the `/api/events*` handle above the general `/api/*` block and reload Caddy.

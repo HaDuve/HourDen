@@ -1,5 +1,9 @@
 export { DEFAULT_WORKSPACE_ID } from "./workspace.js";
 export {
+  WORKSPACE_EVENTS,
+  type WorkspaceEvent,
+} from "./workspace-events.js";
+export {
   SUPPORTED_LOCALES,
   isSupportedLocale,
   parseAcceptLanguage,
