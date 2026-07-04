@@ -1,14 +1,23 @@
 # HourDen
 
-Personal time-tracking and invoice generation for a solo freelance operator. Replaces Clockify for daily logging and unifies the path from tracked time to PDF invoices. MVP is single-user; the domain model is shaped so multi-user workspaces can be added later without a rewrite. The name: **Hour** (billable time) + **Den** (the Operator's private Workspace) — "your den for billable hours."
+Personal time-tracking and invoice generation for freelance operators. Replaces Clockify for daily logging and unifies the path from tracked time to PDF invoices. Auth ships in two phases: first **Users** with their own **Workspaces** (replace Caddy basic auth); later public self-service signup (SaaS). The name: **Hour** (billable time) + **Den** (the Operator's private Workspace) — "your den for billable hours."
 
 ## Actors
 
-**Operator** — the person who logs time, runs reports, and issues invoices. MVP has exactly one Operator per **Workspace**.
-_Avoid_: User (when you mean the human operator in product copy — reserve **User** for the future auth entity)
+**User** — a person with login credentials (email + password). Email is the login identifier (unique). Password policy Phase 1: minimum 8 characters with at least one uppercase letter, one lowercase letter, and one digit. Owns or belongs to one or more **Workspaces** through **Membership**. Phase 1: separate **User** accounts for each tester (e.g. operator + QA); the operator account is created by migration from env (`HOURDEN_OPERATOR_EMAIL`, `HOURDEN_OPERATOR_PASSWORD`); additional accounts (e.g. QA) are created via a CLI (`create-user`), not self-service signup. Phase 2 (SaaS): strangers register and create a Workspace on signup. Login uses server-side **Sessions** (httpOnly cookie); SSO (OAuth/OIDC) can be added later as an alternate login path into the same session model.
+_Avoid_: Operator (when you mean the auth/login entity — **Operator** is the in-workspace role)
 
-**Workspace** — the top-level container for all time data, clients, projects, rates, and invoice history; the "Den" the product is named for. MVP ships with one hardcoded workspace; every persisted row carries `workspace_id` for future multi-tenancy.
-_Avoid_: Account, organization (in MVP copy)
+**Session** — server-stored proof that a **User** is logged in. Random id in an httpOnly cookie; validated on each API request. Replaced on logout or expiry. Same mechanism for password login and future SSO. Replaces Caddy basic auth at the edge — the app login page is the only browser gate in production; unauthenticated visitors see `/login` only, not the app. Expires after 30 days of inactivity; each authenticated request extends the window (sliding).
+_Avoid_: JWT (as the browser session carrier — IdP tokens may be used only during the SSO handshake)
+
+**Operator** — the **User** acting inside a **Workspace**: logging time, running reports, issuing invoices. Phase 1: every User is sole Operator of their Workspace(s) — no shared workspaces yet. Phase 2 adds **Members** (multiple Users per Workspace with roles).
+_Avoid_: User (in product copy when describing what someone does day-to-day inside the app)
+
+**Workspace** — the top-level container for all time data, clients, projects, rates, and invoice history; the "Den" the product is named for. Data is isolated per Workspace. Every persisted row carries `workspace_id`. Carries **Invoice Sender** settings (name, address, tax, bank, contact — the Operator block printed on PDFs and used in Clockify CSV export) and a **Calendar Timezone** (IANA, e.g. `Europe/Berlin`) for Today, Reports, and Clockify export day boundaries. A **User** accesses a Workspace through a **Membership** (Phase 1: `owner` only). Phase 1: each test **User** gets at least one Workspace; a **User** may own several Workspaces — session holds `active_workspace_id`, defaulting to the sole workspace on login; no switcher UI until a User has two or more. Phase 2: Workspaces can have multiple **Members** with roles beyond owner. The existing seeded Default Workspace becomes the operator's production Workspace on auth migration — data and `workspace_id` values are preserved, not reset; sender and timezone fields are seeded from today's env/defaults.
+_Avoid_: Account, organization (in product copy)
+
+**Membership** — links a **User** to a **Workspace** with a **Role**. Phase 1 creates one `owner` membership per User on their Workspace(s). API rejects requests whose session `active_workspace_id` is not covered by a membership for the logged-in User.
+_Avoid_: invite, team (Phase 2 concepts)
 
 ## Time tracking
 
@@ -46,6 +55,9 @@ _Avoid_: migration, sync
 
 **Invoice Prefix** — short label prepended to a prefixed **Invoice Number** (e.g. `BAN` in `BAN2026003`). Stored on the **Client**; default is derived from the **Client** `name` (not **Recipient** legal name): take the first three letters A–Z, skipping spaces, punctuation, and digits, uppercased; if fewer than three letters exist, use what's available (e.g. `AB` → `AB`). The Operator can edit a different prefix on preview (letters and digits, 1–6 characters, uppercased on save); it is persisted to the **Client** when an invoice is issued. The prefixed sequence counter is per **Client** per calendar year — every issued invoice for that **Client** in the year advances the count, whether prefixed or plain. Changing the prefix mid-year continues the count (e.g. after `BAN2026002`, renaming to `BD` suggests `BD2026003`).
 
+**Invoice Sender** — the business identity of the **Workspace** on issued invoices: legal name, address, tax number, email, phone, bank details. Stored on the **Workspace** (not on the **User** login record). Copied into the **Issuance Snapshot** at issue time so later edits to Workspace settings do not change sent PDFs. Replaces env-based `HOURDEN_OPERATOR_*` for invoice and report export.
+_Avoid_: Operator (when you mean this PDF header block — **Operator** is the person acting; **Invoice Sender** is the printed business identity)
+
 **Recipient** — the billing identity of a **Client**: legal name + postal address printed on the invoice PDF. Not a separate entity — these are fields on the Client (nullable until the Client is first invoiced). One Client has exactly one Recipient identity.
 _Avoid_: modeling Recipient as its own table (collapsed into Client — see ADR-0002)
 
@@ -55,7 +67,7 @@ _Avoid_: Bill
 **Voided Invoice** — reserved `status` where the **Invoice Number** is never reused and the row is excluded from list/reconstruct/**Outgoing export**. Schema and numbering rules support voided rows; no void UI/API is shipped yet — design rule only for now.
 _Avoid_: cancelled invoice, credit note
 
-**Issuance Snapshot** — JSON captured at issue time: Recipient block, Operator identity, grouped lines, totals. Reconstruction renders the PDF from this snapshot, not from live Client/entry/env data (ADR-0006). PDF bytes are not stored.
+**Issuance Snapshot** — JSON captured at issue time: Recipient block, **Invoice Sender** block, grouped lines, totals. Reconstruction renders the PDF from this snapshot, not from live Client/entry/Workspace data (ADR-0006). PDF bytes are not stored.
 _Avoid_: stored PDF, template snapshot
 
 **Preview** — dry-run invoice for a Client + Billing Period: grouped lines, suggested **Invoice Number**, PDF bytes without persisting. Lets the Operator edit the number, prefix toggle, and numbering strategy before issue.

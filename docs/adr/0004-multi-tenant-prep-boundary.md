@@ -5,3 +5,5 @@ MVP is single-user but must not require a schema rewrite to reach the multi-tena
 **Explicitly deferred (no stubs):** `users`/`memberships` tables, `created_by`/owner columns, roles, sessions/JWT, billing, onboarding. Empty stub tables are rejected because they are dead weight now and certain to drift from real auth requirements later.
 
 **Consequences:** `workspace_id` (expensive to retrofit) is paid upfront; auth (cheap to add, certain to change) is deferred. When C starts, auth plugs into the single resolution seam and adds its own tables — not a migration of existing ones.
+
+**Update (ADR-0009):** Phase 1 auth is implemented per ADR-0009. The prep boundary (`workspace_id` + resolution seam) is unchanged; deferred items listed above are now addressed there except Phase 2 SaaS signup, SSO, and roles beyond `owner`.
