@@ -1,11 +1,11 @@
 import type { Hono } from "hono";
 import type { Pool } from "pg";
-import { createApp } from "../../api/src/app.js";
-import { runMigrations } from "../../api/src/db/migrate.js";
+import { createApp } from "../../../api/src/app.js";
+import { runMigrations } from "../../../api/src/db/migrate.js";
 import {
   bindSessionFetch,
   loginAsOperator,
-} from "../../api/src/test/auth-helper.js";
+} from "../../../api/src/test/auth-helper.js";
 
 export async function setupAuthenticatedApiFetch(
   pool: Pool,
