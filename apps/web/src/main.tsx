@@ -1,7 +1,8 @@
-import { StrictMode } from "react";
+import { StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, useRoutes } from "react-router-dom";
 import { appRoutes } from "./routes.js";
+import "./i18n/i18n.js";
 import "./index.css";
 
 function AppRouter() {
@@ -10,8 +11,10 @@ function AppRouter() {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BrowserRouter>
-      <AppRouter />
-    </BrowserRouter>
+    <Suspense fallback={null}>
+      <BrowserRouter>
+        <AppRouter />
+      </BrowserRouter>
+    </Suspense>
   </StrictMode>,
 );

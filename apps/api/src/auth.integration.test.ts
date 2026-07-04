@@ -23,6 +23,9 @@ describe.skipIf(!databaseUrl)("Auth API", () => {
     await pool.query("DELETE FROM sessions WHERE user_id != (SELECT id FROM users WHERE email = $1)", [
       TEST_OPERATOR_EMAIL,
     ]);
+    await pool.query("UPDATE users SET locale = NULL WHERE email = $1", [
+      TEST_OPERATOR_EMAIL,
+    ]);
   });
 
   afterAll(async () => {
@@ -62,10 +65,75 @@ describe.skipIf(!databaseUrl)("Auth API", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toMatchObject({
-      user: { email: TEST_OPERATOR_EMAIL },
+      user: { email: TEST_OPERATOR_EMAIL, locale: null },
       activeWorkspaceId: DEFAULT_WORKSPACE_ID,
     });
     expect(body.calendarTimezone).toBeTruthy();
+  });
+
+  it("updates the user Language via PATCH /api/auth/locale", async () => {
+    const patchRes = await app.request(
+      "/api/auth/locale",
+      withSessionCookie(
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ locale: "de" }),
+        },
+        sessionCookie,
+      ),
+    );
+
+    expect(patchRes.status).toBe(200);
+    expect(await patchRes.json()).toEqual({ locale: "de" });
+
+    const meRes = await app.request(
+      "/api/auth/me",
+      withSessionCookie({}, sessionCookie),
+    );
+    const body = await meRes.json();
+    expect(body.user.locale).toBe("de");
+  });
+
+  it("rejects invalid locale values on PATCH /api/auth/locale", async () => {
+    const res = await app.request(
+      "/api/auth/locale",
+      withSessionCookie(
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ locale: "fr" }),
+        },
+        sessionCookie,
+      ),
+    );
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/locale/i);
+  });
+
+  it("defaults Language from Accept-Language on first login", async () => {
+    const res = await app.request("/api/auth/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
+      },
+      body: JSON.stringify({
+        email: TEST_OPERATOR_EMAIL,
+        password: TEST_OPERATOR_PASSWORD,
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.user.locale).toBe("de");
+
+    const stored = await pool.query<{ locale: string | null }>(
+      "SELECT locale FROM users WHERE email = $1",
+      [TEST_OPERATOR_EMAIL],
+    );
+    expect(stored.rows[0]?.locale).toBe("de");
   });
 
   it("rejects protected routes without auth", async () => {

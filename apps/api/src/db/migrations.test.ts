@@ -114,4 +114,12 @@ describe("migration definitions", () => {
     expect(migration?.sql).toContain("calendar_timezone");
     expect(migration?.apply).toBeTypeOf("function");
   });
+
+  it("adds a nullable locale column on users for Language preference", () => {
+    const migration = MIGRATIONS.find((m) => m.id === "013_user_locale");
+    expect(migration).toBeDefined();
+    expect(migration?.sql).toContain("locale");
+    expect(migration?.sql).toContain("users");
+    expect(migration?.sql).toMatch(/CHECK.*en.*de/s);
+  });
 });

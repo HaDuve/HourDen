@@ -1,9 +1,11 @@
+import { isSupportedLocale, type SupportedLocale } from "@hourden/domain";
 import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
+import { LocaleProvider } from "./LocaleProvider.js";
 
 type AuthState =
   | { status: "loading" }
-  | { status: "authenticated" }
+  | { status: "authenticated"; userLocale: SupportedLocale | null }
   | { status: "unauthenticated" };
 
 export default function AuthenticatedApp() {
@@ -29,7 +31,15 @@ export default function AuthenticatedApp() {
         return;
       }
 
-      setAuth({ status: "authenticated" });
+      const data = (await res.json()) as {
+        user?: { locale?: SupportedLocale | null };
+      };
+      const value = data.user?.locale;
+
+      setAuth({
+        status: "authenticated",
+        userLocale: isSupportedLocale(value) ? value : null,
+      });
     }
 
     void checkSession();
@@ -51,5 +61,9 @@ export default function AuthenticatedApp() {
     return null;
   }
 
-  return <Outlet />;
+  return (
+    <LocaleProvider userLocale={auth.userLocale}>
+      <Outlet />
+    </LocaleProvider>
+  );
 }

@@ -1,9 +1,12 @@
 import type { Pool } from "pg";
 
+import type { SupportedLocale } from "@hourden/domain";
+
 export type UserRow = {
   id: string;
   email: string;
   password_hash: string;
+  locale: SupportedLocale | null;
 };
 
 export type SessionRow = {
@@ -18,7 +21,7 @@ export async function findUserByEmail(
   email: string,
 ): Promise<UserRow | null> {
   const result = await pool.query<UserRow>(
-    "SELECT id, email, password_hash FROM users WHERE email = $1",
+    "SELECT id, email, password_hash, locale FROM users WHERE email = $1",
     [email.toLowerCase()],
   );
   return result.rows[0] ?? null;

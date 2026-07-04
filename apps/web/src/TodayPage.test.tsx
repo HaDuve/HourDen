@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import i18n from "./i18n/i18n.js";
 import TodayPage from "./TodayPage.js";
 
 vi.mock("./today-date.js", () => ({
@@ -61,6 +62,31 @@ function mockTodayLoad(
 }
 
 describe("TodayPage", () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
+  });
+
+  it("renders the page title from the message catalog", async () => {
+    vi.stubGlobal("fetch", mockTodayLoad([]));
+
+    render(<TodayPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Today" })).toBeInTheDocument();
+    });
+  });
+
+  it("renders the German page title when the active locale is de", async () => {
+    await i18n.changeLanguage("de");
+    vi.stubGlobal("fetch", mockTodayLoad([]));
+
+    render(<TodayPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Heute" })).toBeInTheDocument();
+    });
+  });
+
   it("deletes the Time Entry chosen when the dialog opened, even if another row Delete is clicked", async () => {
     const fetchMock = mockTodayLoad([morningEntry, afternoonEntry])
       .mockResolvedValueOnce({

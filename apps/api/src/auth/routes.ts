@@ -7,7 +7,12 @@ import {
   findOwnerWorkspaceIdForUser,
   findUserByEmail,
 } from "../db/auth.js";
+import {
+  findUserIdBySessionId,
+  updateUserLocale,
+} from "../db/users.js";
 import { getWorkspaceCalendarTimezone } from "../db/workspaces.js";
+import { isSupportedLocale, parseAcceptLanguage } from "@hourden/domain";
 import { verifyPassword } from "./password.js";
 import { SESSION_COOKIE, sessionExpiresAt } from "./session.js";
 
@@ -45,6 +50,12 @@ export function createAuthRouter(pool: Pool) {
 
     const calendarTimezone = await getWorkspaceCalendarTimezone(pool, workspaceId);
 
+    let locale = user.locale ?? null;
+    if (!locale) {
+      locale = parseAcceptLanguage(c.req.header("accept-language"));
+      await updateUserLocale(pool, user.id, locale);
+    }
+
     const sessionId = await createSession(pool, {
       userId: user.id,
       activeWorkspaceId: workspaceId,
@@ -54,10 +65,36 @@ export function createAuthRouter(pool: Pool) {
     setCookie(c, SESSION_COOKIE, sessionId, cookieOptions());
 
     return c.json({
-      user: { id: user.id, email: user.email },
+      user: { id: user.id, email: user.email, locale },
       activeWorkspaceId: workspaceId,
       calendarTimezone,
     });
+  });
+
+  router.patch("/locale", async (c) => {
+    const sessionId = getCookie(c, SESSION_COOKIE);
+    if (!sessionId) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    const userId = await findUserIdBySessionId(pool, sessionId);
+    if (!userId) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    let body: { locale?: unknown };
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+
+    if (!isSupportedLocale(body.locale)) {
+      return c.json({ error: "locale must be en or de" }, 400);
+    }
+
+    const locale = await updateUserLocale(pool, userId, body.locale);
+    return c.json({ locale });
   });
 
   router.post("/logout", async (c) => {
@@ -79,10 +116,11 @@ export function createAuthRouter(pool: Pool) {
     const session = await pool.query<{
       id: string;
       email: string;
+      locale: string | null;
       active_workspace_id: string;
     }>(
       `
-        SELECT u.id, u.email, s.active_workspace_id
+        SELECT u.id, u.email, u.locale, s.active_workspace_id
         FROM sessions s
         JOIN users u ON u.id = s.user_id
         WHERE s.id = $1
@@ -101,7 +139,7 @@ export function createAuthRouter(pool: Pool) {
     );
 
     return c.json({
-      user: { id: row.id, email: row.email },
+      user: { id: row.id, email: row.email, locale: row.locale },
       activeWorkspaceId: row.active_workspace_id,
       calendarTimezone,
     });
