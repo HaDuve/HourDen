@@ -19,6 +19,12 @@ _Avoid_: Account, organization (in product copy)
 **Membership** — links a **User** to a **Workspace** with a **Role**. Phase 1 creates one `owner` membership per User on their Workspace(s). API rejects requests whose session `active_workspace_id` is not covered by a membership for the logged-in User.
 _Avoid_: invite, team (Phase 2 concepts)
 
+**Onboarding** — the first-run guided setup for a not-yet-configured **Workspace**: add a **Client**, add a **Project** under it, fill the **Invoice Sender** ("Invoice Data"), then land on Today. Every step is skippable and Today is always reachable; the flow is considered done once the Workspace has been set up or the Operator dismisses it, and does not reappear thereafter. Onboarding is a property of the **Workspace** being set up, not of the **User**.
+_Avoid_: wizard, tour, setup wizard (in domain copy)
+
+**Language** — the **User**'s preferred UI language (Phase 1: English or German), following that person across their devices. A per-**User** preference, distinct from the **Workspace**'s **Calendar Timezone** and from the **Invoice Sender** identity. Governs on-screen labels and how dates and amounts are displayed to the Operator; it does not change issued **Invoice** PDFs or the Clockify CSV export, which keep their existing format.
+_Avoid_: Locale (as the user-facing term), i18n
+
 ## Time tracking
 
 **Client** — a billable organization or person you work for and invoice. Carries a default hourly **Billable Rate** and an **Invoice Prefix** (saved on first issue). Maps to Clockify's "Client" column and to invoice **Recipients** where they overlap (e.g. BANDAO, HANNAH). Delete is blocked while Projects still reference the Client (ADR-0005).
@@ -41,6 +47,9 @@ _Avoid_: Active session, stopwatch
 
 **Manual Entry** — a Time Entry created with both start and end set at once (backfilled work), never having been a Running Timer.
 _Avoid_: Backfill, past entry
+
+**Live Counter** — the always-current elapsed time of the **Running Timer** as seen by the Operator: it advances second-by-second on the device viewing it, and reflects starts/stops made on any other device the same **User** has open on that **Workspace**. Because only one Running Timer exists per Workspace, starting a timer on one device stops it on the others (last-start-wins), and every open device converges on the same timer state.
+_Avoid_: stopwatch (the visual widget), polling (the mechanism)
 
 **Billable Complete** — a stopped Time Entry with a non-empty Description. Incomplete entries stay editable and appear in Today/Report but are excluded from invoicing.
 _Avoid_: complete entry, valid entry
