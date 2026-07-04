@@ -8,6 +8,7 @@ import {
   touchSession,
 } from "../db/auth.js";
 import { SESSION_COOKIE, isSessionExpired, sessionExpiresAt } from "../auth/session.js";
+import { isValidSessionId } from "../auth/session-id.js";
 import { runWithWorkspaceId } from "../workspace.js";
 
 function isPublicPath(path: string, method: string): boolean {
@@ -48,6 +49,10 @@ export function createAuthMiddleware(pool: Pool) {
 
     const sessionId = getCookie(c, SESSION_COOKIE);
     if (!sessionId) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
+    if (!isValidSessionId(sessionId)) {
       return c.json({ error: "Unauthorized" }, 401);
     }
 

@@ -7,7 +7,7 @@ import {
   findOwnerWorkspaceIdForUser,
   findUserByEmail,
 } from "../db/auth.js";
-import { hashPassword, validatePassword, verifyPassword } from "./password.js";
+import { verifyPassword } from "./password.js";
 import { SESSION_COOKIE, sessionExpiresAt } from "./session.js";
 
 function cookieOptions() {

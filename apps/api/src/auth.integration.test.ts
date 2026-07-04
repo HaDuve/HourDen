@@ -79,6 +79,59 @@ describe.skipIf(!databaseUrl)("Auth API", () => {
     expect(res.status).toBe(401);
   });
 
+  it("rejects protected routes with an expired session cookie", async () => {
+    const userRow = await pool.query<{ id: string }>(
+      "SELECT id FROM users WHERE email = $1",
+      [TEST_OPERATOR_EMAIL],
+    );
+    const userId = userRow.rows[0]!.id;
+
+    const sessionRow = await pool.query<{ id: string }>(
+      `
+        INSERT INTO sessions (user_id, active_workspace_id, expires_at)
+        VALUES ($1, $2, now() - interval '1 day')
+        RETURNING id
+      `,
+      [userId, DEFAULT_WORKSPACE_ID],
+    );
+    const expiredSessionId = sessionRow.rows[0]!.id;
+
+    const res = await app.request(
+      "/api/clients",
+      withSessionCookie({}, `hourden_session=${expiredSessionId}`),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("creates operator user and seeds default workspace sender on migrate", async () => {
+    const user = await pool.query<{ email: string }>(
+      "SELECT email FROM users WHERE email = $1",
+      [TEST_OPERATOR_EMAIL],
+    );
+    expect(user.rows).toHaveLength(1);
+
+    const membership = await pool.query(
+      `
+        SELECT 1
+        FROM workspace_memberships wm
+        JOIN users u ON u.id = wm.user_id
+        WHERE u.email = $1 AND wm.workspace_id = $2 AND wm.role = 'owner'
+      `,
+      [TEST_OPERATOR_EMAIL, DEFAULT_WORKSPACE_ID],
+    );
+    expect(membership.rowCount).toBe(1);
+
+    const workspace = await pool.query<{
+      sender_name: string | null;
+      calendar_timezone: string | null;
+    }>(
+      "SELECT sender_name, calendar_timezone FROM workspaces WHERE id = $1",
+      [DEFAULT_WORKSPACE_ID],
+    );
+    expect(workspace.rows[0]?.sender_name).toBeTruthy();
+    expect(workspace.rows[0]?.calendar_timezone).toBeTruthy();
+  });
+
   it("clears the session on logout", async () => {
     const loginRes = await app.request("/api/auth/login", {
       method: "POST",
