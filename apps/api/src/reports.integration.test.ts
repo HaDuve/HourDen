@@ -1,3 +1,4 @@
+import { DEFAULT_WORKSPACE_ID } from "@hourden/domain";
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "./app.js";
@@ -186,11 +187,18 @@ describe.skipIf(!databaseUrl)("Report API", () => {
     ]);
   });
 
-  it("filters and groups by the operator time zone calendar day", async () => {
-    const previousTz = process.env.HOURDEN_TIMEZONE;
-    process.env.HOURDEN_TIMEZONE = "Europe/Berlin";
+  it("filters and groups by the workspace calendar timezone", async () => {
+    const workspaceBefore = await pool.query<{ calendar_timezone: string | null }>(
+      "SELECT calendar_timezone FROM workspaces WHERE id = $1",
+      [DEFAULT_WORKSPACE_ID],
+    );
+    const previousTz = workspaceBefore.rows[0]!.calendar_timezone;
 
     try {
+      await pool.query(
+        "UPDATE workspaces SET calendar_timezone = $2 WHERE id = $1",
+        [DEFAULT_WORKSPACE_ID, "Europe/Berlin"],
+      );
       const bandao = await createClient(app, "Bandao", 60);
       const ondojo = await createProject(app, bandao.id, "Ondojo");
 
@@ -222,11 +230,10 @@ describe.skipIf(!databaseUrl)("Report API", () => {
       expect(csv).toContain('"01/06/2026"');
       expect(csv).toContain('"Late night work"');
     } finally {
-      if (previousTz === undefined) {
-        delete process.env.HOURDEN_TIMEZONE;
-      } else {
-        process.env.HOURDEN_TIMEZONE = previousTz;
-      }
+      await pool.query(
+        "UPDATE workspaces SET calendar_timezone = $2 WHERE id = $1",
+        [DEFAULT_WORKSPACE_ID, previousTz],
+      );
     }
   });
 });

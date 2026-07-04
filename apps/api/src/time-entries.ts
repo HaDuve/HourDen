@@ -15,6 +15,7 @@ import {
   stopTimer,
   updateTimeEntry,
 } from "./db/time-entries.js";
+import { getWorkspaceCalendarTimezone } from "./db/workspaces.js";
 import { getCurrentWorkspaceId } from "./workspace.js";
 
 async function readJsonBody<T>(
@@ -41,7 +42,9 @@ export function createTimeEntriesRouter(pool: Pool) {
       return c.json({ error: "date query parameter is required (YYYY-MM-DD)" }, 400);
     }
 
-    const entries = await listTimeEntriesForDate(pool, getCurrentWorkspaceId(), date);
+    const workspaceId = getCurrentWorkspaceId();
+    const timeZone = await getWorkspaceCalendarTimezone(pool, workspaceId);
+    const entries = await listTimeEntriesForDate(pool, workspaceId, date, timeZone);
     return c.json({ entries });
   });
 

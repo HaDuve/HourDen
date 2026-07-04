@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Pool } from "pg";
 import { importClockifyCsv } from "./db/clockify-import.js";
+import { getWorkspaceCalendarTimezone } from "./db/workspaces.js";
 import { getCurrentWorkspaceId } from "./workspace.js";
 
 function isReadableUpload(value: unknown): value is { text(): Promise<string> } {
@@ -44,7 +45,9 @@ export function createImportRouter(pool: Pool) {
       return c.json({ error: "file is required" }, 400);
     }
 
-    const result = await importClockifyCsv(pool, getCurrentWorkspaceId(), csv);
+    const workspaceId = getCurrentWorkspaceId();
+    const timeZone = await getWorkspaceCalendarTimezone(pool, workspaceId);
+    const result = await importClockifyCsv(pool, workspaceId, csv, timeZone);
 
     return c.json(result);
   });

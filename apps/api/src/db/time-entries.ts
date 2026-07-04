@@ -380,6 +380,7 @@ export async function listTimeEntriesForDate(
   pool: Pool,
   workspaceId: string,
   date: string,
+  timeZone: string,
 ): Promise<TimeEntry[]> {
   const result = await pool.query<TimeEntryRow>(
     `
@@ -395,11 +396,11 @@ export async function listTimeEntriesForDate(
         invoice_id
       FROM time_entries
       WHERE workspace_id = $1
-        AND started_at::date <= $2::date
-        AND (ended_at IS NULL OR ended_at::date >= $2::date)
+        AND ((started_at AT TIME ZONE $3)::date <= $2::date)
+        AND (ended_at IS NULL OR (ended_at AT TIME ZONE $3)::date >= $2::date)
       ORDER BY started_at ASC
     `,
-    [workspaceId, date],
+    [workspaceId, date, timeZone],
   );
 
   return result.rows.map((row) => rowToTimeEntry(row));

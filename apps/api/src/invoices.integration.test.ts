@@ -2,6 +2,7 @@ import JSZip from "jszip";
 import { PDFParse } from "pdf-parse";
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { DEFAULT_WORKSPACE_ID } from "@hourden/domain";
 import { DEFAULT_INVOICE_OPERATOR } from "@hourden/domain/invoice-pdf";
 import { normalizeInvoicePdfText } from "@hourden/domain/invoice-pdf-snapshot";
 import type { InvoiceIssuanceSnapshot } from "@hourden/domain/invoice-issuance-snapshot";
@@ -411,6 +412,72 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     });
   });
 
+  it("captures Workspace Invoice Sender in issuance snapshot, not process env", async () => {
+    const originalOperatorName = process.env.HOURDEN_OPERATOR_NAME;
+    process.env.HOURDEN_OPERATOR_NAME = "Env Operator Name";
+
+    const workspaceBefore = await pool.query<{ sender_name: string | null }>(
+      "SELECT sender_name FROM workspaces WHERE id = $1",
+      [DEFAULT_WORKSPACE_ID],
+    );
+    const previousSenderName = workspaceBefore.rows[0]!.sender_name;
+
+    try {
+      await pool.query(
+        "UPDATE workspaces SET sender_name = $2 WHERE id = $1",
+        [DEFAULT_WORKSPACE_ID, "Workspace Sender Name"],
+      );
+
+      const bandao = await createClient(app, {
+        name: "Bandao",
+        legalName: "BANDAO Guidance GmbH",
+        addressLine1: "Schloßbergstraße 1",
+        addressLine2: "82319 Starnberg",
+      });
+      const ondojo = await createProject(app, bandao.id, "Ondojo");
+
+      await app.request("/api/time-entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: ondojo.id,
+          description: "Billable work",
+          startedAt: "2026-06-18T10:00:00.000Z",
+          endedAt: "2026-06-18T11:00:00.000Z",
+        }),
+      });
+
+      const res = await app.request("/api/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: bandao.id,
+          from: "2026-06-01",
+          to: "2026-06-30",
+        }),
+      });
+
+      expect(res.status).toBe(201);
+
+      const row = await pool.query<{ snapshot: InvoiceIssuanceSnapshot }>(
+        "SELECT snapshot FROM invoices LIMIT 1",
+      );
+
+      expect(row.rows[0]!.snapshot.operator.name).toBe("Workspace Sender Name");
+      expect(row.rows[0]!.snapshot.operator.name).not.toBe("Env Operator Name");
+    } finally {
+      await pool.query(
+        "UPDATE workspaces SET sender_name = $2 WHERE id = $1",
+        [DEFAULT_WORKSPACE_ID, previousSenderName],
+      );
+      if (originalOperatorName === undefined) {
+        delete process.env.HOURDEN_OPERATOR_NAME;
+      } else {
+        process.env.HOURDEN_OPERATOR_NAME = originalOperatorName;
+      }
+    }
+  });
+
   it("preview renders a PDF with the next Invoice Number without committing", async () => {
     const bandao = await createClient(app, {
       name: "Bandao",
@@ -595,9 +662,13 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     expect(rawReconstructedText).not.toContain("Mutated Legal Name GmbH");
   });
 
-  it("reconstructs an issued Invoice PDF from its snapshot after Operator env changes", async () => {
-    const originalOperatorName = process.env.HOURDEN_OPERATOR_NAME;
-    const operatorName = originalOperatorName ?? DEFAULT_INVOICE_OPERATOR.name;
+  it("reconstructs an issued Invoice PDF from its snapshot after Workspace sender changes", async () => {
+    const workspaceBefore = await pool.query<{ sender_name: string | null }>(
+      "SELECT sender_name FROM workspaces WHERE id = $1",
+      [DEFAULT_WORKSPACE_ID],
+    );
+    const previousSenderName = workspaceBefore.rows[0]!.sender_name;
+    const operatorName = previousSenderName ?? DEFAULT_INVOICE_OPERATOR.name;
 
     const bandao = await createClient(app, {
       name: "Bandao",
@@ -639,7 +710,10 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     const invoiceId = row.rows[0]!.id;
 
     try {
-      process.env.HOURDEN_OPERATOR_NAME = "Mutated Operator Name";
+      await pool.query(
+        "UPDATE workspaces SET sender_name = $2 WHERE id = $1",
+        [DEFAULT_WORKSPACE_ID, "Mutated Operator Name"],
+      );
 
       const reconstructed = await app.request(`/api/invoices/${invoiceId}/pdf`);
       expect(reconstructed.status).toBe(200);
@@ -656,11 +730,10 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       expect(rawReconstructedText).toContain(operatorName);
       expect(rawReconstructedText).not.toContain("Mutated Operator Name");
     } finally {
-      if (originalOperatorName === undefined) {
-        delete process.env.HOURDEN_OPERATOR_NAME;
-      } else {
-        process.env.HOURDEN_OPERATOR_NAME = originalOperatorName;
-      }
+      await pool.query(
+        "UPDATE workspaces SET sender_name = $2 WHERE id = $1",
+        [DEFAULT_WORKSPACE_ID, previousSenderName],
+      );
     }
   });
 
