@@ -2,10 +2,7 @@ import type { Hono } from "hono";
 import type { Pool } from "pg";
 import { createApp } from "../../../api/src/app.js";
 import { runMigrations } from "../../../api/src/db/migrate.js";
-import {
-  bindSessionFetch,
-  loginAsOperator,
-} from "../../../api/src/test/auth-helper.js";
+import { bindSessionAuth } from "../../../api/src/test/auth-helper.js";
 
 export async function setupAuthenticatedApiFetch(
   pool: Pool,
@@ -14,12 +11,22 @@ export async function setupAuthenticatedApiFetch(
   await runMigrations(pool);
 
   const app = createApp({ pool });
-  const cookie = await loginAsOperator(app);
-  globalThis.fetch = bindSessionFetch(
-    app,
-    cookie,
-    originalFetch,
-  ) as typeof fetch;
+  await bindSessionAuth(app);
+
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.href
+          : input.url;
+
+    if (url.startsWith("/api/")) {
+      return app.request(url, init);
+    }
+
+    return originalFetch(input, init);
+  }) as typeof fetch;
 
   return {
     app,

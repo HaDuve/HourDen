@@ -32,13 +32,9 @@ export function withSessionCookie(
   init: RequestInit = {},
   cookie: string,
 ): RequestInit {
-  return {
-    ...init,
-    headers: {
-      ...(init.headers ?? {}),
-      Cookie: cookie,
-    },
-  };
+  const headers = new Headers(init.headers);
+  headers.set("Cookie", cookie);
+  return { ...init, headers };
 }
 
 /** Attach session cookie to every app.request call (integration tests). */
