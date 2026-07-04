@@ -26,10 +26,6 @@ else
   cat >> "$CADDYFILE" <<'EOF'
 
 hourden.hannesduve.com {
-    basic_auth {
-        operator $2a$14$Hhcab4yh26gYSIWyztWgPuU0kfsJ2kx9D46jDfXRJjESEPaUtGgyS
-    }
-
     encode gzip zstd
 
     handle /api/* {
@@ -61,7 +57,13 @@ fi
 exit
 ```
 
-## Step 2: Deploy HourDen
+If the vhost was created earlier with Caddy `basic_auth`, remove that block from the Caddyfile and reload Caddy (see [ADR-0009](./docs/adr/0009-session-auth-and-workspace-isolation.md)).
+
+## Step 2: Operator env on the VM
+
+Before the first deploy after auth slice 1, set operator credentials in `/opt/HourDen/.env` on the VM (`HOURDEN_OPERATOR_EMAIL`, `HOURDEN_OPERATOR_PASSWORD`, and optionally `HOURDEN_OPERATOR_NAME`, `HOURDEN_TIMEZONE`). Migration 012 creates the operator **User** from these values.
+
+## Step 3: Deploy HourDen
 
 From your local machine (make sure latest code is pushed to GitHub):
 
@@ -72,13 +74,11 @@ cd /Users/hiono/Freelance/Invoices/HourDen
 
 Wait for "Deploy finished on VM."
 
-## Step 3: Verify
+## Step 4: Verify
 
-Visit: https://hourden.hannesduve.com
+Visit: https://hourden.hannesduve.com/login
 
-**Login:**
-- Username: `operator`
-- Password: `RnDbP9p7J4zg5KLtWEUU`
+Sign in with `HOURDEN_OPERATOR_EMAIL` / `HOURDEN_OPERATOR_PASSWORD` from your `.env`.
 
 Or run:
 

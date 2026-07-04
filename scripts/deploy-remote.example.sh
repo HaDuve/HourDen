@@ -10,13 +10,13 @@
 # Usage (after changes are merged to main on GitHub):
 #   ./scripts/deploy-remote.sh
 #
-# Optional — verify https://hourden.hannesduve.com after deploy:
-#   VERIFY_PRODUCTION=1 HOURDEN_BASIC_AUTH_USER=operator HOURDEN_BASIC_AUTH_PASSWORD='…' ./scripts/deploy-remote.sh
+# Optional — verify https://hourden.hannesduve.com after deploy (uses operator login from .env):
+#   VERIFY_PRODUCTION=1 ./scripts/deploy-remote.sh
 #
 # Validate syntax: bash -n scripts/deploy-remote.example.sh
 #
 # Env: SSH_TARGET, REMOTE_DIR, REPO_URL, REMOTE_WEB_DIR, VERIFY_PRODUCTION,
-#      HOURDEN_BASIC_AUTH_USER, HOURDEN_BASIC_AUTH_PASSWORD
+#      HOURDEN_OPERATOR_EMAIL, HOURDEN_OPERATOR_PASSWORD
 
 set -euo pipefail
 
@@ -114,14 +114,12 @@ echo "Deploy finished on VM."
 REMOTE
 
 if [[ "$VERIFY_PRODUCTION" == "1" ]]; then
-  if [[ -z "${HOURDEN_BASIC_AUTH_USER:-}" || -z "${HOURDEN_BASIC_AUTH_PASSWORD:-}" ]]; then
-    echo "Set HOURDEN_BASIC_AUTH_USER and HOURDEN_BASIC_AUTH_PASSWORD to verify production." >&2
+  if [[ -z "${HOURDEN_OPERATOR_EMAIL:-}" || -z "${HOURDEN_OPERATOR_PASSWORD:-}" ]]; then
+    echo "Set HOURDEN_OPERATOR_EMAIL and HOURDEN_OPERATOR_PASSWORD to verify production." >&2
     exit 1
   fi
   echo "Verifying https://hourden.hannesduve.com…"
-  HOURDEN_BASIC_AUTH_USER="$HOURDEN_BASIC_AUTH_USER" \
-  HOURDEN_BASIC_AUTH_PASSWORD="$HOURDEN_BASIC_AUTH_PASSWORD" \
-    "$ROOT/scripts/verify-production.sh"
+  "$ROOT/scripts/verify-production.sh"
 fi
 
 echo "Done. Site: https://hourden.hannesduve.com"

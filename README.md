@@ -6,7 +6,7 @@ HourDen is a self-hosted, web-only time tracker that replaces Clockify for a sol
 
 ## Status
 
-**MVP complete** — live at [`hourden.hannesduve.com`](https://hourden.hannesduve.com) (Caddy basic auth). Slices 0–6 shipped: time tracking, clients/projects, report + CSV export, Clockify import, and native invoice PDF generation with preview, issuance, reconstruction, and Outgoing.zip export.
+**MVP complete** — live at [`hourden.hannesduve.com`](https://hourden.hannesduve.com) (session login). Slices 0–6 shipped: time tracking, clients/projects, report + CSV export, Clockify import, and native invoice PDF generation with preview, issuance, reconstruction, and Outgoing.zip export. Auth slice 1 (#35): operator login via `/login` ([ADR-0009](./docs/adr/0009-session-auth-and-workspace-isolation.md)).
 
 **Tabs:** Today · Clients · Projects · Report · Invoices · Import
 
@@ -48,6 +48,7 @@ docs/adr/
 ```bash
 npm install
 cp .env.example .env
+# Set HOURDEN_OPERATOR_PASSWORD before first API start (migration creates the operator User)
 ```
 
 ### Run API + Postgres (Docker)
@@ -95,7 +96,7 @@ In a second terminal:
 npm run dev:web
 ```
 
-Open `http://localhost:5173`. The page calls `/api/health` (proxied to the API) and shows the status.
+Open `http://localhost:5173`. Sign in at `/login` with `HOURDEN_OPERATOR_EMAIL` / `HOURDEN_OPERATOR_PASSWORD` from `.env`.
 
 ### Run API without Docker (optional)
 
@@ -118,9 +119,14 @@ npm run verify:build   # production import smoke (after build)
 
 Migration integration tests run when `DATABASE_URL` is set (CI provides Postgres automatically).
 
-## Auth (MVP)
+## Auth (Phase 1)
 
-Production uses **Caddy basic auth** on `hourden.hannesduve.com` (Portfolio's Caddy terminates TLS and protects the vhost). When `HOURDEN_API_KEY` is set, the API requires that key on **all** routes (including `/health`) — useful when the API port is exposed without Caddy.
+Production browser access uses **app login** at `/login` ([ADR-0009](./docs/adr/0009-session-auth-and-workspace-isolation.md)). Portfolio's Caddy terminates TLS and reverse-proxies `/api`; it does **not** use edge basic auth.
+
+- **Operator account**: created on migrate from `HOURDEN_OPERATOR_EMAIL` and `HOURDEN_OPERATOR_PASSWORD` (required on the VM before first deploy after auth slice 1).
+- **Session**: httpOnly cookie; 30-day sliding expiry; logout clears the server-side row.
+- **`HOURDEN_API_KEY`** (optional): when set, middleware accepts a valid session **or** API key — useful for scripts hitting `:3001` directly.
+- **`GET /api/health`**: public; returns `{ ok: true }` only (no workspace metadata).
 
 ## Deploy to `hourden.hannesduve.com`
 
@@ -137,7 +143,13 @@ chmod +x scripts/deploy-remote.sh
 ./scripts/deploy-remote.sh
 ```
 
-Deploy **after** changes are on `main`. Optional verify: `VERIFY_PRODUCTION=1 HOURDEN_BASIC_AUTH_USER=… HOURDEN_BASIC_AUTH_PASSWORD=… ./scripts/deploy-remote.sh`
+Deploy **after** changes are on `main`. Set operator env on the VM (`/opt/HourDen/.env`) before the first auth deploy — see `.env.example`.
+
+Optional verify after deploy (uses operator credentials from local `.env`):
+
+```bash
+VERIFY_PRODUCTION=1 ./scripts/deploy-remote.sh
+```
 
 ### Manual deploy
 
@@ -148,15 +160,10 @@ Deploy **after** changes are on `main`. Optional verify: `VERIFY_PRODUCTION=1 HO
 
 ### Portfolio Caddy vhost (one-time)
 
-Add to Portfolio's `Caddyfile` (adjust paths and credentials):
+Add to Portfolio's `Caddyfile` (no edge basic auth — the app login page is the browser gate):
 
 ```caddyfile
 hourden.hannesduve.com {
-    basic_auth {
-        # bcrypt hash — generate with: caddy hash-password
-        operator <bcrypt-hash>
-    }
-
     encode gzip zstd
 
     handle /api/* {
@@ -190,16 +197,18 @@ ssh root@188.245.242.141 'bash -s' < scripts/fix-caddy-vm.sh
 ### Verify production
 
 ```bash
-HOURDEN_BASIC_AUTH_USER=operator HOURDEN_BASIC_AUTH_PASSWORD='…' ./scripts/verify-production.sh
+./scripts/verify-production.sh
 ```
 
-- `https://hourden.hannesduve.com` prompts for basic auth, then shows the HourDen shell
-- The page reports `API status: ok`
-- `GET /api/health` returns the seeded `workspaceId`
+Requires `HOURDEN_OPERATOR_EMAIL` and `HOURDEN_OPERATOR_PASSWORD` in `.env` (or the environment).
+
+- `https://hourden.hannesduve.com/` serves the SPA (no Caddy basic-auth prompt)
+- `GET /api/health` returns `{ "ok": true }`
+- `POST /api/auth/login` succeeds for the operator account
 
 ## Workspace seam
 
-`getCurrentWorkspaceId()` in `apps/api` is the single choke-point for workspace resolution ([ADR-0004](./docs/adr/0004-multi-tenant-prep-boundary.md)). MVP returns the seeded workspace id from `@hourden/domain`, exposed on the health endpoint as `workspaceId`.
+`getCurrentWorkspaceId()` in `apps/api` resolves the active **Workspace** from the logged-in **Session** ([ADR-0004](./docs/adr/0004-multi-tenant-prep-boundary.md), [ADR-0009](./docs/adr/0009-session-auth-and-workspace-isolation.md)). Unauthenticated API requests (except public routes) return 401.
 
 ## Relationship to invoice generation
 

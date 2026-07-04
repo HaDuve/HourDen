@@ -17,10 +17,6 @@ echo "Adding HourDen vhost to Caddyfile..."
 cat >> "$CADDYFILE" <<'EOF'
 
 hourden.hannesduve.com {
-    basic_auth {
-        operator $2a$14$Hhcab4yh26gYSIWyztWgPuU0kfsJ2kx9D46jDfXRJjESEPaUtGgyS
-    }
-
     encode gzip zstd
 
     handle /api/* {

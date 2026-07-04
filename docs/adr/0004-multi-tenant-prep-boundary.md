@@ -1,6 +1,6 @@
 # Multi-tenant prep limited to workspace_id + one resolution seam
 
-MVP is single-user but must not require a schema rewrite to reach the multi-tenant **C** phase. We prepare for C in exactly two ways and no more: (1) every table carries `workspace_id uuid not null`, FK'd to a single seeded Workspace row; (2) the API resolves "current workspace" through one choke-point function (`getCurrentWorkspaceId()`) that returns a constant in MVP. Auth is a single env API key or Caddy basic auth (ADR-0001).
+MVP is single-user but must not require a schema rewrite to reach the multi-tenant **C** phase. We prepare for C in exactly two ways and no more: (1) every table carries `workspace_id uuid not null`, FK'd to a single seeded Workspace row; (2) the API resolves "current workspace" through one choke-point function (`getCurrentWorkspaceId()`). Auth was env API key or Caddy basic auth at MVP; session login superseded edge auth in [ADR-0009](./0009-session-auth-and-workspace-isolation.md).
 
 **Explicitly deferred (no stubs):** `users`/`memberships` tables, `created_by`/owner columns, roles, sessions/JWT, billing, onboarding. Empty stub tables are rejected because they are dead weight now and certain to drift from real auth requirements later.
 
