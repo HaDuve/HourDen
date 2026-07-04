@@ -1,8 +1,10 @@
 import { useTranslation } from "react-i18next";
 import type { Project, TimeEntry } from "@hourden/domain";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { todayDateInTimeZone } from "./today-date.js";
 import { useDeleteDialog } from "./useDeleteDialog.js";
+import { useLiveCounter } from "./useLiveCounter.js";
+import { useWorkspaceEvents } from "./useWorkspaceEvents.js";
 
 type ManualFormData = {
   description: string;
@@ -98,9 +100,18 @@ export default function TodayPage() {
     description: "",
     projectId: "",
   });
+  const [remoteStopNotice, setRemoteStopNotice] = useState(false);
+  const localTimerMutationRef = useRef(false);
+  const runningRef = useRef<TimeEntry | null>(null);
+
+  const liveDuration = useLiveCounter(running?.startedAt ?? null);
 
   const date =
     calendarTimezone === null ? null : todayDateInTimeZone(calendarTimezone);
+
+  useEffect(() => {
+    runningRef.current = running;
+  }, [running]);
 
   useEffect(() => {
     let cancelled = false;
@@ -144,6 +155,49 @@ export default function TodayPage() {
     }
   }, [calendarTimezone]);
 
+  const refetchRunning = useCallback(async () => {
+    if (!calendarTimezone) {
+      return;
+    }
+
+    const previousRunningId = runningRef.current?.id ?? null;
+    const loadedRunning = await fetchRunningTimer();
+
+    if (
+      !localTimerMutationRef.current &&
+      previousRunningId &&
+      loadedRunning &&
+      loadedRunning.id !== previousRunningId
+    ) {
+      setRemoteStopNotice(true);
+    }
+
+    setRunning(loadedRunning);
+  }, [calendarTimezone]);
+
+  const refetchEntries = useCallback(async () => {
+    if (!calendarTimezone) {
+      return;
+    }
+
+    const today = todayDateInTimeZone(calendarTimezone);
+    const loadedEntries = await fetchEntries(today);
+    setEntries(loadedEntries);
+  }, [calendarTimezone]);
+
+  useWorkspaceEvents({
+    "timer-changed": () => {
+      void refetchRunning().catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Failed to refresh timer");
+      });
+    },
+    "today-changed": () => {
+      void refetchEntries().catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Failed to refresh entries");
+      });
+    },
+  });
+
   useEffect(() => {
     if (calendarTimezone) {
       void load();
@@ -153,6 +207,7 @@ export default function TodayPage() {
   const startTimer = async () => {
     setSaving(true);
     setError(null);
+    localTimerMutationRef.current = true;
     try {
       const res = await fetch("/api/time-entries/timer", {
         method: "POST",
@@ -166,6 +221,7 @@ export default function TodayPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start timer");
     } finally {
+      localTimerMutationRef.current = false;
       setSaving(false);
     }
   };
@@ -175,6 +231,7 @@ export default function TodayPage() {
 
     setSaving(true);
     setError(null);
+    localTimerMutationRef.current = true;
     try {
       const res = await fetch(`/api/time-entries/${running.id}/stop`, {
         method: "POST",
@@ -188,6 +245,7 @@ export default function TodayPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to stop timer");
     } finally {
+      localTimerMutationRef.current = false;
       setSaving(false);
     }
   };
@@ -323,12 +381,28 @@ export default function TodayPage() {
         </div>
       </header>
 
-      {running && (
+      {running && liveDuration && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-          Timer running — {formatDuration(running.durationMinutes)}
+          {t("today.timerRunning", { duration: liveDuration })}
           {running.description ? ` · ${running.description}` : (
             <span className="ml-2 text-emerald-700">(add description when done)</span>
           )}
+        </div>
+      )}
+
+      {remoteStopNotice && (
+        <div
+          role="status"
+          className="flex items-center justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          <span>{t("today.timerStoppedRemotely")}</span>
+          <button
+            type="button"
+            onClick={() => setRemoteStopNotice(false)}
+            className="rounded-md border border-amber-300 px-3 py-1 text-sm hover:bg-amber-100"
+          >
+            {t("today.dismissNotice")}
+          </button>
         </div>
       )}
 

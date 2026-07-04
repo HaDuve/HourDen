@@ -1,5 +1,8 @@
 {
   "today": {
-    "title": "Today"
+    "title": "Today",
+    "timerRunning": "Timer running — {{duration}}",
+    "timerStoppedRemotely": "Timer stopped — a new one was started on another device",
+    "dismissNotice": "Dismiss"
   }
 }
