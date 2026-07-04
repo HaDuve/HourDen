@@ -25,7 +25,7 @@ export async function setupAuthenticatedApiFetch(
   const app = createApp({ pool });
   await bindSessionAuth(app);
 
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  const fetchProxy = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url =
       typeof input === "string"
         ? input
@@ -33,16 +33,22 @@ export async function setupAuthenticatedApiFetch(
           ? input.href
           : input.url;
 
-    if (url.startsWith("/api/")) {
-      return materializeResponse(await app.request(url, init));
+    if (url.startsWith("/api/") || url.includes("/api/")) {
+      const path = url.startsWith("/api/")
+        ? url
+        : url.slice(url.indexOf("/api/"));
+      return materializeResponse(await app.request(path, init));
     }
 
     return originalFetch(input, init);
   }) as typeof fetch;
 
+  vi.stubGlobal("fetch", fetchProxy);
+
   return {
     app,
     restoreFetch: () => {
+      vi.unstubAllGlobals();
       globalThis.fetch = originalFetch;
     },
   };
