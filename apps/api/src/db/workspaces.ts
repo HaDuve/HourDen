@@ -3,18 +3,6 @@ import type { InvoiceOperator } from "@hourden/domain/invoice-pdf";
 import type { Pool } from "pg";
 import { hashPassword, validatePassword } from "../auth/password.js";
 
-const EMPTY_INVOICE_OPERATOR: InvoiceOperator = {
-  name: "",
-  street: "",
-  city: "",
-  taxNumber: "",
-  email: "",
-  phone: "",
-  bankName: "",
-  iban: "",
-  bic: "",
-};
-
 export type WorkspaceSettingsRow = {
   sender_name: string | null;
   sender_street: string | null;
@@ -62,20 +50,16 @@ export function isInvoiceSenderConfigured(
 export function workspaceRowToInvoiceOperator(
   row: WorkspaceSettingsRow | null,
 ): InvoiceOperator {
-  if (!isInvoiceSenderConfigured(row)) {
-    return { ...EMPTY_INVOICE_OPERATOR };
-  }
-
   return {
-    name: row!.sender_name ?? "",
-    street: row!.sender_street ?? "",
-    city: row!.sender_city ?? "",
-    taxNumber: row!.sender_tax_number ?? "",
-    email: row!.sender_email ?? "",
-    phone: row!.sender_phone ?? "",
-    bankName: row!.sender_bank_name ?? "",
-    iban: row!.sender_iban ?? "",
-    bic: row!.sender_bic ?? "",
+    name: row?.sender_name ?? "",
+    street: row?.sender_street ?? "",
+    city: row?.sender_city ?? "",
+    taxNumber: row?.sender_tax_number ?? "",
+    email: row?.sender_email ?? "",
+    phone: row?.sender_phone ?? "",
+    bankName: row?.sender_bank_name ?? "",
+    iban: row?.sender_iban ?? "",
+    bic: row?.sender_bic ?? "",
   };
 }
 
