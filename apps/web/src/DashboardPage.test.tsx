@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import i18n from "./i18n/i18n.js";
-import DashboardPage from "./DashboardPage.js";
+import DashboardPage, { formatClientBucketTooltipValue } from "./DashboardPage.js";
 
 const dashboardPayload = {
   from: "2026-06-01",
@@ -85,6 +85,18 @@ describe("DashboardPage", () => {
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: /^daily time$/i })).toBeInTheDocument();
     });
+  });
+
+  it("formats client bucket tooltip values with billable amounts when greater than zero", () => {
+    const formatDuration = (minutes: number) => `${minutes}m`;
+    const formatMoney = (amount: number) => `€${amount.toFixed(2)}`;
+
+    expect(formatClientBucketTooltipValue(74, 55, 74, formatDuration, formatMoney)).toBe(
+      "74m (55%)\n€74.00",
+    );
+    expect(formatClientBucketTooltipValue(60, 45, 0, formatDuration, formatMoney)).toBe(
+      "60m (45%)",
+    );
   });
 
   it("renders the by-client donut with legend percentages and centered total", async () => {
