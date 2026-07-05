@@ -54,6 +54,35 @@ describe("TrackerTimerBar", () => {
     expect(screen.queryByRole("button", { name: /stop timer/i })).not.toBeInTheDocument();
   });
 
+  it("keeps project select and live counter in separate non-overlapping regions", () => {
+    render(
+      <TrackerTimerBar
+        running={null}
+        liveCounter="0:00:00"
+        description="Past planning session"
+        projectId=""
+        projectGroups={projectGroups}
+        saving={false}
+        onDescriptionChange={vi.fn()}
+        onDescriptionSuggestionSelect={vi.fn()}
+        onProjectChange={vi.fn()}
+        onStart={vi.fn()}
+        onStop={vi.fn()}
+      />,
+    );
+
+    const projectSelect = screen.getByLabelText(/project \(optional\)/i);
+    const projectField = projectSelect.closest("label");
+    const counter = screen.getByText("0:00:00");
+    const counterRegion = counter.parentElement;
+
+    expect(projectField?.className).toMatch(/shrink-0/);
+    expect(projectField?.className).not.toMatch(/min-w-0/);
+    expect(projectSelect.className).toMatch(/w-full/);
+    expect(counterRegion?.className).toMatch(/shrink-0/);
+    expect(projectField).not.toBe(counterRegion);
+  });
+
   it("shows stop control and groups projects under their client when running", () => {
     render(
       <TrackerTimerBar
