@@ -3,7 +3,8 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "./app.js";
 import { runMigrations } from "./db/migrate.js";
-import { bindSessionAuth } from "./test/auth-helper.js";
+import { bindSessionAuth, loginAsOperator, withSessionCookie } from "./test/auth-helper.js";
+import { readNextSseEvent } from "./test/sse-helper.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -36,10 +37,12 @@ async function createProject(
 describe.skipIf(!databaseUrl)("Time Entry API", () => {
   const pool = new Pool({ connectionString: databaseUrl });
   const app = createApp({ pool });
+  let sessionCookie: string;
 
   beforeAll(async () => {
     await runMigrations(pool);
     await bindSessionAuth(app);
+    sessionCookie = await loginAsOperator(app);
   });
 
   beforeEach(async () => {
@@ -73,6 +76,31 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
     });
     expect(entry.startedAt).toBeTruthy();
     expect(entry.durationMinutes).toBeGreaterThanOrEqual(0);
+  });
+
+  it("publishes timer-changed when a Running Timer is started", async () => {
+    const streamRes = await app.request(
+      "/api/events",
+      withSessionCookie({}, sessionCookie),
+    );
+    expect(streamRes.status).toBe(200);
+
+    const reader = streamRes.body?.getReader();
+    if (!reader) {
+      throw new Error("Expected SSE response body");
+    }
+
+    const startRes = await app.request("/api/time-entries/timer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ description: "Remote start" }),
+    });
+    expect(startRes.status).toBe(201);
+
+    const event = await readNextSseEvent(reader);
+    expect(event.event).toBe("timer-changed");
+
+    await reader.cancel();
   });
 
   it("stops the current Running Timer when starting another (one-active invariant)", async () => {

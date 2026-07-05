@@ -1,7 +1,6 @@
-import { groupTrackerEntriesByWeek, type TimeEntry } from "@hourden/domain";
-import type { Project } from "@hourden/domain";
+import { groupTrackerEntriesByWeek, type Client, type Project, type TimeEntry } from "@hourden/domain";
 import { useTranslation } from "react-i18next";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageMain } from "./layout/PageMain.js";
 import { ResponsiveOverlay } from "./layout/ResponsiveOverlay.js";
 import {
@@ -10,7 +9,6 @@ import {
   mobileSecondaryButtonClass,
 } from "./layout/tap-targets.js";
 import {
-  accentInputClass,
   destructiveButtonClass,
   destructiveOutlineButtonClass,
   emptyStateClass,
@@ -18,6 +16,8 @@ import {
   inputClass,
   listPanelClass,
   metaTextClass,
+  numericMetaValueClass,
+  numericValueClass,
   pageSubtitleClass,
   pageTitleLargeClass,
   selectClass,
@@ -30,8 +30,12 @@ import {
   storeTrackerEntryLimit,
   type TrackerEntryLimit,
 } from "./tracker-entry-limit.js";
+import { groupProjectsByClient } from "./tracker/groupProjectsByClient.js";
+import { TrackerTimerBar } from "./tracker/TrackerTimerBar.js";
+import { useLiveCounter } from "./tracker/useLiveCounter.js";
 import { todayDateInTimeZone } from "./today-date.js";
 import { useDeleteDialog } from "./useDeleteDialog.js";
+import { useWorkspaceEvents } from "./useWorkspaceEvents.js";
 import { DescriptionAutocomplete } from "./DescriptionAutocomplete.js";
 
 type ManualFormData = {
@@ -46,7 +50,7 @@ type EditFormData = {
   projectId: string;
 };
 
-type RunningFormData = {
+type BarFormData = {
   description: string;
   projectId: string;
 };
@@ -103,6 +107,15 @@ async function fetchProjects(): Promise<Project[]> {
   return data.projects;
 }
 
+async function fetchClients(): Promise<Client[]> {
+  const res = await fetch("/api/clients");
+  if (!res.ok) {
+    throw new Error(`Failed to load clients (${res.status})`);
+  }
+  const data = (await res.json()) as { clients: Client[] };
+  return data.clients;
+}
+
 export default function TrackerPage() {
   const { t } = useTranslation();
   const { locale, formatCurrency, formatDurationMinutes } = useLocaleFormat();
@@ -110,6 +123,7 @@ export default function TrackerPage() {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [running, setRunning] = useState<TimeEntry | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [entryLimit, setEntryLimit] = useState<TrackerEntryLimit>(
     readStoredTrackerEntryLimit(),
   );
@@ -130,10 +144,16 @@ export default function TrackerPage() {
     description: "",
     projectId: "",
   });
-  const [runningForm, setRunningForm] = useState<RunningFormData>({
+  const [barForm, setBarForm] = useState<BarFormData>({
     description: "",
     projectId: "",
   });
+
+  const liveCounter = useLiveCounter(running?.startedAt ?? null);
+  const projectGroups = useMemo(
+    () => groupProjectsByClient(projects, clients),
+    [projects, clients],
+  );
 
   const today =
     calendarTimezone === null ? null : todayDateInTimeZone(calendarTimezone);
@@ -146,7 +166,7 @@ export default function TrackerPage() {
           setCalendarTimezone(timeZone);
         }
       })
-      .catch((err: unknown) => {
+      .catch(() => {
         if (!cancelled) {
           setError(t("tracker.loadFailed"));
           setLoading(false);
@@ -155,7 +175,7 @@ export default function TrackerPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   const load = useCallback(async () => {
     if (!calendarTimezone) {
@@ -164,20 +184,51 @@ export default function TrackerPage() {
     setLoading(true);
     setError(null);
     try {
-      const [loadedEntries, loadedRunning, loadedProjects] = await Promise.all([
-        fetchTrackerEntries(entryLimit),
-        fetchRunningTimer(),
-        fetchProjects(),
-      ]);
+      const [loadedEntries, loadedRunning, loadedProjects, loadedClients] =
+        await Promise.all([
+          fetchTrackerEntries(entryLimit),
+          fetchRunningTimer(),
+          fetchProjects(),
+          fetchClients(),
+        ]);
       setEntries(loadedEntries);
       setRunning(loadedRunning);
       setProjects(loadedProjects);
-    } catch (err) {
+      setClients(loadedClients);
+    } catch {
       setError(t("tracker.loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, [calendarTimezone, entryLimit]);
+  }, [calendarTimezone, entryLimit, t]);
+
+  const refreshRunningTimer = useCallback(async () => {
+    try {
+      const loadedRunning = await fetchRunningTimer();
+      setRunning(loadedRunning);
+    } catch {
+      setError(t("tracker.loadFailed"));
+    }
+  }, [t]);
+
+  const refreshEntries = useCallback(async () => {
+    try {
+      const loadedEntries = await fetchTrackerEntries(entryLimit);
+      setEntries(loadedEntries);
+    } catch {
+      setError(t("tracker.loadFailed"));
+    }
+  }, [entryLimit, t]);
+
+  useWorkspaceEvents({
+    "timer-changed": () => {
+      void refreshRunningTimer();
+      void refreshEntries();
+    },
+    "today-changed": () => {
+      void refreshEntries();
+    },
+  });
 
   useEffect(() => {
     if (calendarTimezone) {
@@ -187,11 +238,10 @@ export default function TrackerPage() {
 
   useEffect(() => {
     if (!running) {
-      setRunningForm({ description: "", projectId: "" });
       return;
     }
 
-    setRunningForm({
+    setBarForm({
       description: running.description ?? "",
       projectId: running.projectId ?? "",
     });
@@ -209,7 +259,7 @@ export default function TrackerPage() {
         ...patch,
       };
       if (patch.projectId !== undefined && patch.description === undefined) {
-        body.description = runningForm.description.trim() || null;
+        body.description = barForm.description.trim() || null;
       }
 
       const res = await fetch(`/api/time-entries/${running.id}`, {
@@ -222,12 +272,12 @@ export default function TrackerPage() {
       }
       const updated = (await res.json()) as TimeEntry;
       setRunning(updated);
-      setRunningForm((current) => ({
+      setBarForm((current) => ({
         description:
           patch.description !== undefined ? patch.description : current.description,
         projectId: updated.projectId ?? "",
       }));
-    } catch (err) {
+    } catch {
       setError(t("tracker.saveFailed"));
     }
   };
@@ -244,13 +294,16 @@ export default function TrackerPage() {
       const res = await fetch("/api/time-entries/timer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          description: barForm.description.trim() || null,
+          projectId: barForm.projectId || null,
+        }),
       });
       if (!res.ok) {
         throw new Error(`Start failed (${res.status})`);
       }
       await load();
-    } catch (err) {
+    } catch {
       setError(t("tracker.startFailed"));
     } finally {
       setSaving(false);
@@ -267,14 +320,14 @@ export default function TrackerPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          description: runningForm.description.trim() || undefined,
+          description: barForm.description.trim() || undefined,
         }),
       });
       if (!res.ok) {
         throw new Error(`Stop failed (${res.status})`);
       }
       await load();
-    } catch (err) {
+    } catch {
       setError(t("tracker.stopFailed"));
     } finally {
       setSaving(false);
@@ -306,7 +359,7 @@ export default function TrackerPage() {
       setShowManualForm(false);
       setManualForm(emptyManualForm());
       await load();
-    } catch (err) {
+    } catch {
       setError(t("tracker.saveFailed"));
     } finally {
       setSaving(false);
@@ -344,7 +397,7 @@ export default function TrackerPage() {
 
       setEditing(null);
       await load();
-    } catch (err) {
+    } catch {
       setError(t("tracker.saveFailed"));
     } finally {
       setSaving(false);
@@ -366,7 +419,7 @@ export default function TrackerPage() {
       }
       closeDeleteDialog();
       await load();
-    } catch (err) {
+    } catch {
       setError(t("tracker.deleteFailed"));
     } finally {
       setSaving(false);
@@ -393,97 +446,53 @@ export default function TrackerPage() {
           <h1 className={pageTitleLargeClass}>{t("tracker.title")}</h1>
           <p className={pageSubtitleClass}>{t("tracker.subtitle")}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setShowManualForm(true)}
-            className={secondaryButtonClass}
-          >
-            {t("tracker.addManualEntry")}
-          </button>
-          {running ? (
-            <button
-              type="button"
-              onClick={() => void stopTimer()}
-              disabled={saving}
-              className={destructiveButtonClass}
-            >
-              {t("tracker.stopTimer")}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => void startTimer()}
-              disabled={saving}
-              className={primaryButtonClass}
-            >
-              {t("tracker.startTimer")}
-            </button>
-          )}
-        </div>
+        <button
+          type="button"
+          onClick={() => setShowManualForm(true)}
+          className={secondaryButtonClass}
+        >
+          {t("tracker.addManualEntry")}
+        </button>
       </header>
 
-      {running && (
-        <div className="rounded-lg border border-accent-border bg-accent-muted px-4 py-3 text-sm text-content">
-          <p className="mb-3">
-            {t("tracker.timerRunning", {
-              duration: formatDurationMinutes(running.durationMinutes),
-            })}
-          </p>
-          <div className="grid gap-3 text-content">
-            <DescriptionAutocomplete
-              label={t("tracker.description")}
-              value={runningForm.description}
-              onChange={(description) =>
-                setRunningForm((current) => ({ ...current, description }))
-              }
-              onSuggestionSelect={(suggestion) => {
-                setRunningForm({
-                  description: suggestion.description,
-                  projectId: suggestion.projectId ?? "",
-                });
-                void patchRunningEntry({
-                  description: suggestion.description,
-                  projectId: suggestion.projectId,
-                });
-              }}
-              inputClassName={accentInputClass}
-            />
-            <label className="grid gap-1 text-sm text-content">
-              <span>{t("tracker.projectOptional")}</span>
-              <select
-                value={runningForm.projectId}
-                onChange={(event) => {
-                  const projectId = event.target.value;
-                  setRunningForm((current) => ({ ...current, projectId }));
-                  void patchRunningEntry({ projectId: projectId || null });
-                }}
-                className={accentInputClass}
-              >
-                <option value="">{t("tracker.noProject")}</option>
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </div>
-      )}
+      <TrackerTimerBar
+        running={running}
+        liveCounter={liveCounter}
+        description={barForm.description}
+        projectId={barForm.projectId}
+        projectGroups={projectGroups}
+        saving={saving}
+        onDescriptionChange={(description) =>
+          setBarForm((current) => ({ ...current, description }))
+        }
+        onDescriptionSuggestionSelect={(suggestion) => {
+          setBarForm({
+            description: suggestion.description,
+            projectId: suggestion.projectId ?? "",
+          });
+          if (running) {
+            void patchRunningEntry({
+              description: suggestion.description,
+              projectId: suggestion.projectId,
+            });
+          }
+        }}
+        onProjectChange={(projectId) => {
+          setBarForm((current) => ({ ...current, projectId }));
+          if (running) {
+            void patchRunningEntry({ projectId: projectId || null });
+          }
+        }}
+        onStart={() => void startTimer()}
+        onStop={() => void stopTimer()}
+      />
 
-      {error && (
-        <p className={errorBannerClass}>
-          {error}
-        </p>
-      )}
+      {error && <p className={errorBannerClass}>{error}</p>}
 
       {loading ? (
         <p className={metaTextClass}>{t("tracker.loading")}</p>
       ) : entries.length === 0 ? (
-        <p className={emptyStateClass}>
-          {t("tracker.empty")}
-        </p>
+        <p className={emptyStateClass}>{t("tracker.empty")}</p>
       ) : (
         <div
           className={`space-y-6${isDeleteDialogOpen ? " pointer-events-none" : ""}`}
@@ -492,7 +501,7 @@ export default function TrackerPage() {
             <section key={week.weekStart}>
               <div className="mb-2 flex items-baseline justify-between gap-4 px-1">
                 <h2 className="text-sm font-semibold text-content">{week.weekLabel}</h2>
-                <p className={metaTextClass}>
+                <p className={numericMetaValueClass}>
                   {t("tracker.weekTotal")}: {formatDurationMinutes(week.totalDurationMinutes)}
                 </p>
               </div>
@@ -502,7 +511,7 @@ export default function TrackerPage() {
                   <div key={day.date}>
                     <div className="mb-1 flex items-baseline justify-between gap-4 border-b border-divider px-4 py-2">
                       <h3 className="text-sm font-medium text-content">{day.dayLabel}</h3>
-                      <p className={metaTextClass}>
+                      <p className={numericMetaValueClass}>
                         {t("tracker.dayTotal")}: {formatDurationMinutes(day.totalDurationMinutes)}
                       </p>
                     </div>
@@ -513,41 +522,53 @@ export default function TrackerPage() {
                           key={entry.id}
                           className="flex items-start justify-between gap-4 px-4 py-4"
                         >
-                          <div>
-                            <p className="font-medium">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-content">
                               {entry.description?.trim() || (
                                 <span className="text-muted italic">
                                   {t("tracker.noDescription")}
                                 </span>
                               )}
                             </p>
-                            <p className={`mt-1 ${metaTextClass}`}>
-                              {formatDurationMinutes(entry.durationMinutes)}
-                              {entry.isRunning && ` · ${t("tracker.running")}`}
-                              {entry.amount !== null && ` · ${formatCurrency(entry.amount)}`}
-                              {!entry.billableComplete &&
-                                !entry.isRunning &&
-                                ` · ${t("tracker.incomplete")}`}
-                            </p>
+                            {(entry.amount !== null ||
+                              (!entry.billableComplete && !entry.isRunning)) && (
+                              <p className={`mt-1 ${metaTextClass}`}>
+                                {entry.amount !== null && formatCurrency(entry.amount)}
+                                {!entry.billableComplete &&
+                                  !entry.isRunning &&
+                                  `${entry.amount !== null ? " · " : ""}${t("tracker.incomplete")}`}
+                              </p>
+                            )}
                           </div>
-                          {!entry.invoiced && !entry.isRunning && (
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => openEdit(entry)}
-                                className={actionButtonClass}
-                              >
-                                {t("common.edit")}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openDeleteDialog(entry)}
-                                className={`${destructiveOutlineButtonClass} px-3 py-1.5 text-sm`}
-                              >
-                                {t("common.delete")}
-                              </button>
-                            </div>
-                          )}
+
+                          <div className="flex shrink-0 items-start gap-3">
+                            <p className={`${numericValueClass} text-sm`}>
+                              {formatDurationMinutes(entry.durationMinutes)}
+                              {entry.isRunning && (
+                                <span className={`block ${metaTextClass}`}>
+                                  {t("tracker.running")}
+                                </span>
+                              )}
+                            </p>
+                            {!entry.invoiced && !entry.isRunning && (
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => openEdit(entry)}
+                                  className={actionButtonClass}
+                                >
+                                  {t("common.edit")}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openDeleteDialog(entry)}
+                                  className={`${destructiveOutlineButtonClass} px-3 py-1.5 text-sm`}
+                                >
+                                  {t("common.delete")}
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -582,7 +603,7 @@ export default function TrackerPage() {
       {showManualForm && (
         <ResponsiveOverlay ariaLabel={t("tracker.manualEntry")}>
           <form onSubmit={saveManualEntry} className="w-full">
-            <h2 className="text-lg font-semibold">{t("tracker.manualEntry")}</h2>
+            <h2 className="text-lg font-semibold text-content">{t("tracker.manualEntry")}</h2>
 
             <div className="mt-4 grid gap-3">
               <DescriptionAutocomplete
@@ -684,7 +705,7 @@ export default function TrackerPage() {
       {editing && (
         <ResponsiveOverlay ariaLabel={t("tracker.editEntry")}>
           <form onSubmit={saveEdit} className="w-full">
-            <h2 className="text-lg font-semibold">{t("tracker.editEntry")}</h2>
+            <h2 className="text-lg font-semibold text-content">{t("tracker.editEntry")}</h2>
 
             <div className="mt-4 grid gap-3">
               <DescriptionAutocomplete
@@ -754,12 +775,10 @@ export default function TrackerPage() {
           labelledBy="delete-entry-title"
           onBackdropClick={closeDeleteDialog}
         >
-          <h2 id="delete-entry-title" className="text-lg font-semibold">
+          <h2 id="delete-entry-title" className="text-lg font-semibold text-content">
             {t("tracker.deleteEntryTitle")}
           </h2>
-          <p className={`mt-2 ${metaTextClass}`}>
-            {t("tracker.deleteEntryBody")}
-          </p>
+          <p className={`mt-2 ${metaTextClass}`}>{t("tracker.deleteEntryBody")}</p>
           <div className="mt-6 flex justify-end gap-2">
             <button
               type="button"

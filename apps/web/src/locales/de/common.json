@@ -135,6 +135,7 @@
     "addManualEntry": "Manuellen Eintrag hinzufügen",
     "startTimer": "Timer starten",
     "stopTimer": "Timer stoppen",
+    "timerBar": "Timer-Leiste",
     "timerRunning": "Timer läuft — {{duration}}",
     "addDescriptionWhenDone": "(Beschreibung nach Abschluss ergänzen)",
     "loading": "Einträge werden geladen…",

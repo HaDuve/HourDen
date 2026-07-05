@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import i18n from "./i18n/i18n.js";
 import TrackerPage from "./TrackerPage.js";
+import { MockEventSource, resetMockEventSources } from "./test/mock-event-source.js";
 
 vi.mock("./today-date.js", () => ({
   todayDateInTimeZone: () => "2026-07-02",
@@ -61,6 +62,7 @@ function createFetchMock(
     if (url === "/api/auth/me") {
       return Promise.resolve({
         ok: true,
+        status: 200,
         json: async () => ({ calendarTimezone: "UTC" }),
       });
     }
@@ -82,6 +84,12 @@ function createFetchMock(
         json: async () => ({ projects: [] }),
       });
     }
+    if (url === "/api/clients") {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ clients: [] }),
+      });
+    }
     if (init?.method === "DELETE") {
       return Promise.resolve({ ok: true, status: 204 });
     }
@@ -92,7 +100,80 @@ function createFetchMock(
 describe("TrackerPage", () => {
   beforeEach(async () => {
     localStorage.clear();
+    resetMockEventSources();
     await i18n.changeLanguage("en");
+  });
+
+  it("refetches running timer and entries when timer-changed is received", async () => {
+    let runningFetches = 0;
+    let entryFetches = 0;
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/auth/me") {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ calendarTimezone: "UTC" }),
+        });
+      }
+      if (url === "/api/time-entries?limit=50") {
+        entryFetches += 1;
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ entries: [] }),
+        });
+      }
+      if (url === "/api/time-entries/running") {
+        runningFetches += 1;
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ entry: null }),
+        });
+      }
+      if (url === "/api/projects") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ projects: [] }),
+        });
+      }
+      if (url === "/api/clients") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ clients: [] }),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<TrackerPage />);
+
+    await waitFor(() => {
+      expect(runningFetches).toBeGreaterThanOrEqual(1);
+      expect(entryFetches).toBeGreaterThanOrEqual(1);
+    });
+
+    const runningBefore = runningFetches;
+    const entriesBefore = entryFetches;
+
+    MockEventSource.instances[0]?.emit("timer-changed");
+
+    await waitFor(() => {
+      expect(runningFetches).toBeGreaterThan(runningBefore);
+      expect(entryFetches).toBeGreaterThan(entriesBefore);
+    });
+  });
+
+  it("renders a unified sticky timer bar with start control when idle", async () => {
+    vi.stubGlobal("fetch", createFetchMock([]));
+
+    render(<TrackerPage />);
+
+    await waitFor(() => {
+      const bar = screen.getByRole("region", { name: /timer bar/i });
+      expect(bar.className).toMatch(/sticky/);
+      expect(screen.getByRole("button", { name: /start timer/i })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /stop timer/i })).not.toBeInTheDocument();
+    });
   });
 
   it("renders the page title from the message catalog", async () => {
@@ -215,6 +296,24 @@ describe("TrackerPage", () => {
           json: async () => ({ projects: [project] }),
         });
       }
+      if (url === "/api/clients") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            clients: [
+              {
+                id: project.clientId,
+                name: "Acme Client",
+                defaultRate: 60,
+                legalName: null,
+                addressLine1: null,
+                addressLine2: null,
+                invoicePrefix: null,
+              },
+            ],
+          }),
+        });
+      }
       if (
         url === `/api/time-entries/${runningEntry.id}` &&
         init?.method === "PATCH"
@@ -291,6 +390,12 @@ describe("TrackerPage", () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({ projects: [] }),
+        });
+      }
+      if (url === "/api/clients") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ clients: [] }),
         });
       }
       if (init?.method === "DELETE") {

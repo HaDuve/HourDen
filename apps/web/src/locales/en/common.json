@@ -135,6 +135,7 @@
     "addManualEntry": "Add manual entry",
     "startTimer": "Start timer",
     "stopTimer": "Stop timer",
+    "timerBar": "Timer bar",
     "timerRunning": "Timer running — {{duration}}",
     "addDescriptionWhenDone": "(add description when done)",
     "loading": "Loading entries…",

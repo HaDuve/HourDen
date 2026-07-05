@@ -86,6 +86,13 @@ function mockMobileViewport() {
 
 function mockAppFetch() {
   return vi.fn().mockImplementation((url: string) => {
+    if (url === "/api/auth/me") {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ calendarTimezone: "UTC" }),
+      });
+    }
     if (url.includes("/api/time-entries/running")) {
       return Promise.resolve({
         ok: true,
