@@ -14,12 +14,20 @@ const EVENTS_URL = "/api/events";
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
 
-async function isSessionValid(): Promise<boolean> {
+type SessionStatus = "valid" | "expired" | "unavailable";
+
+async function checkSession(): Promise<SessionStatus> {
   try {
     const res = await fetch("/api/auth/me", { credentials: "include" });
-    return res.status === 200;
+    if (res.status === 200) {
+      return "valid";
+    }
+    if (res.status === 401) {
+      return "expired";
+    }
+    return "unavailable";
   } catch {
-    return false;
+    return "unavailable";
   }
 }
 
@@ -77,9 +85,13 @@ export function useWorkspaceEvents(handlers: WorkspaceEventHandlers) {
       clearReconnectTimer();
       closeSource();
 
-      const valid = await isSessionValid();
-      if (!valid) {
+      const session = await checkSession();
+      if (session === "expired") {
         redirectToLogin();
+        return;
+      }
+      if (session === "unavailable") {
+        scheduleReconnect();
         return;
       }
 
@@ -99,8 +111,8 @@ export function useWorkspaceEvents(handlers: WorkspaceEventHandlers) {
       source.onerror = () => {
         closeSource();
         void (async () => {
-          const stillValid = await isSessionValid();
-          if (!stillValid) {
+          const session = await checkSession();
+          if (session === "expired") {
             redirectToLogin();
             return;
           }

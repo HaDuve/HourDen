@@ -140,6 +140,48 @@ describe("useWorkspaceEvents", () => {
     expect(MockEventSource.instances).toHaveLength(1);
   });
 
+  it("reconnects when session check fails transiently after the stream drops", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ status: 200 })
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce({ status: 200 });
+
+    renderHook(() =>
+      useWorkspaceEvents({
+        "timer-changed": vi.fn(),
+      }),
+    );
+
+    await flushPromises();
+    const first = MockEventSource.instances[0];
+
+    act(() => {
+      first.triggerError();
+    });
+    await flushPromises();
+
+    expect(replaceMock).not.toHaveBeenCalled();
+    expect(MockEventSource.instances).toHaveLength(2);
+  });
+
+  it("retries when the initial session check is transiently unavailable", async () => {
+    fetchMock
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce({ status: 200 });
+
+    renderHook(() =>
+      useWorkspaceEvents({
+        "timer-changed": vi.fn(),
+      }),
+    );
+
+    await flushPromises();
+    await flushPromises();
+
+    expect(replaceMock).not.toHaveBeenCalled();
+    expect(MockEventSource.instances).toHaveLength(1);
+  });
+
   it("invokes the mapped handler when a workspace event arrives", async () => {
     const onTodayChanged = vi.fn();
 
