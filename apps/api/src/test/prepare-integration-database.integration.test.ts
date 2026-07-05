@@ -1,7 +1,10 @@
 import { Pool } from "pg";
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import * as passwordModule from "../auth/password.js";
-import { prepareIntegrationDatabase } from "./prepare-integration-database.js";
+import {
+  prepareIntegrationDatabase,
+  resetPrepareIntegrationDatabaseForTests,
+} from "./prepare-integration-database.js";
 import { TEST_OPERATOR_EMAIL } from "./operator-credentials.js";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -11,6 +14,10 @@ describe.skipIf(!databaseUrl)("prepareIntegrationDatabase", () => {
 
   afterAll(async () => {
     await pool.end();
+  });
+
+  beforeEach(() => {
+    resetPrepareIntegrationDatabaseForTests();
   });
 
   it("runs migrations and seeds the operator once per call without re-hashing", async () => {
