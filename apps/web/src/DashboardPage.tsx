@@ -71,6 +71,8 @@ const CLIENT_CHART_COLORS = [
   "var(--color-chart-series-6)",
 ];
 
+export const DAILY_BAR_CHART_MAX_BAR_SIZE = 100;
+
 async function fetchDashboard(from: string, to: string): Promise<DashboardResponse> {
   const res = await fetch(
     `/api/dashboard?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
@@ -263,6 +265,7 @@ export default function DashboardPage() {
                   <Bar
                     dataKey="durationMinutes"
                     fill="var(--color-primary)"
+                    maxBarSize={DAILY_BAR_CHART_MAX_BAR_SIZE}
                     radius={[4, 4, 0, 0]}
                   />
                 </BarChart>
