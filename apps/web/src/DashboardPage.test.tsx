@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import i18n from "./i18n/i18n.js";
-import DashboardPage, { formatClientBucketTooltipValue } from "./DashboardPage.js";
+import DashboardPage, {
+  DAILY_BAR_CHART_MAX_BAR_SIZE,
+  formatClientBucketTooltipValue,
+} from "./DashboardPage.js";
 
 const dashboardPayload = {
   from: "2026-06-01",
@@ -117,35 +120,38 @@ describe("DashboardPage", () => {
     }
     vi.stubGlobal("ResizeObserver", ResizeObserverMock);
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockImplementation((url: string) => {
-        if (url.startsWith("/api/dashboard?")) {
-          return Promise.resolve({
-            ok: true,
-            json: async () => ({
-              ...dashboardPayload,
-              dailyBuckets: [{ date: "2026-06-18", durationMinutes: 74 }],
-            }),
-          });
-        }
-        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
-      }),
-    );
+    try {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockImplementation((url: string) => {
+          if (url.startsWith("/api/dashboard?")) {
+            return Promise.resolve({
+              ok: true,
+              json: async () => ({
+                ...dashboardPayload,
+                dailyBuckets: [{ date: "2026-06-18", durationMinutes: 74 }],
+              }),
+            });
+          }
+          return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+        }),
+      );
 
-    render(<DashboardPage />);
+      render(<DashboardPage />);
 
-    await waitFor(() => {
+      await waitFor(() => {
+        const dailyChart = screen.getByRole("heading", { name: /^daily time$/i }).closest("section");
+        expect(dailyChart?.querySelector(".recharts-bar .recharts-rectangle")).toBeTruthy();
+      });
+
       const dailyChart = screen.getByRole("heading", { name: /^daily time$/i }).closest("section");
-      expect(dailyChart?.querySelector(".recharts-bar .recharts-rectangle")).toBeTruthy();
-    });
-
-    const dailyChart = screen.getByRole("heading", { name: /^daily time$/i }).closest("section");
-    const bar = dailyChart?.querySelector(".recharts-bar .recharts-rectangle");
-    expect(bar).toBeTruthy();
-    expect(Number(bar?.getAttribute("width"))).toBeLessThanOrEqual(100);
-
-    boundingRectSpy.mockRestore();
+      const bar = dailyChart?.querySelector(".recharts-bar .recharts-rectangle");
+      expect(bar).toBeTruthy();
+      expect(Number(bar?.getAttribute("width"))).toBe(DAILY_BAR_CHART_MAX_BAR_SIZE);
+    } finally {
+      boundingRectSpy.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
 
   it("formats client bucket tooltip values with billable amounts when greater than zero", () => {

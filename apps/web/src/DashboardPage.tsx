@@ -71,7 +71,7 @@ const CLIENT_CHART_COLORS = [
   "var(--color-chart-series-6)",
 ];
 
-const DAILY_BAR_CHART_MAX_BAR_SIZE = 100;
+export const DAILY_BAR_CHART_MAX_BAR_SIZE = 100;
 
 async function fetchDashboard(from: string, to: string): Promise<DashboardResponse> {
   const res = await fetch(
