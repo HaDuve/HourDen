@@ -1,6 +1,7 @@
 import type { ClientReport } from "@hourden/domain";
 import { formatDurationHMM } from "@hourden/domain";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { DateRangeFilter } from "./DateRangeFilter.js";
 import { currentMonthRange } from "./date-range.js";
 import { PageMain } from "./layout/PageMain.js";
@@ -33,6 +34,7 @@ async function fetchReport(from: string, to: string): Promise<ReportResponse> {
 }
 
 export default function ReportPage() {
+  const { t } = useTranslation();
   const initialRange = currentMonthRange();
   const isMobile = useIsMobile();
   const primaryButtonClass = mobilePrimaryButtonClass(isMobile);
@@ -50,12 +52,12 @@ export default function ReportPage() {
       const report = await fetchReport(rangeFrom, rangeTo);
       setClients(report.clients);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load report");
+      setError(err instanceof Error ? err.message : t("report.loadFailed"));
       setClients([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadReport(from, to);
@@ -83,7 +85,7 @@ export default function ReportPage() {
       link.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to export report");
+      setError(err instanceof Error ? err.message : t("report.exportFailed"));
     } finally {
       setExporting(false);
     }
@@ -91,19 +93,19 @@ export default function ReportPage() {
 
   return (
     <PageMain>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-slate-900">Report</h1>
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <h1 className="text-2xl font-semibold text-slate-900">{t("report.title")}</h1>
         <button
           type="button"
           onClick={() => void handleExport()}
           disabled={exporting || loading}
           className={`${primaryButtonClass} bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50`}
         >
-          {exporting ? "Exporting…" : "Export CSV"}
+          {exporting ? t("report.exporting") : t("report.exportCsv")}
         </button>
       </div>
 
-      <div className="mb-6">
+      <div className="mb-8 rounded-lg border border-neutral-200 bg-neutral-50/50 p-4">
         <DateRangeFilter
           from={from}
           to={to}
@@ -121,10 +123,10 @@ export default function ReportPage() {
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-neutral-600">Loading report…</p>
+        <p className="text-sm text-neutral-600">{t("report.loading")}</p>
       ) : clients.length === 0 ? (
-        <p className="text-sm text-neutral-600">
-          No billable time in this date range.
+        <p className="rounded-md border border-neutral-200 bg-white px-4 py-6 text-sm text-neutral-600">
+          {t("report.empty")}
         </p>
       ) : (
         <div className="space-y-8">
@@ -132,7 +134,7 @@ export default function ReportPage() {
             <section key={client.clientName}>
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-neutral-200 pb-2">
                 <h2 className="text-lg font-medium text-slate-900">
-                  {client.clientName || "(No Client)"}
+                  {client.clientName || t("report.noClient")}
                 </h2>
                 <p className="text-sm text-neutral-600">
                   {formatDurationHMM(client.totalDurationMinutes)} ·{" "}
@@ -149,25 +151,25 @@ export default function ReportPage() {
                     >
                       <dl className="grid gap-2 text-sm">
                         <div className="flex justify-between gap-3">
-                          <dt className="text-neutral-500">Date</dt>
+                          <dt className="text-neutral-500">{t("report.date")}</dt>
                           <dd className="text-neutral-800">
                             {formatDisplayDate(line.date)}
                           </dd>
                         </div>
                         <div className="flex justify-between gap-3">
-                          <dt className="text-neutral-500">Description</dt>
+                          <dt className="text-neutral-500">{t("report.description")}</dt>
                           <dd className="text-right text-neutral-800">
                             {line.description}
                           </dd>
                         </div>
                         <div className="flex justify-between gap-3">
-                          <dt className="text-neutral-500">Duration</dt>
+                          <dt className="text-neutral-500">{t("report.duration")}</dt>
                           <dd className="text-neutral-600">
                             {formatDurationHMM(line.durationMinutes)}
                           </dd>
                         </div>
                         <div className="flex justify-between gap-3">
-                          <dt className="text-neutral-500">Amount</dt>
+                          <dt className="text-neutral-500">{t("report.amount")}</dt>
                           <dd className="text-neutral-600">
                             {formatAmount(line.amount)}
                           </dd>

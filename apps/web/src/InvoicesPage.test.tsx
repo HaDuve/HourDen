@@ -1,5 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import i18n from "./i18n/i18n.js";
 import InvoicesPage from "./InvoicesPage.js";
 
 const bandaoClient = {
@@ -147,7 +148,8 @@ async function waitForClientReady(clientName: string, clientId: string) {
 }
 
 describe("InvoicesPage", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
     URL.createObjectURL = vi.fn(() => "blob:test") as typeof URL.createObjectURL;
     URL.revokeObjectURL = vi.fn() as typeof URL.revokeObjectURL;
   });
@@ -155,6 +157,88 @@ describe("InvoicesPage", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it("labels the billing period and shows a clear issued-invoices empty state", async () => {
+    vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
+
+    render(<InvoicesPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Billing Period")).toBeInTheDocument();
+      expect(screen.getByText("No issued invoices yet.")).toBeInTheDocument();
+    });
+  });
+
+  it("shows German billing-period and empty-state copy when the active locale is de", async () => {
+    await i18n.changeLanguage("de");
+    vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
+
+    render(<InvoicesPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Abrechnungszeitraum")).toBeInTheDocument();
+      expect(screen.getByText("Noch keine Rechnungen ausgestellt.")).toBeInTheDocument();
+    });
+  });
+
+  it("shows a catalog error message when loading clients fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url === "/api/clients") {
+          return Promise.reject("offline");
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      }),
+    );
+
+    render(<InvoicesPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Failed to load clients")).toBeInTheDocument();
+    });
+  });
+
+  it("shows a German catalog error message when loading clients fails", async () => {
+    await i18n.changeLanguage("de");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url === "/api/clients") {
+          return Promise.reject("offline");
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      }),
+    );
+
+    render(<InvoicesPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Kunden konnten nicht geladen werden")).toBeInTheDocument();
+    });
+  });
+
+  it("shows German invoice sender field labels when the active locale is de", async () => {
+    await i18n.changeLanguage("de");
+    vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
+
+    render(<InvoicesPage />);
+
+    await waitFor(() => {
+      const clientSelect = screen.getByLabelText(/^kunde$/i);
+      expect(
+        within(clientSelect).getByRole("option", { name: "Bandao" }),
+      ).toBeInTheDocument();
+      expect(clientSelect).toHaveValue(bandaoClient.id);
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^rechnungsabsender$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^straße$/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/^steuernummer$/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/^bankname$/i)).toBeInTheDocument();
+    });
   });
 
   it("sets the Billing Period to last month when the last month quick control is clicked", async () => {

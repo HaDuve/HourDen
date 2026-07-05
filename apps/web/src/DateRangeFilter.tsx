@@ -5,17 +5,28 @@ import {
   type DateRange,
 } from "./date-range.js";
 import { useIsMobile } from "./layout/use-is-mobile.js";
+import { useTranslation } from "react-i18next";
 
 type DateRangeFilterProps = {
   from: string;
   to: string;
   onChange: (range: DateRange) => void;
+  periodLabel?: string;
 };
 
-export function DateRangeFilter({ from, to, onChange }: DateRangeFilterProps) {
+export function DateRangeFilter({
+  from,
+  to,
+  onChange,
+  periodLabel,
+}: DateRangeFilterProps) {
+  const { t } = useTranslation();
   const range = { from, to };
   const isMobile = useIsMobile();
   const quickButtonClass = isMobile
+    ? "min-h-11 rounded-md border border-neutral-300 px-3 text-sm text-neutral-700 hover:bg-neutral-50"
+    : "rounded-md border border-neutral-300 px-2 py-1 text-sm text-neutral-700 hover:bg-neutral-50";
+  const navButtonClass = isMobile
     ? "min-h-11 min-w-11 rounded-md border border-neutral-300 px-3 text-sm text-neutral-700 hover:bg-neutral-50"
     : "rounded-md border border-neutral-300 px-2 py-1 text-sm text-neutral-700 hover:bg-neutral-50";
   const dateInputClass = isMobile
@@ -24,43 +35,44 @@ export function DateRangeFilter({ from, to, onChange }: DateRangeFilterProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 text-sm text-neutral-700">
+      {periodLabel ? (
+        <span className="text-sm font-medium text-neutral-900">{periodLabel}</span>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2 text-sm text-neutral-700">
         <button
           type="button"
-          aria-label="Previous month"
-          className={quickButtonClass}
+          aria-label={t("dateRange.previousMonth")}
+          className={navButtonClass}
           onClick={() => onChange(shiftMonthRange(range, -1))}
         >
-          &lt;
+          ‹
         </button>
         <button
           type="button"
-          aria-label="Last month"
           className={quickButtonClass}
           onClick={() => onChange(lastMonthRange())}
         >
-          last
+          {t("dateRange.lastMonth")}
         </button>
         <button
           type="button"
-          aria-label="This month"
           className={quickButtonClass}
           onClick={() => onChange(currentMonthRange())}
         >
-          this
+          {t("dateRange.thisMonth")}
         </button>
         <button
           type="button"
-          aria-label="Next month"
-          className={quickButtonClass}
+          aria-label={t("dateRange.nextMonth")}
+          className={navButtonClass}
           onClick={() => onChange(shiftMonthRange(range, 1))}
         >
-          &gt;
+          ›
         </button>
       </div>
       <div className={`flex gap-4 ${isMobile ? "flex-col" : "flex-wrap"}`}>
         <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm text-neutral-700">
-          From
+          {t("dateRange.from")}
           <input
             type="date"
             value={from}
@@ -69,7 +81,7 @@ export function DateRangeFilter({ from, to, onChange }: DateRangeFilterProps) {
           />
         </label>
         <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm text-neutral-700">
-          To
+          {t("dateRange.to")}
           <input
             type="date"
             value={to}

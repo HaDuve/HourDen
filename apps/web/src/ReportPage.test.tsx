@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import i18n from "./i18n/i18n.js";
 import ReportPage from "./ReportPage.js";
 
 function reportFetchMock() {
@@ -15,8 +16,37 @@ function reportFetchMock() {
 }
 
 describe("ReportPage", () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
+  });
+
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("shows a clear empty state when there is no billable time in the range", async () => {
+    vi.stubGlobal("fetch", reportFetchMock());
+
+    render(<ReportPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("No billable time in this date range."),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("shows the German empty state when the active locale is de", async () => {
+    await i18n.changeLanguage("de");
+    vi.stubGlobal("fetch", reportFetchMock());
+
+    render(<ReportPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Keine abrechenbare Zeit in diesem Zeitraum."),
+      ).toBeInTheDocument();
+    });
   });
 
   it("sets the date range to last month when the last month quick control is clicked", async () => {

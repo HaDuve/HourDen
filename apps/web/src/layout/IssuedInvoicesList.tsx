@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useIsMobile } from "./use-is-mobile.js";
 
 export type IssuedInvoice = {
@@ -24,6 +25,7 @@ export function IssuedInvoicesList({
   formatBillingPeriod,
   formatAmount,
 }: IssuedInvoicesListProps) {
+  const { t } = useTranslation();
   const isMobile = useIsMobile();
 
   if (isMobile) {
@@ -36,25 +38,25 @@ export function IssuedInvoicesList({
           >
             <dl className="grid gap-2 text-sm">
               <div className="flex justify-between gap-3">
-                <dt className="text-neutral-500">Recipient</dt>
+                <dt className="text-neutral-500">{t("invoices.recipient")}</dt>
                 <dd className="text-right font-medium text-neutral-900">
                   {invoice.recipient}
                 </dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="text-neutral-500">Invoice Number</dt>
+                <dt className="text-neutral-500">{t("invoices.invoiceNumber")}</dt>
                 <dd className="text-right text-neutral-900">
                   {invoice.invoiceNumber}
                 </dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="text-neutral-500">Billing Period</dt>
+                <dt className="text-neutral-500">{t("invoices.billingPeriod")}</dt>
                 <dd className="text-right text-neutral-700">
                   {formatBillingPeriod(invoice.periodStart, invoice.periodEnd)}
                 </dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="text-neutral-500">Total</dt>
+                <dt className="text-neutral-500">{t("invoices.total")}</dt>
                 <dd className="text-right text-neutral-700">
                   {formatAmount(invoice.totalAmount)}
                 </dd>
@@ -64,10 +66,14 @@ export function IssuedInvoicesList({
               type="button"
               onClick={() => onDownload(invoice)}
               disabled={downloadingId === invoice.id}
-              aria-label={`Download invoice ${invoice.invoiceNumber}`}
+              aria-label={t("invoices.downloadInvoice", {
+                number: invoice.invoiceNumber,
+              })}
               className="mt-4 min-h-11 w-full rounded-md border border-neutral-300 bg-white px-4 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
             >
-              {downloadingId === invoice.id ? "Downloading…" : "Download"}
+              {downloadingId === invoice.id
+                ? t("invoices.downloading")
+                : t("invoices.download")}
             </button>
           </li>
         ))}
@@ -80,12 +86,12 @@ export function IssuedInvoicesList({
       <table className="min-w-full text-left text-sm">
         <thead className="bg-neutral-50 text-neutral-700">
           <tr>
-            <th className="px-4 py-3 font-medium">Recipient</th>
-            <th className="px-4 py-3 font-medium">Invoice Number</th>
-            <th className="px-4 py-3 font-medium">Billing Period</th>
-            <th className="px-4 py-3 font-medium">Total</th>
+            <th className="px-4 py-3 font-medium">{t("invoices.recipient")}</th>
+            <th className="px-4 py-3 font-medium">{t("invoices.invoiceNumber")}</th>
+            <th className="px-4 py-3 font-medium">{t("invoices.billingPeriod")}</th>
+            <th className="px-4 py-3 font-medium">{t("invoices.total")}</th>
             <th className="px-4 py-3 font-medium">
-              <span className="sr-only">Download</span>
+              <span className="sr-only">{t("invoices.download")}</span>
             </th>
           </tr>
         </thead>
@@ -107,10 +113,14 @@ export function IssuedInvoicesList({
                   type="button"
                   onClick={() => onDownload(invoice)}
                   disabled={downloadingId === invoice.id}
-                  aria-label={`Download invoice ${invoice.invoiceNumber}`}
+                  aria-label={t("invoices.downloadInvoice", {
+                    number: invoice.invoiceNumber,
+                  })}
                   className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
                 >
-                  {downloadingId === invoice.id ? "Downloading…" : "Download"}
+                  {downloadingId === invoice.id
+                    ? t("invoices.downloading")
+                    : t("invoices.download")}
                 </button>
               </td>
             </tr>
