@@ -162,6 +162,7 @@
     "running": "running",
     "incomplete": "incomplete",
     "invoiced": "Invoiced",
+    "invoicedReadOnlyHelp": "This time entry was invoiced and cannot be edited or deleted.",
     "manualEntry": "Manual entry",
     "editEntry": "Edit entry",
     "description": "Description",

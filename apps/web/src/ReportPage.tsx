@@ -1,6 +1,6 @@
 import type { ClientReport } from "@hourden/domain";
 import { formatDurationHMM } from "@hourden/domain";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DateRangeFilter } from "./DateRangeFilter.js";
 import { currentMonthRange } from "./date-range.js";
@@ -47,23 +47,36 @@ export default function ReportPage() {
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
 
-  const loadReport = useCallback(async (rangeFrom: string, rangeTo: string) => {
+  useEffect(() => {
+    let active = true;
+
     setLoading(true);
     setError(null);
-    try {
-      const report = await fetchReport(rangeFrom, rangeTo);
-      setClients(report.clients);
-    } catch (err) {
-      setError(t("report.loadFailed"));
-      setClients([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
 
-  useEffect(() => {
-    void loadReport(from, to);
-  }, [from, to, loadReport]);
+    void (async () => {
+      try {
+        const report = await fetchReport(from, to);
+        if (!active) {
+          return;
+        }
+        setClients(report.clients);
+      } catch {
+        if (!active) {
+          return;
+        }
+        setError(t("report.loadFailed"));
+        setClients([]);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [from, to, t]);
 
   async function handleExport() {
     setExporting(true);

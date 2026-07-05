@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { SupportedLocale } from "@hourden/domain";
 import i18n from "./i18n/i18n.js";
 import { createMemoryRouter, MemoryRouter, Outlet, RouterProvider, useLocation, useNavigate, useRoutes } from "react-router-dom";
 import { LocaleProvider } from "./LocaleProvider.js";
 import { authenticatedAppRoutes } from "./routes.js";
 import { createMatchMedia } from "./test/match-media.js";
+import { resetMockEventSources } from "./test/mock-event-source.js";
 
 function routesWithLocale(userLocale: SupportedLocale | null = "en") {
   return [
@@ -32,7 +33,12 @@ function renderApp(initialPath = "/", userLocale: SupportedLocale | null = "en")
   return router;
 }
 
-afterEach(() => {
+afterEach(async () => {
+  cleanup();
+  resetMockEventSources();
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   vi.unstubAllGlobals();
   window.matchMedia = createMatchMedia(false) as typeof window.matchMedia;
   localStorage.clear();

@@ -14,9 +14,29 @@ const EVENTS_URL = "/api/events";
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
 
-async function isSessionValid(): Promise<boolean> {
-  const res = await fetch("/api/auth/me", { credentials: "include" });
-  return res.status === 200;
+type SessionStatus = "valid" | "expired" | "unavailable";
+
+async function checkSession(): Promise<SessionStatus> {
+  try {
+    const res = await fetch("/api/auth/me", { credentials: "include" });
+    if (res.status === 200) {
+      return "valid";
+    }
+    if (res.status === 401) {
+      return "expired";
+    }
+    return "unavailable";
+  } catch {
+    return "unavailable";
+  }
+}
+
+function redirectToLogin(): void {
+  try {
+    window.location.replace("/login");
+  } catch {
+    // jsdom does not implement full navigation.
+  }
 }
 
 export function useWorkspaceEvents(handlers: WorkspaceEventHandlers) {
@@ -65,9 +85,13 @@ export function useWorkspaceEvents(handlers: WorkspaceEventHandlers) {
       clearReconnectTimer();
       closeSource();
 
-      const valid = await isSessionValid();
-      if (!valid) {
-        window.location.replace("/login");
+      const session = await checkSession();
+      if (session === "expired") {
+        redirectToLogin();
+        return;
+      }
+      if (session === "unavailable") {
+        scheduleReconnect();
         return;
       }
 
@@ -87,9 +111,9 @@ export function useWorkspaceEvents(handlers: WorkspaceEventHandlers) {
       source.onerror = () => {
         closeSource();
         void (async () => {
-          const stillValid = await isSessionValid();
-          if (!stillValid) {
-            window.location.replace("/login");
+          const session = await checkSession();
+          if (session === "expired") {
+            redirectToLogin();
             return;
           }
           scheduleReconnect();

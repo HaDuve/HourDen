@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { setupFreshUserApiFetch } from "../test/authenticated-api.js";
+import { resetMockEventSources } from "../test/mock-event-source.js";
 import { authenticatedAppRoutes } from "../routes.js";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -57,8 +58,10 @@ describe.skipIf(!databaseUrl)("Onboarding flow with live API", () => {
     );
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
+    resetMockEventSources();
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
 
   afterAll(async () => {

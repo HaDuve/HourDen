@@ -162,6 +162,7 @@
     "running": "läuft",
     "incomplete": "unvollständig",
     "invoiced": "Abgerechnet",
+    "invoicedReadOnlyHelp": "Dieser Zeiteintrag wurde abgerechnet und kann nicht bearbeitet oder gelöscht werden.",
     "manualEntry": "Manueller Eintrag",
     "editEntry": "Eintrag bearbeiten",
     "description": "Beschreibung",

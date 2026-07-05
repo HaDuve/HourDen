@@ -201,6 +201,21 @@ describe("TrackerEntryRow", () => {
     expect(screen.getByRole("button", { name: /^invoiced$/i })).toBeDisabled();
   });
 
+  it("explains why invoiced entry fields are read-only via tooltip", () => {
+    renderRow({
+      entry: { ...stoppedEntry, invoiced: true },
+    });
+
+    const helpText =
+      "This time entry was invoiced and cannot be edited or deleted.";
+
+    expect(screen.getAllByTitle(helpText)).toHaveLength(2);
+    expect(screen.getByRole("button", { name: /^invoiced$/i })).toHaveAttribute(
+      "title",
+      helpText,
+    );
+  });
+
   it("opens the mobile edit sheet when a stopped entry row is tapped", () => {
     const onMobileEdit = vi.fn();
     renderRow({ isMobile: true, onMobileEdit });
