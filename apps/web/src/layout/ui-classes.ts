@@ -29,6 +29,8 @@ export const destructiveButtonClass =
   "rounded-md border border-destructive-border bg-destructive px-4 py-2 text-sm font-medium text-destructive-content hover:bg-destructive-hover disabled:opacity-50";
 export const destructiveOutlineButtonClass =
   "rounded-md border border-destructive-border text-danger hover:bg-destructive-muted";
+export const mutedOutlineButtonClass =
+  "cursor-not-allowed rounded-md border border-divider text-muted opacity-60";
 
 export const errorBannerClass =
   "rounded-lg border border-destructive-border bg-destructive-muted px-4 py-3 text-sm text-danger";
