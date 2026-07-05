@@ -11,21 +11,7 @@ import {
   getWorkspaceCalendarTimezone,
 } from "./db/workspaces.js";
 import { getCurrentWorkspaceId } from "./workspace.js";
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-function parseDateRange(
-  from: string | undefined,
-  to: string | undefined,
-): { from: string; to: string } | "invalid" {
-  if (!from || !to || !DATE_RE.test(from) || !DATE_RE.test(to)) {
-    return "invalid";
-  }
-  if (from > to) {
-    return "invalid";
-  }
-  return { from, to };
-}
+import { parseDateRange } from "./parse-date-range.js";
 
 export function createReportsRouter(pool: Pool) {
   const router = new Hono();

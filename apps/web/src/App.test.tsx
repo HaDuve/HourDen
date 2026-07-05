@@ -117,6 +117,20 @@ function mockAppFetch() {
         json: async () => ({ from: "2026-07-01", to: "2026-07-31", clients: [] }),
       });
     }
+    if (url.includes("/api/dashboard")) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          from: "2026-07-01",
+          to: "2026-07-31",
+          totalDurationMinutes: 0,
+          totalBillableAmount: 0,
+          topProject: null,
+          topClient: null,
+          dailyBuckets: [],
+        }),
+      });
+    }
     if (url === "/api/auth/locale") {
       return Promise.resolve({
         ok: true,
@@ -254,7 +268,7 @@ describe("App", () => {
     });
   });
 
-  it("shows Tracker and Invoices as primary links on desktop", async () => {
+  it("shows Tracker, Dashboard, and Invoices as primary links on desktop", async () => {
     mockDesktopViewport();
     vi.stubGlobal("fetch", mockAppFetch());
 
@@ -266,8 +280,26 @@ describe("App", () => {
 
     const primaryNav = screen.getByRole("navigation", { name: /primary/i });
     expect(within(primaryNav).getByRole("link", { name: /^tracker$/i })).toBeInTheDocument();
+    expect(within(primaryNav).getByRole("link", { name: /^dashboard$/i })).toBeInTheDocument();
     expect(within(primaryNav).getByRole("link", { name: /^invoices$/i })).toBeInTheDocument();
     expect(within(primaryNav).queryByRole("link", { name: /^clients$/i })).not.toBeInTheDocument();
+  });
+
+  it("navigates to the Dashboard page and updates the URL", async () => {
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    const app = renderAppWithMemoryRouter("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("link", { name: /^dashboard$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /^dashboard$/i })).toBeInTheDocument();
+      expect(app.pathname).toBe("/dashboard");
+    });
   });
 
   it("renders desktop nav chrome with semantic token classes", async () => {
@@ -404,7 +436,7 @@ describe("App", () => {
     });
   });
 
-  it("shows a mobile bottom tab bar with Tracker, Invoices, and More", async () => {
+  it("shows a mobile bottom tab bar with Tracker, Dashboard, Invoices, and More", async () => {
     mockMobileViewport();
     vi.stubGlobal("fetch", mockAppFetch());
 
@@ -416,6 +448,7 @@ describe("App", () => {
 
     const mobileNav = screen.getByRole("navigation", { name: /mobile/i });
     expect(within(mobileNav).getByRole("link", { name: /^tracker$/i })).toBeInTheDocument();
+    expect(within(mobileNav).getByRole("link", { name: /^dashboard$/i })).toBeInTheDocument();
     expect(within(mobileNav).getByRole("link", { name: /^invoices$/i })).toBeInTheDocument();
     expect(within(mobileNav).getByRole("button", { name: /^more$/i })).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: /primary/i })).not.toBeInTheDocument();

@@ -11,6 +11,7 @@ import OnboardingGuard from "./onboarding/OnboardingGuard.js";
 import OnboardingLayout from "./onboarding/OnboardingLayout.js";
 import ProjectStepPage from "./onboarding/ProjectStepPage.js";
 import ProjectsPage from "./ProjectsPage.js";
+import DashboardPage from "./DashboardPage.js";
 import ReportPage from "./ReportPage.js";
 import TrackerPage from "./TrackerPage.js";
 
@@ -20,6 +21,7 @@ export const appLayoutChildren: RouteObject[] = [
   { path: "today", element: <Navigate to="/tracker" replace /> },
   { path: "clients", element: <ClientsPage /> },
   { path: "projects", element: <ProjectsPage /> },
+  { path: "dashboard", element: <DashboardPage /> },
   { path: "report", element: <ReportPage /> },
   { path: "invoices", element: <InvoicesPage /> },
   { path: "import", element: <ImportPage /> },

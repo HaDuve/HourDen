@@ -17,7 +17,8 @@
     "report": "Bericht",
     "import": "Import",
     "logout": "Abmelden",
-    "close": "Schließen"
+    "close": "Schließen",
+    "dashboard": "Dashboard"
   },
   "common": {
     "loading": "Wird geladen…",
@@ -52,6 +53,20 @@
     "amount": "Betrag",
     "loadFailed": "Bericht konnte nicht geladen werden",
     "exportFailed": "Bericht konnte nicht exportiert werden"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "loading": "Dashboard wird geladen…",
+    "empty": "Keine erfasste Zeit in diesem Zeitraum.",
+    "loadFailed": "Dashboard konnte nicht geladen werden",
+    "kpiSection": "Übersicht",
+    "totalTime": "Gesamtzeit",
+    "totalBillable": "Abrechenbar gesamt",
+    "topProject": "Top-Projekt",
+    "topClient": "Top-Kunde",
+    "none": "—",
+    "dailyChartTitle": "Zeit pro Tag",
+    "duration": "Dauer"
   },
   "invoices": {
     "title": "Rechnungen",

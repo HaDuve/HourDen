@@ -17,7 +17,8 @@
     "report": "Report",
     "import": "Import",
     "logout": "Log out",
-    "close": "Close"
+    "close": "Close",
+    "dashboard": "Dashboard"
   },
   "common": {
     "loading": "Loading…",
@@ -52,6 +53,20 @@
     "amount": "Amount",
     "loadFailed": "Failed to load report",
     "exportFailed": "Failed to export report"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "loading": "Loading dashboard…",
+    "empty": "No tracked time in this date range.",
+    "loadFailed": "Failed to load dashboard",
+    "kpiSection": "Summary",
+    "totalTime": "Total time",
+    "totalBillable": "Total billable",
+    "topProject": "Top project",
+    "topClient": "Top client",
+    "none": "—",
+    "dailyChartTitle": "Daily time",
+    "duration": "Duration"
   },
   "invoices": {
     "title": "Invoices",

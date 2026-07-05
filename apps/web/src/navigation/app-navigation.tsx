@@ -53,6 +53,9 @@ function DesktopNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
       <div className="mx-auto flex max-w-3xl items-center gap-1 px-8 py-3">
         <div className="flex flex-1 gap-1">
           <TrackerNavLink />
+          <NavLink to="dashboard" className={navLinkClass}>
+            {t("nav.dashboard")}
+          </NavLink>
           <NavLink to="invoices" className={navLinkClass}>
             {t("nav.invoices")}
           </NavLink>
@@ -120,6 +123,11 @@ function MobileNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
         <div className="mx-auto flex max-w-3xl items-stretch justify-around px-2 py-2">
           <div className="flex flex-1 justify-center">
             <TrackerNavLink />
+          </div>
+          <div className="flex flex-1 justify-center">
+            <NavLink to="dashboard" className={navLinkClass}>
+              {t("nav.dashboard")}
+            </NavLink>
           </div>
           <div className="flex flex-1 justify-center">
             <NavLink to="invoices" className={navLinkClass}>
