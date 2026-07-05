@@ -68,7 +68,8 @@
     "dailyChartTitle": "Zeit pro Tag",
     "duration": "Dauer",
     "clientChartTitle": "Nach Kunde",
-    "clientChartTotal": "Gesamtzeit",
+    "clientChartTotal": "Kundenzeit",
+    "unassignedClient": "Nicht zugeordnet",
     "topActivitiesTitle": "Top-Aktivitäten"
   },
   "invoices": {

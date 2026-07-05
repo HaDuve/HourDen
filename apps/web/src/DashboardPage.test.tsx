@@ -96,9 +96,78 @@ describe("DashboardPage", () => {
       expect(screen.getByRole("heading", { name: /^by client$/i })).toBeInTheDocument();
     });
 
-    expect(screen.getByLabelText(/^total time$/i)).toHaveTextContent("2:14");
+    expect(screen.getByLabelText(/^client time$/i)).toHaveTextContent("2:14");
     expect(screen.getByText(/bandao \(55%\)/i)).toBeInTheDocument();
     expect(screen.getByText(/acme \(45%\)/i)).toBeInTheDocument();
+  });
+
+  it("labels unassigned client buckets and bases donut percentages on bucket totals", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.startsWith("/api/dashboard?")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              ...dashboardPayload,
+              totalDurationMinutes: 150,
+              clientBuckets: [
+                { name: "Bandao", durationMinutes: 74 },
+                { name: "Acme", durationMinutes: 60 },
+                { name: null, durationMinutes: 16 },
+              ],
+            }),
+          });
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      }),
+    );
+
+    render(<DashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/unassigned \(11%\)/i)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/bandao \(49%\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/acme \(40%\)/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^client time$/i)).toHaveTextContent("2:30");
+  });
+
+  it("omits the project/client subtitle when an activity has no project", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.startsWith("/api/dashboard?")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              ...dashboardPayload,
+              topActivities: [
+                {
+                  description: "Internal admin",
+                  projectName: null,
+                  clientName: null,
+                  durationMinutes: 60,
+                },
+              ],
+            }),
+          });
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      }),
+    );
+
+    render(<DashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Internal admin")).toBeInTheDocument();
+    });
+
+    const list = screen.getByRole("list", { name: /^top activities$/i });
+    const item = within(list).getByRole("listitem");
+    expect(item).not.toHaveTextContent("·");
+    expect(item).not.toHaveTextContent("null");
   });
 
   it("renders the ranked top-activities list with monospaced durations", async () => {

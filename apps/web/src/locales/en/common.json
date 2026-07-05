@@ -68,7 +68,8 @@
     "dailyChartTitle": "Daily time",
     "duration": "Duration",
     "clientChartTitle": "By client",
-    "clientChartTotal": "Total time",
+    "clientChartTotal": "Client time",
+    "unassignedClient": "Unassigned",
     "topActivitiesTitle": "Top activities"
   },
   "invoices": {

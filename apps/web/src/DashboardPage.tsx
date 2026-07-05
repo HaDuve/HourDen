@@ -30,7 +30,7 @@ import {
 import { useLocaleFormat } from "./locale/use-locale-format.js";
 
 type DashboardNamedTotal = {
-  name: string;
+  name: string | null;
   durationMinutes: number;
 };
 
@@ -41,8 +41,8 @@ type DashboardDailyBucket = {
 
 type DashboardTopActivity = {
   description: string;
-  projectName: string;
-  clientName: string;
+  projectName: string | null;
+  clientName: string | null;
   durationMinutes: number;
 };
 
@@ -79,6 +79,23 @@ async function fetchDashboard(from: string, to: string): Promise<DashboardRespon
 
 function formatChartDuration(minutes: number): string {
   return formatDurationHMM(minutes);
+}
+
+function formatClientBucketLabel(
+  name: string | null,
+  t: (key: string) => string,
+): string {
+  return name ?? t("dashboard.unassignedClient");
+}
+
+function formatActivityContext(
+  activity: Pick<DashboardTopActivity, "projectName" | "clientName">,
+): string | null {
+  const parts = [activity.projectName, activity.clientName].filter(
+    (part): part is string => Boolean(part),
+  );
+
+  return parts.length > 0 ? parts.join(" · ") : null;
 }
 
 export default function DashboardPage() {
@@ -120,7 +137,10 @@ export default function DashboardPage() {
     })) ?? [];
 
   const clientChartData = summary?.clientBuckets ?? [];
-  const clientChartTotalMinutes = summary?.totalDurationMinutes ?? 0;
+  const clientBucketTotalMinutes = clientChartData.reduce(
+    (total, bucket) => total + bucket.durationMinutes,
+    0,
+  );
 
   return (
     <PageMain>
@@ -230,10 +250,7 @@ export default function DashboardPage() {
             </div>
           </section>
 
-          <section
-            aria-labelledby={clientChartLabelId}
-            className="grid gap-8 lg:grid-cols-2"
-          >
+          <section className="grid gap-8 lg:grid-cols-2">
             <div className={panelClass}>
               <h2
                 id={clientChartLabelId}
@@ -256,7 +273,7 @@ export default function DashboardPage() {
                       >
                         {clientChartData.map((bucket, index) => (
                           <Cell
-                            key={bucket.name}
+                            key={bucket.name ?? `unassigned-${index}`}
                             fill={CLIENT_CHART_COLORS[index % CLIENT_CHART_COLORS.length]}
                           />
                         ))}
@@ -272,12 +289,17 @@ export default function DashboardPage() {
                         formatter={(value, _name, item) => {
                           const minutes = Number(value);
                           const percentage =
-                            clientChartTotalMinutes > 0
-                              ? Math.round((minutes / clientChartTotalMinutes) * 100)
+                            clientBucketTotalMinutes > 0
+                              ? Math.round((minutes / clientBucketTotalMinutes) * 100)
                               : 0;
+                          const bucketName =
+                            item.payload && "name" in item.payload
+                              ? (item.payload.name as string | null)
+                              : null;
+
                           return [
                             `${formatChartDuration(minutes)} (${percentage}%)`,
-                            String(item.payload?.name ?? ""),
+                            formatClientBucketLabel(bucketName, t),
                           ];
                         }}
                       />
@@ -289,19 +311,22 @@ export default function DashboardPage() {
                   >
                     <span className="text-xs text-muted">{t("dashboard.clientChartTotal")}</span>
                     <span className={`text-lg font-semibold ${numericValueClass}`}>
-                      {formatDurationHMM(clientChartTotalMinutes)}
+                      {formatDurationHMM(summary.totalDurationMinutes)}
                     </span>
                   </div>
                 </div>
                 <ul className="min-w-0 flex-1 space-y-2 text-sm text-content">
                   {clientChartData.map((bucket, index) => {
                     const percentage =
-                      clientChartTotalMinutes > 0
-                        ? Math.round((bucket.durationMinutes / clientChartTotalMinutes) * 100)
+                      clientBucketTotalMinutes > 0
+                        ? Math.round((bucket.durationMinutes / clientBucketTotalMinutes) * 100)
                         : 0;
 
                     return (
-                      <li key={bucket.name} className="flex items-center gap-2">
+                      <li
+                        key={bucket.name ?? `unassigned-${index}`}
+                        className="flex items-center gap-2"
+                      >
                         <span
                           aria-hidden
                           className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -311,7 +336,7 @@ export default function DashboardPage() {
                           }}
                         />
                         <span>
-                          {bucket.name} ({percentage}%)
+                          {formatClientBucketLabel(bucket.name, t)} ({percentage}%)
                         </span>
                       </li>
                     );
@@ -331,22 +356,26 @@ export default function DashboardPage() {
                 aria-labelledby={topActivitiesLabelId}
                 className={listPanelClass}
               >
-                {(summary?.topActivities ?? []).map((activity) => (
+                {(summary?.topActivities ?? []).map((activity) => {
+                  const activityContext = formatActivityContext(activity);
+
+                  return (
                   <li
                     key={activity.description}
                     className="flex items-start justify-between gap-4 px-4 py-3"
                   >
                     <div className="min-w-0">
                       <p className="font-medium text-content">{activity.description}</p>
-                      <p className="text-sm text-muted">
-                        {activity.projectName} · {activity.clientName}
-                      </p>
+                      {activityContext ? (
+                        <p className="text-sm text-muted">{activityContext}</p>
+                      ) : null}
                     </div>
                     <span className={`shrink-0 ${numericMetaValueClass}`}>
                       {formatDurationHMM(activity.durationMinutes)}
                     </span>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             </div>
           </section>

@@ -143,6 +143,35 @@ describe.skipIf(!databaseUrl)("Dashboard API", () => {
     expect(body.error).toMatch(/from and to/i);
   });
 
+  it("includes an unassigned client bucket for entries without a project", async () => {
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        description: "Internal admin",
+        startedAt: "2026-06-20T09:00:00.000Z",
+        endedAt: "2026-06-20T10:00:00.000Z",
+      }),
+    });
+
+    const res = await app.request(
+      "/api/dashboard?from=2026-06-20&to=2026-06-20",
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.totalDurationMinutes).toBe(60);
+    expect(body.clientBuckets).toEqual([{ name: null, durationMinutes: 60 }]);
+    expect(body.topActivities).toEqual([
+      {
+        description: "Internal admin",
+        projectName: null,
+        clientName: null,
+        durationMinutes: 60,
+      },
+    ]);
+  });
+
   it("returns zero totals when there is no tracked time in the range", async () => {
     const res = await app.request(
       "/api/dashboard?from=2026-06-01&to=2026-06-30",

@@ -6,14 +6,14 @@ export type DashboardDailyBucket = {
 };
 
 export type DashboardNamedTotal = {
-  name: string;
+  name: string | null;
   durationMinutes: number;
 };
 
 export type DashboardTopActivity = {
   description: string;
-  projectName: string;
-  clientName: string;
+  projectName: string | null;
+  clientName: string | null;
   durationMinutes: number;
 };
 
@@ -141,6 +141,13 @@ export async function getDashboardSummary(
             FROM entries
             WHERE client_name IS NOT NULL
             GROUP BY client_name
+            UNION ALL
+            SELECT
+              NULL::text AS client_name,
+              SUM(duration_minutes)::int AS duration_minutes
+            FROM entries
+            WHERE client_name IS NULL
+            HAVING SUM(duration_minutes) > 0
           ) client_grouped
         ) AS client_buckets,
         (
