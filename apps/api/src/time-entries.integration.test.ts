@@ -2,7 +2,7 @@ import { DEFAULT_WORKSPACE_ID } from "@hourden/domain";
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "./app.js";
-import { runMigrations } from "./db/migrate.js";
+import { runMigrationsForTests } from "./test/migrate-for-tests.js";
 import { bindSessionAuth, loginAsOperator, withSessionCookie } from "./test/auth-helper.js";
 import { readNextSseEvent } from "./test/sse-helper.js";
 
@@ -40,7 +40,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
   let sessionCookie: string;
 
   beforeAll(async () => {
-    await runMigrations(pool);
+    await runMigrationsForTests(pool);
     await bindSessionAuth(app);
     sessionCookie = await loginAsOperator(app);
   });

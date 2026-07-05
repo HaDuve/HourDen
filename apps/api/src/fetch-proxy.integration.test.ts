@@ -1,7 +1,7 @@
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createApp } from "./app.js";
-import { runMigrations } from "./db/migrate.js";
+import { runMigrationsForTests } from "./test/migrate-for-tests.js";
 import { bindSessionAuth } from "./test/auth-helper.js";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -12,7 +12,7 @@ describe.skipIf(!databaseUrl)("fetch proxy for web integration tests", () => {
 
   beforeAll(async () => {
     vi.unstubAllGlobals();
-    await runMigrations(pool);
+    await runMigrationsForTests(pool);
 
     const app = createApp({ pool });
     await bindSessionAuth(app);
