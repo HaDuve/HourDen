@@ -40,3 +40,8 @@ export type UpdateTimeEntryInput = {
   tags?: string[];
   billable?: boolean;
 };
+
+export type DescriptionSuggestion = {
+  description: string;
+  projectId: string | null;
+};

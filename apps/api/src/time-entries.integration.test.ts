@@ -511,4 +511,71 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
       );
     }
   });
+
+  it("returns distinct past descriptions matching q with the most recent projectId", async () => {
+    const client = await createClient(app, "Suggest Client");
+    const projectA = await createProject(app, client.id, "Project A");
+    const projectB = await createProject(app, client.id, "Project B");
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        description: "Design review",
+        startedAt: "2026-01-01T10:00:00.000Z",
+        endedAt: "2026-01-01T11:00:00.000Z",
+        projectId: projectA.id,
+      }),
+    });
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        description: "Design review",
+        startedAt: "2026-06-01T10:00:00.000Z",
+        endedAt: "2026-06-01T11:00:00.000Z",
+        projectId: projectB.id,
+      }),
+    });
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        description: "Code review",
+        startedAt: "2026-06-02T10:00:00.000Z",
+        endedAt: "2026-06-02T11:00:00.000Z",
+        projectId: projectA.id,
+      }),
+    });
+
+    const res = await app.request("/api/time-entries/suggestions?q=review");
+    expect(res.status).toBe(200);
+
+    const { suggestions } = (await res.json()) as {
+      suggestions: Array<{ description: string; projectId: string | null }>;
+    };
+
+    expect(suggestions).toEqual([
+      { description: "Code review", projectId: projectA.id },
+      { description: "Design review", projectId: projectB.id },
+    ]);
+  });
+
+  it("returns no suggestions when q is empty", async () => {
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        description: "Some work",
+        startedAt: "2026-01-01T10:00:00.000Z",
+        endedAt: "2026-01-01T11:00:00.000Z",
+      }),
+    });
+
+    const res = await app.request("/api/time-entries/suggestions?q=");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ suggestions: [] });
+  });
 });
