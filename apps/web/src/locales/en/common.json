@@ -66,7 +66,10 @@
     "topClient": "Top client",
     "none": "—",
     "dailyChartTitle": "Daily time",
-    "duration": "Duration"
+    "duration": "Duration",
+    "clientChartTitle": "By client",
+    "clientChartTotal": "Total time",
+    "topActivitiesTitle": "Top activities"
   },
   "invoices": {
     "title": "Invoices",

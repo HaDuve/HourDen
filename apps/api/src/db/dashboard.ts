@@ -10,6 +10,13 @@ export type DashboardNamedTotal = {
   durationMinutes: number;
 };
 
+export type DashboardTopActivity = {
+  description: string;
+  projectName: string;
+  clientName: string;
+  durationMinutes: number;
+};
+
 export type DashboardSummary = {
   from: string;
   to: string;
@@ -18,6 +25,8 @@ export type DashboardSummary = {
   topProject: DashboardNamedTotal | null;
   topClient: DashboardNamedTotal | null;
   dailyBuckets: DashboardDailyBucket[];
+  clientBuckets: DashboardNamedTotal[];
+  topActivities: DashboardTopActivity[];
 };
 
 type DashboardSummaryRow = {
@@ -26,6 +35,8 @@ type DashboardSummaryRow = {
   top_project: DashboardNamedTotal | null;
   top_client: DashboardNamedTotal | null;
   daily_buckets: DashboardDailyBucket[] | null;
+  client_buckets: DashboardNamedTotal[] | null;
+  top_activities: DashboardTopActivity[] | null;
 };
 
 export async function getDashboardSummary(
@@ -46,6 +57,7 @@ export async function getDashboardSummary(
           COALESCE(te.amount, 0)::numeric AS amount,
           p.name AS project_name,
           c.name AS client_name,
+          te.description AS description,
           ((te.started_at AT TIME ZONE $4)::date)::text AS local_date
         FROM time_entries te
         LEFT JOIN projects p ON p.id = te.project_id
@@ -110,7 +122,68 @@ export async function getDashboardSummary(
             FROM entries
             GROUP BY local_date
           ) daily
-        ) AS daily_buckets
+        ) AS daily_buckets,
+        (
+          SELECT COALESCE(
+            json_agg(
+              json_build_object(
+                'name', client_grouped.client_name,
+                'durationMinutes', client_grouped.duration_minutes
+              )
+              ORDER BY client_grouped.duration_minutes DESC, client_grouped.client_name ASC
+            ),
+            '[]'::json
+          )
+          FROM (
+            SELECT
+              client_name,
+              SUM(duration_minutes)::int AS duration_minutes
+            FROM entries
+            WHERE client_name IS NOT NULL
+            GROUP BY client_name
+          ) client_grouped
+        ) AS client_buckets,
+        (
+          SELECT COALESCE(
+            json_agg(
+              json_build_object(
+                'description', activity_totals.description,
+                'projectName', activity_totals.project_name,
+                'clientName', activity_totals.client_name,
+                'durationMinutes', activity_totals.duration_minutes
+              )
+              ORDER BY activity_totals.duration_minutes DESC, activity_totals.description ASC
+            ),
+            '[]'::json
+          )
+          FROM (
+            SELECT
+              totals.description,
+              totals.duration_minutes,
+              rep.project_name,
+              rep.client_name
+            FROM (
+              SELECT
+                description,
+                SUM(duration_minutes)::int AS duration_minutes
+              FROM entries
+              WHERE description IS NOT NULL
+                AND BTRIM(description) <> ''
+              GROUP BY description
+            ) totals
+            INNER JOIN LATERAL (
+              SELECT
+                project_name,
+                client_name
+              FROM entries ranked
+              WHERE ranked.description = totals.description
+              ORDER BY ranked.duration_minutes DESC,
+                ranked.project_name ASC NULLS LAST,
+                ranked.client_name ASC NULLS LAST
+              LIMIT 1
+            ) rep ON TRUE
+          ) activity_totals
+        ) AS top_activities
     `,
     [workspaceId, from, to, timeZone],
   );
@@ -126,5 +199,7 @@ export async function getDashboardSummary(
     topProject: row?.top_project ?? null,
     topClient: row?.top_client ?? null,
     dailyBuckets: row?.daily_buckets ?? [],
+    clientBuckets: row?.client_buckets ?? [],
+    topActivities: row?.top_activities ?? [],
   };
 }

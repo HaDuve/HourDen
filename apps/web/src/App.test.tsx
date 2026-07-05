@@ -128,6 +128,8 @@ function mockAppFetch() {
           topProject: null,
           topClient: null,
           dailyBuckets: [],
+          clientBuckets: [],
+          topActivities: [],
         }),
       });
     }

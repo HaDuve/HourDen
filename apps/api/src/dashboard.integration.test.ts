@@ -108,6 +108,30 @@ describe.skipIf(!databaseUrl)("Dashboard API", () => {
         { date: "2026-06-18", durationMinutes: 74 },
         { date: "2026-06-19", durationMinutes: 60 },
       ],
+      clientBuckets: [
+        { name: "Bandao", durationMinutes: 74 },
+        { name: "Acme", durationMinutes: 60 },
+      ],
+      topActivities: [
+        {
+          description: "App Development",
+          projectName: "Ondojo",
+          clientName: "Bandao",
+          durationMinutes: 66,
+        },
+        {
+          description: "Homepage",
+          projectName: "Website",
+          clientName: "Acme",
+          durationMinutes: 60,
+        },
+        {
+          description: "Planning",
+          projectName: "Ondojo",
+          clientName: "Bandao",
+          durationMinutes: 8,
+        },
+      ],
     });
   });
 
@@ -134,6 +158,8 @@ describe.skipIf(!databaseUrl)("Dashboard API", () => {
       topProject: null,
       topClient: null,
       dailyBuckets: [],
+      clientBuckets: [],
+      topActivities: [],
     });
   });
 });
