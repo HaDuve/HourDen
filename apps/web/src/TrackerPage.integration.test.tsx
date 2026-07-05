@@ -1,9 +1,8 @@
 import "./test/load-env.js";
 
-import { Pool } from "pg";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { setupAuthenticatedApiFetch } from "./test/authenticated-api.js";
+import { beforeEach, expect, it } from "vitest";
+import { describeWithAuthenticatedWorkspace } from "./test/describe-with-live-api.js";
 import TrackerPage from "./TrackerPage.js";
 import { todayDateInTimeZone } from "./today-date.js";
 
@@ -25,26 +24,14 @@ function editEntryDialog() {
   return screen.getByRole("dialog", { name: /edit entry/i });
 }
 
-const databaseUrl = process.env.DATABASE_URL;
 
-describe.skipIf(!databaseUrl)("TrackerPage with live API", () => {
-  const pool = new Pool({ connectionString: databaseUrl });
-  let restoreFetch: () => void;
-
-  beforeAll(async () => {
-    ({ restoreFetch } = await setupAuthenticatedApiFetch(pool));
-  });
-
+describeWithAuthenticatedWorkspace("TrackerPage with live API", (getWorkspace) => {
   beforeEach(async () => {
+    const { pool } = getWorkspace();
     await pool.query("DELETE FROM time_entries");
     await pool.query("DELETE FROM invoices");
     await pool.query("DELETE FROM projects");
     await pool.query("DELETE FROM clients");
-  });
-
-  afterAll(async () => {
-    restoreFetch();
-    await pool.end();
   });
 
   it("lists tracker entries and supports start/stop and manual add", async () => {
