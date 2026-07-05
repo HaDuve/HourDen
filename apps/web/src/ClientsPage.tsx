@@ -1,5 +1,12 @@
 import type { Client } from "@hourden/domain";
 import { useCallback, useEffect, useState } from "react";
+import { PageMain } from "./layout/PageMain.js";
+import { ResponsiveOverlay } from "./layout/ResponsiveOverlay.js";
+import {
+  mobileActionButtonClass,
+  mobilePrimaryButtonClass,
+} from "./layout/tap-targets.js";
+import { useIsMobile } from "./layout/use-is-mobile.js";
 import { useDeleteDialog } from "./useDeleteDialog.js";
 
 type ClientFormData = {
@@ -148,9 +155,13 @@ export default function ClientsPage() {
     }
   };
 
+  const isMobile = useIsMobile();
+  const actionButtonClass = mobileActionButtonClass(isMobile);
+  const primaryButtonClass = mobilePrimaryButtonClass(isMobile);
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 p-8">
-      <header className="flex items-center justify-between gap-4">
+    <PageMain variant="flex">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Clients</h1>
           <p className="text-neutral-600">
@@ -160,7 +171,7 @@ export default function ClientsPage() {
         <button
           type="button"
           onClick={openCreate}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+          className={`${primaryButtonClass} bg-slate-900 text-white hover:bg-slate-800`}
         >
           New client
         </button>
@@ -188,31 +199,63 @@ export default function ClientsPage() {
           {clients.map((client) => (
             <li
               key={client.id}
-              className="flex items-start justify-between gap-4 px-4 py-4"
+              data-testid="client-card"
+              className={`px-4 py-4 ${
+                isMobile
+                  ? "flex flex-col gap-3"
+                  : "flex items-start justify-between gap-4"
+              }`}
             >
-              <div>
-                <p className="font-medium">{client.name}</p>
-                <p className="text-sm text-neutral-600">
-                  {client.defaultRate} €/h
-                </p>
-                {client.legalName && (
-                  <p className="mt-1 text-xs text-neutral-500">
-                    Recipient: {client.legalName}
+              {isMobile ? (
+                <dl className="grid gap-1 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-neutral-500">Name</dt>
+                    <dd className="text-right font-medium">{client.name}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-neutral-500">Default rate</dt>
+                    <dd className="text-right text-neutral-600">
+                      {client.defaultRate} €/h
+                    </dd>
+                  </div>
+                  {client.legalName && (
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-neutral-500">Recipient</dt>
+                      <dd className="text-right text-xs text-neutral-500">
+                        {client.legalName}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              ) : (
+                <div>
+                  <p className="font-medium">{client.name}</p>
+                  <p className="text-sm text-neutral-600">
+                    {client.defaultRate} €/h
                   </p>
-                )}
-              </div>
-              <div className="flex gap-2">
+                  {client.legalName && (
+                    <p className="mt-1 text-xs text-neutral-500">
+                      Recipient: {client.legalName}
+                    </p>
+                  )}
+                </div>
+              )}
+              <div className={`flex gap-2 ${isMobile ? "w-full" : ""}`}>
                 <button
                   type="button"
                   onClick={() => openEdit(client)}
-                  className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
+                  className={`${actionButtonClass} border-neutral-300 hover:bg-neutral-50${
+                    isMobile ? " flex-1" : ""
+                  }`}
                 >
                   Edit
                 </button>
                 <button
                   type="button"
                   onClick={() => openDeleteDialog(client)}
-                  className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
+                  className={`${actionButtonClass} border-red-200 text-red-700 hover:bg-red-50${
+                    isMobile ? " flex-1" : ""
+                  }`}
                 >
                   Delete
                 </button>
@@ -223,11 +266,8 @@ export default function ClientsPage() {
       )}
 
       {editing && (
-        <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4">
-          <form
-            onSubmit={saveClient}
-            className="w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-6 shadow-lg"
-          >
+        <ResponsiveOverlay ariaLabel={editing === "new" ? "New client" : "Edit client"}>
+          <form onSubmit={saveClient} className="w-full">
             <h2 className="text-lg font-semibold">
               {editing === "new" ? "New client" : "Edit client"}
             </h2>
@@ -326,43 +366,40 @@ export default function ClientsPage() {
               </button>
             </div>
           </form>
-        </div>
+        </ResponsiveOverlay>
       )}
 
       {pendingDelete && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="delete-client-title"
-          className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4"
+        <ResponsiveOverlay
+          ariaLabel="Delete client"
+          labelledBy="delete-client-title"
+          onBackdropClick={closeDeleteDialog}
         >
-          <div className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 shadow-lg">
-            <h2 id="delete-client-title" className="text-lg font-semibold">
-              Delete client?
-            </h2>
-            <p className="mt-2 text-sm text-neutral-600">
-              This will permanently delete <strong>{pendingDelete.name}</strong>.
-            </p>
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={closeDeleteDialog}
-                className="rounded-md border border-neutral-300 px-4 py-2 text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void confirmDelete()}
-                disabled={saving}
-                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-              >
-                {saving ? "Deleting…" : "Confirm delete"}
-              </button>
-            </div>
+          <h2 id="delete-client-title" className="text-lg font-semibold">
+            Delete client?
+          </h2>
+          <p className="mt-2 text-sm text-neutral-600">
+            This will permanently delete <strong>{pendingDelete.name}</strong>.
+          </p>
+          <div className="mt-6 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={closeDeleteDialog}
+              className={`${actionButtonClass} border-neutral-300`}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void confirmDelete()}
+              disabled={saving}
+              className={`${actionButtonClass} bg-red-600 font-medium text-white disabled:opacity-60`}
+            >
+              {saving ? "Deleting…" : "Confirm delete"}
+            </button>
           </div>
-        </div>
+        </ResponsiveOverlay>
       )}
-    </main>
+    </PageMain>
   );
 }

@@ -3,6 +3,11 @@ import { deriveDefaultInvoicePrefix, isValidAnyInvoiceNumber } from "@hourden/do
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DateRangeFilter } from "./DateRangeFilter.js";
 import { currentMonthRange } from "./date-range.js";
+import { IssuedInvoicesList } from "./layout/IssuedInvoicesList.js";
+import { PageMain } from "./layout/PageMain.js";
+import { ResponsiveOverlay } from "./layout/ResponsiveOverlay.js";
+import { mobilePrimaryButtonClass } from "./layout/tap-targets.js";
+import { useIsMobile } from "./layout/use-is-mobile.js";
 
 type IssuedInvoice = {
   id: string;
@@ -205,6 +210,7 @@ export default function InvoicesPage() {
     useState<InvoiceNumberingStrategy | null>(null);
   const [usePrefix, setUsePrefix] = useState(true);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewSheetOpen, setPreviewSheetOpen] = useState(false);
   const [issuedInvoices, setIssuedInvoices] = useState<IssuedInvoice[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [exportClientId, setExportClientId] = useState("");
@@ -232,6 +238,7 @@ export default function InvoicesPage() {
       previewUrlRef.current = null;
     }
     setPreviewUrl(null);
+    setPreviewSheetOpen(false);
   }, []);
 
   const clearPreview = useCallback(() => {
@@ -423,6 +430,7 @@ export default function InvoicesPage() {
         const url = URL.createObjectURL(blob);
         previewUrlRef.current = url;
         setPreviewUrl(url);
+        setPreviewSheetOpen(true);
         setInvoiceNumber(nextInvoiceNumber);
         setInvoicePrefix(nextPrefix);
         setSuggestedInvoiceNumber(nextSuggested);
@@ -706,8 +714,14 @@ export default function InvoicesPage() {
     invoiceNumberExists ||
     (invoiceNumberEdited && !numberingStrategy);
 
+  const isMobile = useIsMobile();
+  const primaryButtonClass = mobilePrimaryButtonClass(isMobile);
+  const secondaryButtonClass = isMobile
+    ? "min-h-11 rounded-md border border-neutral-300 bg-white px-4 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
+    : "rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50";
+
   return (
-    <main className="mx-auto max-w-3xl px-8 py-8">
+    <PageMain>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <h1 className="text-2xl font-semibold text-slate-900">Invoices</h1>
         <div className="flex flex-wrap gap-2">
@@ -715,7 +729,7 @@ export default function InvoicesPage() {
             type="button"
             onClick={() => void openSenderEditor()}
             disabled={loading || loadingSender}
-            className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
+            className={secondaryButtonClass}
           >
             Invoice sender
           </button>
@@ -723,7 +737,7 @@ export default function InvoicesPage() {
             type="button"
             onClick={() => void handlePreview()}
             disabled={previewing || issuing || loading || !clientId}
-            className="rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
+            className={secondaryButtonClass}
           >
             {previewing ? "Previewing…" : "Preview"}
           </button>
@@ -731,7 +745,7 @@ export default function InvoicesPage() {
             type="button"
             onClick={() => void handleIssue()}
             disabled={issueDisabled}
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+            className={`${primaryButtonClass} bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50`}
           >
             {issuing ? "Issuing…" : "Issue Invoice"}
           </button>
@@ -863,7 +877,7 @@ export default function InvoicesPage() {
         </div>
       ) : null}
 
-      {previewUrl ? (
+      {previewUrl && !isMobile ? (
         <iframe
           title="Invoice preview"
           src={previewUrl}
@@ -871,17 +885,42 @@ export default function InvoicesPage() {
         />
       ) : null}
 
+      {previewUrl && isMobile && previewSheetOpen ? (
+        <ResponsiveOverlay
+          ariaLabel="Invoice preview"
+          onBackdropClick={() => setPreviewSheetOpen(false)}
+        >
+          <iframe
+            title="Invoice preview"
+            src={previewUrl}
+            className="h-[70vh] w-full rounded-md border border-neutral-200"
+          />
+        </ResponsiveOverlay>
+      ) : null}
+
       <section className="mt-10">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
           <h2 className="text-lg font-medium text-slate-900">Issued Invoices</h2>
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="flex min-w-[10rem] flex-col gap-1 text-sm text-neutral-700">
+          <div
+            className={`flex gap-3 ${
+              isMobile
+                ? "w-full flex-col items-stretch"
+                : "flex-wrap items-end"
+            }`}
+          >
+            <label
+              className={`flex flex-col gap-1 text-sm text-neutral-700 ${
+                isMobile ? "min-w-0 flex-1" : "min-w-[10rem]"
+              }`}
+            >
               Export client
               <select
                 value={exportClientId}
                 onChange={(e) => setExportClientId(e.target.value)}
                 disabled={loading || clients.length === 0}
-                className="rounded-md border border-neutral-300 px-3 py-2"
+                className={`rounded-md border border-neutral-300 px-3 py-2${
+                  isMobile ? " min-h-11 w-full" : ""
+                }`}
               >
                 <option value="">All clients</option>
                 {clients.map((client) => (
@@ -900,14 +939,18 @@ export default function InvoicesPage() {
                 placeholder="All years"
                 value={exportYear}
                 onChange={(e) => setExportYear(e.target.value)}
-                className="w-28 rounded-md border border-neutral-300 px-3 py-2"
+                className={`rounded-md border border-neutral-300 px-3 py-2${
+                  isMobile ? " min-h-11 w-full" : " w-28"
+                }`}
               />
             </label>
             <button
               type="button"
               onClick={() => void handleExportOutgoing()}
               disabled={exporting || loading}
-              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+              className={`${primaryButtonClass} bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50${
+                isMobile ? " w-full" : ""
+              }`}
             >
               {exporting ? "Exporting…" : "Export Outgoing.zip"}
             </button>
@@ -916,55 +959,19 @@ export default function InvoicesPage() {
         {issuedInvoices.length === 0 ? (
           <p className="text-sm text-neutral-600">No issued invoices yet.</p>
         ) : (
-          <div className="overflow-x-auto rounded-md border border-neutral-200">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-neutral-50 text-neutral-700">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Recipient</th>
-                  <th className="px-4 py-3 font-medium">Invoice Number</th>
-                  <th className="px-4 py-3 font-medium">Billing Period</th>
-                  <th className="px-4 py-3 font-medium">Total</th>
-                  <th className="px-4 py-3 font-medium">
-                    <span className="sr-only">Download</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {issuedInvoices.map((invoice) => (
-                  <tr key={invoice.id} className="border-t border-neutral-200">
-                    <td className="px-4 py-3 text-neutral-900">{invoice.recipient}</td>
-                    <td className="px-4 py-3 text-neutral-900">{invoice.invoiceNumber}</td>
-                    <td className="px-4 py-3 text-neutral-700">
-                      {formatBillingPeriod(invoice.periodStart, invoice.periodEnd)}
-                    </td>
-                    <td className="px-4 py-3 text-neutral-700">
-                      {formatAmount(invoice.totalAmount)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => void handleDownloadIssued(invoice)}
-                        disabled={downloadingId === invoice.id}
-                        aria-label={`Download invoice ${invoice.invoiceNumber}`}
-                        className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
-                      >
-                        {downloadingId === invoice.id ? "Downloading…" : "Download"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <IssuedInvoicesList
+            invoices={issuedInvoices}
+            downloadingId={downloadingId}
+            onDownload={(invoice) => void handleDownloadIssued(invoice)}
+            formatBillingPeriod={formatBillingPeriod}
+            formatAmount={formatAmount}
+          />
         )}
       </section>
 
       {editingSender && (
-        <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4">
-          <form
-            onSubmit={handleSaveSender}
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-neutral-200 bg-white p-6 shadow-lg"
-          >
+        <ResponsiveOverlay ariaLabel="Invoice sender">
+          <form onSubmit={handleSaveSender} className="w-full">
             <h2 className="text-lg font-semibold">Invoice sender</h2>
             <p className="mt-1 text-sm text-neutral-600">
               {invoiceSenderConfigured
@@ -1125,8 +1132,8 @@ export default function InvoicesPage() {
               </button>
             </div>
           </form>
-        </div>
+        </ResponsiveOverlay>
       )}
-    </main>
+    </PageMain>
   );
 }

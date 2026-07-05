@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ClientsPage from "./ClientsPage.js";
+import { mockDesktopViewport } from "./test/viewport.js";
 
 describe("ClientsPage", () => {
+  beforeEach(() => {
+    mockDesktopViewport();
+  });
   const bandaoClient = {
     id: "c0000000-0000-4000-8000-000000000001",
     name: "Bandao",

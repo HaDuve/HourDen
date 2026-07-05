@@ -1,5 +1,12 @@
 import type { Client, Project } from "@hourden/domain";
 import { useCallback, useEffect, useState } from "react";
+import { PageMain } from "./layout/PageMain.js";
+import { ResponsiveOverlay } from "./layout/ResponsiveOverlay.js";
+import {
+  mobileActionButtonClass,
+  mobilePrimaryButtonClass,
+} from "./layout/tap-targets.js";
+import { useIsMobile } from "./layout/use-is-mobile.js";
 import { useDeleteDialog } from "./useDeleteDialog.js";
 
 type ProjectFormData = {
@@ -176,9 +183,13 @@ export default function ProjectsPage() {
     }
   };
 
+  const isMobile = useIsMobile();
+  const actionButtonClass = mobileActionButtonClass(isMobile);
+  const primaryButtonClass = mobilePrimaryButtonClass(isMobile);
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 p-8">
-      <header className="flex items-center justify-between gap-4">
+    <PageMain variant="flex">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Projects</h1>
           <p className="text-neutral-600">
@@ -189,7 +200,7 @@ export default function ProjectsPage() {
           type="button"
           onClick={openCreate}
           disabled={!selectedClientId}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+          className={`${primaryButtonClass} bg-slate-900 text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50`}
         >
           New project
         </button>
@@ -239,30 +250,57 @@ export default function ProjectsPage() {
           {projects.map((project) => (
             <li
               key={project.id}
-              className="flex items-start justify-between gap-4 px-4 py-4"
+              data-testid="project-card"
+              className={`px-4 py-4 ${
+                isMobile
+                  ? "flex flex-col gap-3"
+                  : "flex items-start justify-between gap-4"
+              }`}
             >
-              <div className="flex items-center gap-3">
-                {project.color && (
-                  <span
-                    className="inline-block h-3 w-3 rounded-full"
-                    style={{ backgroundColor: project.color }}
-                    aria-hidden
-                  />
-                )}
-                <p className="font-medium">{project.name}</p>
-              </div>
-              <div className="flex gap-2">
+              {isMobile ? (
+                <dl className="grid gap-1 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-neutral-500">Name</dt>
+                    <dd className="flex items-center gap-2 font-medium">
+                      {project.color && (
+                        <span
+                          className="inline-block h-3 w-3 rounded-full"
+                          style={{ backgroundColor: project.color }}
+                          aria-hidden
+                        />
+                      )}
+                      {project.name}
+                    </dd>
+                  </div>
+                </dl>
+              ) : (
+                <div className="flex items-center gap-3">
+                  {project.color && (
+                    <span
+                      className="inline-block h-3 w-3 rounded-full"
+                      style={{ backgroundColor: project.color }}
+                      aria-hidden
+                    />
+                  )}
+                  <p className="font-medium">{project.name}</p>
+                </div>
+              )}
+              <div className={`flex gap-2 ${isMobile ? "w-full" : ""}`}>
                 <button
                   type="button"
                   onClick={() => openEdit(project)}
-                  className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
+                  className={`${actionButtonClass} border-neutral-300 hover:bg-neutral-50${
+                    isMobile ? " flex-1" : ""
+                  }`}
                 >
                   Edit
                 </button>
                 <button
                   type="button"
                   onClick={() => openDeleteDialog(project)}
-                  className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
+                  className={`${actionButtonClass} border-red-200 text-red-700 hover:bg-red-50${
+                    isMobile ? " flex-1" : ""
+                  }`}
                 >
                   Delete
                 </button>
@@ -273,11 +311,10 @@ export default function ProjectsPage() {
       )}
 
       {editing && (
-        <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4">
-          <form
-            onSubmit={saveProject}
-            className="w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-6 shadow-lg"
-          >
+        <ResponsiveOverlay
+          ariaLabel={editing === "new" ? "New project" : "Edit project"}
+        >
+          <form onSubmit={saveProject} className="w-full">
             <h2 className="text-lg font-semibold">
               {editing === "new" ? "New project" : "Edit project"}
             </h2>
@@ -333,44 +370,41 @@ export default function ProjectsPage() {
               </button>
             </div>
           </form>
-        </div>
+        </ResponsiveOverlay>
       )}
 
       {pendingDelete && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="delete-project-title"
-          className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4"
+        <ResponsiveOverlay
+          ariaLabel="Delete project"
+          labelledBy="delete-project-title"
+          onBackdropClick={closeDeleteDialog}
         >
-          <div className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 shadow-lg">
-            <h2 id="delete-project-title" className="text-lg font-semibold">
-              Delete project?
-            </h2>
-            <p className="mt-2 text-sm text-neutral-600">
-              This will permanently delete{" "}
-              <strong>{pendingDelete.name}</strong>.
-            </p>
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={closeDeleteDialog}
-                className="rounded-md border border-neutral-300 px-4 py-2 text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void confirmDelete()}
-                disabled={saving}
-                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-              >
-                {saving ? "Deleting…" : "Confirm delete"}
-              </button>
-            </div>
+          <h2 id="delete-project-title" className="text-lg font-semibold">
+            Delete project?
+          </h2>
+          <p className="mt-2 text-sm text-neutral-600">
+            This will permanently delete{" "}
+            <strong>{pendingDelete.name}</strong>.
+          </p>
+          <div className="mt-6 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={closeDeleteDialog}
+              className={`${actionButtonClass} border-neutral-300`}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void confirmDelete()}
+              disabled={saving}
+              className={`${actionButtonClass} bg-red-600 font-medium text-white disabled:opacity-60`}
+            >
+              {saving ? "Deleting…" : "Confirm delete"}
+            </button>
           </div>
-        </div>
+        </ResponsiveOverlay>
       )}
-    </main>
+    </PageMain>
   );
 }

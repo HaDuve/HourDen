@@ -1,0 +1,49 @@
+import { describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { IssuedInvoicesList } from "./IssuedInvoicesList.js";
+import { mockDesktopViewport, mockMobileViewport } from "../test/viewport.js";
+
+const issuedInvoice = {
+  id: "inv-00000000-0000-4000-8000-000000000001",
+  recipient: "BANDAO Guidance GmbH",
+  invoiceNumber: "BAN2026001",
+  periodStart: "2026-06-01",
+  periodEnd: "2026-06-30",
+  totalAmount: 60,
+};
+
+describe("IssuedInvoicesList", () => {
+  it("renders cards instead of a table on mobile", () => {
+    mockMobileViewport();
+    render(
+      <IssuedInvoicesList
+        invoices={[issuedInvoice]}
+        downloadingId={null}
+        onDownload={() => undefined}
+        formatBillingPeriod={(start, end) => `${start} – ${end}`}
+        formatAmount={(amount) => `${amount.toFixed(2)} EUR`}
+      />,
+    );
+
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByRole("list")).toBeInTheDocument();
+    expect(screen.getByText("BANDAO Guidance GmbH")).toBeInTheDocument();
+    expect(screen.getByText("BAN2026001")).toBeInTheDocument();
+  });
+
+  it("renders a table on desktop", () => {
+    mockDesktopViewport();
+    render(
+      <IssuedInvoicesList
+        invoices={[issuedInvoice]}
+        downloadingId={null}
+        onDownload={() => undefined}
+        formatBillingPeriod={(start, end) => `${start} – ${end}`}
+        formatAmount={(amount) => `${amount.toFixed(2)} EUR`}
+      />,
+    );
+
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
+  });
+});
