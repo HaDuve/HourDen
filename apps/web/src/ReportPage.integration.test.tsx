@@ -1,12 +1,10 @@
 import "./test/load-env.js";
 
-import { Pool } from "pg";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupAuthenticatedApiFetch } from "./test/authenticated-api.js";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
+import { describeWithAuthenticatedWorkspace } from "./test/describe-with-live-api.js";
 import ReportPage from "./ReportPage.js";
 
-const databaseUrl = process.env.DATABASE_URL;
 const JUNE_2026 = new Date("2026-06-15T12:00:00.000Z");
 
 async function createClient(
@@ -33,30 +31,21 @@ async function createProject(
   return res.json() as Promise<{ id: string }>;
 }
 
-describe.skipIf(!databaseUrl)("ReportPage with live API", () => {
-  const pool = new Pool({ connectionString: databaseUrl });
-  let restoreFetch: () => void;
-
-  beforeAll(async () => {
+describeWithAuthenticatedWorkspace("ReportPage with live API", (getWorkspace) => {
+  beforeAll(() => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(JUNE_2026);
-    ({ restoreFetch } = await setupAuthenticatedApiFetch(pool));
   });
 
   beforeEach(async () => {
     vi.setSystemTime(JUNE_2026);
+    const { pool } = getWorkspace();
     await pool.query("DELETE FROM time_entries");
     await pool.query("DELETE FROM projects");
     await pool.query("DELETE FROM clients");
   });
 
-  afterEach(() => {
-    cleanup();
-  });
-
-  afterAll(async () => {
-    restoreFetch();
-    await pool.end();
+  afterAll(() => {
     vi.useRealTimers();
   });
 

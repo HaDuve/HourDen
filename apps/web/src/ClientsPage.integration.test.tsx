@@ -1,13 +1,10 @@
 import "./test/load-env.js";
 
-import { Pool } from "pg";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, expect, it } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { setupAuthenticatedApiFetch } from "./test/authenticated-api.js";
+import { describeWithAuthenticatedWorkspace } from "./test/describe-with-live-api.js";
 import ClientsPage from "./ClientsPage.js";
-
-const databaseUrl = process.env.DATABASE_URL;
 
 function renderClientsPage() {
   return render(
@@ -17,23 +14,12 @@ function renderClientsPage() {
   );
 }
 
-describe.skipIf(!databaseUrl)("ClientsPage with live API", () => {
-  const pool = new Pool({ connectionString: databaseUrl });
-  let restoreFetch: () => void;
-
-  beforeAll(async () => {
-    ({ restoreFetch } = await setupAuthenticatedApiFetch(pool));
-  });
-
+describeWithAuthenticatedWorkspace("ClientsPage with live API", (getWorkspace) => {
   beforeEach(async () => {
+    const { pool } = getWorkspace();
     await pool.query("DELETE FROM time_entries");
     await pool.query("DELETE FROM projects");
     await pool.query("DELETE FROM clients");
-  });
-
-  afterAll(async () => {
-    restoreFetch();
-    await pool.end();
   });
 
   it("creates and lists a Client end-to-end", async () => {

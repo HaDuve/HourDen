@@ -1,49 +1,19 @@
-import { Pool } from "pg";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { createApp } from "./app.js";
-import { runMigrationsForTests } from "./test/migrate-for-tests.js";
-import { bindSessionAuth } from "./test/auth-helper.js";
+import { afterEach, describe, expect, it } from "vitest";
+import { withAuthenticatedWorkspace } from "./test/integration-fixture.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 
 describe.skipIf(!databaseUrl)("fetch proxy for web integration tests", () => {
-  const pool = new Pool({ connectionString: databaseUrl });
-  let restoreFetch: () => void;
+  const workspaces: Array<{ teardown: () => Promise<void> }> = [];
 
-  beforeAll(async () => {
-    vi.unstubAllGlobals();
-    await runMigrationsForTests(pool);
-
-    const app = createApp({ pool });
-    await bindSessionAuth(app);
-
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url =
-        typeof input === "string"
-          ? input
-          : input instanceof URL
-            ? input.href
-            : input.url;
-
-      if (url.startsWith("/api/")) {
-        return app.request(url, init);
-      }
-
-      return originalFetch(input, init);
-    }) as typeof fetch;
-
-    restoreFetch = () => {
-      globalThis.fetch = originalFetch;
-    };
-  });
-
-  afterAll(async () => {
-    restoreFetch();
-    await pool.end();
+  afterEach(async () => {
+    await Promise.all(workspaces.splice(0).map((w) => w.teardown()));
   });
 
   it("previews an invoice through proxied fetch with a blob response", async () => {
+    const workspace = await withAuthenticatedWorkspace("web");
+    workspaces.push(workspace);
+
     const clientRes = await fetch("/api/clients", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

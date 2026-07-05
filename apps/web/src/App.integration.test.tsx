@@ -1,11 +1,9 @@
 import "./test/load-env.js";
 
-import { Pool } from "pg";
-import { render, screen, waitFor, cleanup } from "@testing-library/react";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, expect, it } from "vitest";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
-import { setupAuthenticatedApiFetch } from "./test/authenticated-api.js";
-import { resetMockEventSources } from "./test/mock-event-source.js";
+import { describeWithAuthenticatedWorkspace } from "./test/describe-with-live-api.js";
 import { authenticatedAppRoutes } from "./routes.js";
 
 function renderApp() {
@@ -14,31 +12,12 @@ function renderApp() {
   return router;
 }
 
-const databaseUrl = process.env.DATABASE_URL;
-
-describe.skipIf(!databaseUrl)("App with live API", () => {
-  const pool = new Pool({ connectionString: databaseUrl });
-  let restoreFetch: () => void;
-
-  beforeAll(async () => {
-    ({ restoreFetch } = await setupAuthenticatedApiFetch(pool));
-  });
-
+describeWithAuthenticatedWorkspace("App with live API", (getWorkspace) => {
   beforeEach(async () => {
+    const { pool } = getWorkspace();
     await pool.query("DELETE FROM time_entries");
     await pool.query("DELETE FROM projects");
     await pool.query("DELETE FROM clients");
-  });
-
-  afterEach(async () => {
-    cleanup();
-    resetMockEventSources();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-
-  afterAll(async () => {
-    restoreFetch();
-    await pool.end();
   });
 
   it("loads the Tracker page from the live API", async () => {
