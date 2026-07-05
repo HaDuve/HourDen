@@ -28,6 +28,9 @@ describe("ClientsPage mobile layout", () => {
     await waitFor(() => {
       expect(screen.getByTestId("client-card")).toBeInTheDocument();
     });
+
+    expect(screen.getByText("Name")).toBeInTheDocument();
+    expect(screen.getByText("Default rate")).toBeInTheDocument();
   });
 
   it("opens the edit form as a bottom sheet on mobile", async () => {

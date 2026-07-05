@@ -210,6 +210,7 @@ export default function InvoicesPage() {
     useState<InvoiceNumberingStrategy | null>(null);
   const [usePrefix, setUsePrefix] = useState(true);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewSheetOpen, setPreviewSheetOpen] = useState(false);
   const [issuedInvoices, setIssuedInvoices] = useState<IssuedInvoice[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [exportClientId, setExportClientId] = useState("");
@@ -237,6 +238,7 @@ export default function InvoicesPage() {
       previewUrlRef.current = null;
     }
     setPreviewUrl(null);
+    setPreviewSheetOpen(false);
   }, []);
 
   const clearPreview = useCallback(() => {
@@ -428,6 +430,7 @@ export default function InvoicesPage() {
         const url = URL.createObjectURL(blob);
         previewUrlRef.current = url;
         setPreviewUrl(url);
+        setPreviewSheetOpen(true);
         setInvoiceNumber(nextInvoiceNumber);
         setInvoicePrefix(nextPrefix);
         setSuggestedInvoiceNumber(nextSuggested);
@@ -874,27 +877,50 @@ export default function InvoicesPage() {
         </div>
       ) : null}
 
-      {previewUrl ? (
+      {previewUrl && !isMobile ? (
         <iframe
           title="Invoice preview"
           src={previewUrl}
-          className={`w-full rounded-md border border-neutral-200 ${
-            isMobile ? "h-[50vh]" : "h-[70vh]"
-          }`}
+          className="h-[70vh] w-full rounded-md border border-neutral-200"
         />
+      ) : null}
+
+      {previewUrl && isMobile && previewSheetOpen ? (
+        <ResponsiveOverlay
+          ariaLabel="Invoice preview"
+          onBackdropClick={() => setPreviewSheetOpen(false)}
+        >
+          <iframe
+            title="Invoice preview"
+            src={previewUrl}
+            className="h-[70vh] w-full rounded-md border border-neutral-200"
+          />
+        </ResponsiveOverlay>
       ) : null}
 
       <section className="mt-10">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
           <h2 className="text-lg font-medium text-slate-900">Issued Invoices</h2>
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="flex min-w-[10rem] flex-col gap-1 text-sm text-neutral-700">
+          <div
+            className={`flex gap-3 ${
+              isMobile
+                ? "w-full flex-col items-stretch"
+                : "flex-wrap items-end"
+            }`}
+          >
+            <label
+              className={`flex flex-col gap-1 text-sm text-neutral-700 ${
+                isMobile ? "min-w-0 flex-1" : "min-w-[10rem]"
+              }`}
+            >
               Export client
               <select
                 value={exportClientId}
                 onChange={(e) => setExportClientId(e.target.value)}
                 disabled={loading || clients.length === 0}
-                className="rounded-md border border-neutral-300 px-3 py-2"
+                className={`rounded-md border border-neutral-300 px-3 py-2${
+                  isMobile ? " min-h-11 w-full" : ""
+                }`}
               >
                 <option value="">All clients</option>
                 {clients.map((client) => (
@@ -913,14 +939,18 @@ export default function InvoicesPage() {
                 placeholder="All years"
                 value={exportYear}
                 onChange={(e) => setExportYear(e.target.value)}
-                className="w-28 rounded-md border border-neutral-300 px-3 py-2"
+                className={`rounded-md border border-neutral-300 px-3 py-2${
+                  isMobile ? " min-h-11 w-full" : " w-28"
+                }`}
               />
             </label>
             <button
               type="button"
               onClick={() => void handleExportOutgoing()}
               disabled={exporting || loading}
-              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+              className={`${primaryButtonClass} bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50${
+                isMobile ? " w-full" : ""
+              }`}
             >
               {exporting ? "Exporting…" : "Export Outgoing.zip"}
             </button>

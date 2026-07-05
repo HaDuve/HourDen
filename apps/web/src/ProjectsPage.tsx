@@ -257,16 +257,34 @@ export default function ProjectsPage() {
                   : "flex items-start justify-between gap-4"
               }`}
             >
-              <div className="flex items-center gap-3">
-                {project.color && (
-                  <span
-                    className="inline-block h-3 w-3 rounded-full"
-                    style={{ backgroundColor: project.color }}
-                    aria-hidden
-                  />
-                )}
-                <p className="font-medium">{project.name}</p>
-              </div>
+              {isMobile ? (
+                <dl className="grid gap-1 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-neutral-500">Name</dt>
+                    <dd className="flex items-center gap-2 font-medium">
+                      {project.color && (
+                        <span
+                          className="inline-block h-3 w-3 rounded-full"
+                          style={{ backgroundColor: project.color }}
+                          aria-hidden
+                        />
+                      )}
+                      {project.name}
+                    </dd>
+                  </div>
+                </dl>
+              ) : (
+                <div className="flex items-center gap-3">
+                  {project.color && (
+                    <span
+                      className="inline-block h-3 w-3 rounded-full"
+                      style={{ backgroundColor: project.color }}
+                      aria-hidden
+                    />
+                  )}
+                  <p className="font-medium">{project.name}</p>
+                </div>
+              )}
               <div className={`flex gap-2 ${isMobile ? "w-full" : ""}`}>
                 <button
                   type="button"

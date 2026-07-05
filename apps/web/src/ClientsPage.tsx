@@ -206,17 +206,40 @@ export default function ClientsPage() {
                   : "flex items-start justify-between gap-4"
               }`}
             >
-              <div>
-                <p className="font-medium">{client.name}</p>
-                <p className="text-sm text-neutral-600">
-                  {client.defaultRate} €/h
-                </p>
-                {client.legalName && (
-                  <p className="mt-1 text-xs text-neutral-500">
-                    Recipient: {client.legalName}
+              {isMobile ? (
+                <dl className="grid gap-1 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-neutral-500">Name</dt>
+                    <dd className="text-right font-medium">{client.name}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-neutral-500">Default rate</dt>
+                    <dd className="text-right text-neutral-600">
+                      {client.defaultRate} €/h
+                    </dd>
+                  </div>
+                  {client.legalName && (
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-neutral-500">Recipient</dt>
+                      <dd className="text-right text-xs text-neutral-500">
+                        {client.legalName}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              ) : (
+                <div>
+                  <p className="font-medium">{client.name}</p>
+                  <p className="text-sm text-neutral-600">
+                    {client.defaultRate} €/h
                   </p>
-                )}
-              </div>
+                  {client.legalName && (
+                    <p className="mt-1 text-xs text-neutral-500">
+                      Recipient: {client.legalName}
+                    </p>
+                  )}
+                </div>
+              )}
               <div className={`flex gap-2 ${isMobile ? "w-full" : ""}`}>
                 <button
                   type="button"

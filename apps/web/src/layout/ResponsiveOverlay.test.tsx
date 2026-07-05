@@ -29,4 +29,14 @@ describe("ResponsiveOverlay", () => {
       "modal",
     );
   });
+
+  it("stacks above the mobile bottom navigation", () => {
+    mockMobileViewport();
+    render(
+      <ResponsiveOverlay ariaLabel="Edit client">
+        <p>Form</p>
+      </ResponsiveOverlay>,
+    );
+    expect(screen.getByRole("dialog").className).toMatch(/\bz-40\b/);
+  });
 });
