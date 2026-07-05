@@ -96,7 +96,6 @@ export async function seedAuthMigration(pool: Pool): Promise<void> {
     throw new Error(`Invalid HOURDEN_OPERATOR_PASSWORD: ${passwordCheck.error}`);
   }
 
-  const passwordHash = await hashPassword(password);
   const normalizedEmail = email.toLowerCase();
 
   const existing = await pool.query<{ id: string }>(
@@ -107,6 +106,7 @@ export async function seedAuthMigration(pool: Pool): Promise<void> {
   let userId = existing.rows[0]?.id;
 
   if (!userId) {
+    const passwordHash = await hashPassword(password);
     const inserted = await pool.query<{ id: string }>(
       `
         INSERT INTO users (email, password_hash)

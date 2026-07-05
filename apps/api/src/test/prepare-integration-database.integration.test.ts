@@ -1,32 +1,19 @@
 import { Pool } from "pg";
 import { afterAll, describe, expect, it, vi } from "vitest";
 import * as passwordModule from "../auth/password.js";
-import { runMigrations } from "../db/migrate.js";
-import { ensureTestOperator } from "./ensure-test-operator.js";
+import { prepareIntegrationDatabase } from "./prepare-integration-database.js";
 import { TEST_OPERATOR_EMAIL } from "./operator-credentials.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 
-describe.skipIf(!databaseUrl)("ensureTestOperator", () => {
+describe.skipIf(!databaseUrl)("prepareIntegrationDatabase", () => {
   const pool = new Pool({ connectionString: databaseUrl });
 
   afterAll(async () => {
     await pool.end();
   });
 
-  it("creates the test operator user after migrations when missing", async () => {
-    await runMigrations(pool);
-    await ensureTestOperator(pool);
-
-    const user = await pool.query<{ email: string }>(
-      "SELECT email FROM users WHERE email = $1",
-      [TEST_OPERATOR_EMAIL],
-    );
-    expect(user.rows).toHaveLength(1);
-  });
-
-  it("hashes password only when inserting the operator user", async () => {
-    await runMigrations(pool);
+  it("runs migrations and seeds the operator once per call without re-hashing", async () => {
     await pool.query(
       "DELETE FROM workspace_memberships WHERE user_id IN (SELECT id FROM users WHERE email = $1)",
       [TEST_OPERATOR_EMAIL],
@@ -34,11 +21,17 @@ describe.skipIf(!databaseUrl)("ensureTestOperator", () => {
     await pool.query("DELETE FROM users WHERE email = $1", [TEST_OPERATOR_EMAIL]);
 
     const hashSpy = vi.spyOn(passwordModule, "hashPassword");
-    await ensureTestOperator(pool);
+    await prepareIntegrationDatabase();
     expect(hashSpy).toHaveBeenCalledTimes(1);
 
+    const user = await pool.query<{ email: string }>(
+      "SELECT email FROM users WHERE email = $1",
+      [TEST_OPERATOR_EMAIL],
+    );
+    expect(user.rows).toHaveLength(1);
+
     hashSpy.mockClear();
-    await ensureTestOperator(pool);
+    await prepareIntegrationDatabase();
     expect(hashSpy).not.toHaveBeenCalled();
     hashSpy.mockRestore();
   });
