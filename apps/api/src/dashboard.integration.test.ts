@@ -118,4 +118,22 @@ describe.skipIf(!databaseUrl)("Dashboard API", () => {
     const body = await res.json();
     expect(body.error).toMatch(/from and to/i);
   });
+
+  it("returns zero totals when there is no tracked time in the range", async () => {
+    const res = await app.request(
+      "/api/dashboard?from=2026-06-01&to=2026-06-30",
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toEqual({
+      from: "2026-06-01",
+      to: "2026-06-30",
+      totalDurationMinutes: 0,
+      totalBillableAmount: 0,
+      topProject: null,
+      topClient: null,
+      dailyBuckets: [],
+    });
+  });
 });

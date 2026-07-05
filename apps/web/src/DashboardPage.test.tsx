@@ -52,6 +52,16 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Bandao")).toBeInTheDocument();
   });
 
+  it("renders the daily time chart when the range has tracked time", async () => {
+    vi.stubGlobal("fetch", dashboardFetchMock());
+
+    render(<DashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /^daily time$/i })).toBeInTheDocument();
+    });
+  });
+
   it("refetches when the last month quick control is clicked", async () => {
     const fetchMock = dashboardFetchMock();
     vi.stubGlobal("fetch", fetchMock);
