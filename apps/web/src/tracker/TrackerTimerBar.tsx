@@ -5,6 +5,7 @@ import {
   destructiveButtonClass,
   inputClass,
   numericValueClass,
+  panelClass,
   primaryButtonClass,
   selectClass,
 } from "../layout/ui-classes.js";
@@ -46,12 +47,13 @@ export function TrackerTimerBar({
   return (
     <section
       aria-label={t("tracker.timerBar")}
-      className="sticky top-0 z-10 -mx-4 border-b border-divider bg-surface px-4 py-3 shadow-sm sm:-mx-8 sm:px-8"
+      className={`sticky top-0 z-10 ${panelClass} shadow-sm`}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
           <DescriptionAutocomplete
             label={t("tracker.description")}
+            hideLabel
             value={description}
             onChange={onDescriptionChange}
             onSuggestionSelect={onDescriptionSuggestionSelect}
@@ -59,7 +61,7 @@ export function TrackerTimerBar({
           />
         </div>
 
-        <label className="grid min-w-0 gap-1 text-sm text-content sm:w-44">
+        <label className="min-w-0 sm:w-44">
           <span className="sr-only">{t("tracker.projectOptional")}</span>
           <select
             aria-label={t("tracker.projectOptional")}
