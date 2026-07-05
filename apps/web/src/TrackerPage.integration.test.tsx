@@ -297,11 +297,13 @@ describe.skipIf(!databaseUrl)("TrackerPage with live API", () => {
     expect(descriptionInput).toHaveValue("Past planning session");
     expect(screen.getByLabelText(/project \(optional\)/i)).toHaveValue(project.id);
 
-    const runningRes = await fetch("/api/time-entries/running");
-    const { entry: running } = (await runningRes.json()) as {
-      entry: { description: string; projectId: string | null };
-    };
-    expect(running.description).toBe("Past planning session");
-    expect(running.projectId).toBe(project.id);
+    await waitFor(async () => {
+      const runningRes = await fetch("/api/time-entries/running");
+      const { entry: running } = (await runningRes.json()) as {
+        entry: { description: string | null; projectId: string | null };
+      };
+      expect(running.description).toBe("Past planning session");
+      expect(running.projectId).toBe(project.id);
+    });
   });
 });
