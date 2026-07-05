@@ -10,6 +10,10 @@ export type DashboardNamedTotal = {
   durationMinutes: number;
 };
 
+export type DashboardClientBucket = DashboardNamedTotal & {
+  billableAmount: number;
+};
+
 export type DashboardTopActivity = {
   description: string;
   projectName: string | null;
@@ -25,7 +29,7 @@ export type DashboardSummary = {
   topProject: DashboardNamedTotal | null;
   topClient: DashboardNamedTotal | null;
   dailyBuckets: DashboardDailyBucket[];
-  clientBuckets: DashboardNamedTotal[];
+  clientBuckets: DashboardClientBucket[];
   topActivities: DashboardTopActivity[];
 };
 
@@ -35,7 +39,7 @@ type DashboardSummaryRow = {
   top_project: DashboardNamedTotal | null;
   top_client: DashboardNamedTotal | null;
   daily_buckets: DashboardDailyBucket[] | null;
-  client_buckets: DashboardNamedTotal[] | null;
+  client_buckets: DashboardClientBucket[] | null;
   top_activities: DashboardTopActivity[] | null;
 };
 
@@ -128,7 +132,8 @@ export async function getDashboardSummary(
             json_agg(
               json_build_object(
                 'name', client_grouped.client_name,
-                'durationMinutes', client_grouped.duration_minutes
+                'durationMinutes', client_grouped.duration_minutes,
+                'billableAmount', client_grouped.billable_amount
               )
               ORDER BY client_grouped.duration_minutes DESC, client_grouped.client_name ASC
             ),
@@ -137,14 +142,16 @@ export async function getDashboardSummary(
           FROM (
             SELECT
               client_name,
-              SUM(duration_minutes)::int AS duration_minutes
+              SUM(duration_minutes)::int AS duration_minutes,
+              COALESCE(ROUND(SUM(amount), 2), 0) AS billable_amount
             FROM entries
             WHERE client_name IS NOT NULL
             GROUP BY client_name
             UNION ALL
             SELECT
               NULL::text AS client_name,
-              SUM(duration_minutes)::int AS duration_minutes
+              SUM(duration_minutes)::int AS duration_minutes,
+              COALESCE(ROUND(SUM(amount), 2), 0) AS billable_amount
             FROM entries
             WHERE client_name IS NULL
             HAVING SUM(duration_minutes) > 0
@@ -206,7 +213,11 @@ export async function getDashboardSummary(
     topProject: row?.top_project ?? null,
     topClient: row?.top_client ?? null,
     dailyBuckets: row?.daily_buckets ?? [],
-    clientBuckets: row?.client_buckets ?? [],
+    clientBuckets: (row?.client_buckets ?? []).map((bucket) => ({
+      name: bucket.name,
+      durationMinutes: bucket.durationMinutes,
+      billableAmount: Math.round(Number(bucket.billableAmount) * 100) / 100,
+    })),
     topActivities: row?.top_activities ?? [],
   };
 }

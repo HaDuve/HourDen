@@ -34,6 +34,10 @@ type DashboardNamedTotal = {
   durationMinutes: number;
 };
 
+type DashboardClientBucket = DashboardNamedTotal & {
+  billableAmount: number;
+};
+
 type DashboardDailyBucket = {
   date: string;
   durationMinutes: number;
@@ -54,7 +58,7 @@ type DashboardResponse = {
   topProject: DashboardNamedTotal | null;
   topClient: DashboardNamedTotal | null;
   dailyBuckets: DashboardDailyBucket[];
-  clientBuckets: DashboardNamedTotal[];
+  clientBuckets: DashboardClientBucket[];
   topActivities: DashboardTopActivity[];
 };
 
@@ -335,8 +339,15 @@ export default function DashboardPage() {
                               CLIENT_CHART_COLORS[index % CLIENT_CHART_COLORS.length],
                           }}
                         />
-                        <span>
-                          {formatClientBucketLabel(bucket.name, t)} ({percentage}%)
+                        <span className="flex min-w-0 flex-col">
+                          <span>
+                            {formatClientBucketLabel(bucket.name, t)} ({percentage}%)
+                          </span>
+                          {bucket.billableAmount > 0 ? (
+                            <span className={`text-muted ${numericMetaValueClass}`}>
+                              {formatCurrency(bucket.billableAmount)}
+                            </span>
+                          ) : null}
                         </span>
                       </li>
                     );

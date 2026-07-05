@@ -15,8 +15,8 @@ const dashboardPayload = {
     { date: "2026-06-19", durationMinutes: 60 },
   ],
   clientBuckets: [
-    { name: "Bandao", durationMinutes: 74 },
-    { name: "Acme", durationMinutes: 60 },
+    { name: "Bandao", durationMinutes: 74, billableAmount: 74 },
+    { name: "Acme", durationMinutes: 60, billableAmount: 120 },
   ],
   topActivities: [
     {
@@ -99,6 +99,57 @@ describe("DashboardPage", () => {
     expect(screen.getByLabelText(/^client time$/i)).toHaveTextContent("2:14");
     expect(screen.getByText(/bandao \(55%\)/i)).toBeInTheDocument();
     expect(screen.getByText(/acme \(45%\)/i)).toBeInTheDocument();
+
+    const bandaoLegend = screen.getByText(/bandao \(55%\)/i).closest("li");
+    const acmeLegend = screen.getByText(/acme \(45%\)/i).closest("li");
+    expect(bandaoLegend).toHaveTextContent("€74.00");
+    expect(acmeLegend).toHaveTextContent("€120.00");
+  });
+
+  it("formats client billable amounts using the active locale", async () => {
+    await i18n.changeLanguage("de");
+    vi.stubGlobal("fetch", dashboardFetchMock());
+
+    render(<DashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /^nach kunde$/i })).toBeInTheDocument();
+    });
+
+    const bandaoLegend = screen.getByText(/bandao \(55%\)/i).closest("li");
+    expect(bandaoLegend).toHaveTextContent("74,00");
+    expect(bandaoLegend).toHaveTextContent("€");
+  });
+
+  it("omits billable amounts from the client legend when they are zero", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.startsWith("/api/dashboard?")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              ...dashboardPayload,
+              clientBuckets: [
+                { name: "Bandao", durationMinutes: 74, billableAmount: 74 },
+                { name: null, durationMinutes: 60, billableAmount: 0 },
+              ],
+            }),
+          });
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      }),
+    );
+
+    render(<DashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/unassigned \(45%\)/i)).toBeInTheDocument();
+    });
+
+    const unassignedLegend = screen.getByText(/unassigned \(45%\)/i).closest("li");
+    expect(unassignedLegend).not.toHaveTextContent("€");
+    expect(screen.getByText(/bandao \(55%\)/i).closest("li")).toHaveTextContent("€74.00");
   });
 
   it("labels unassigned client buckets and bases donut percentages on bucket totals", async () => {
@@ -112,9 +163,9 @@ describe("DashboardPage", () => {
               ...dashboardPayload,
               totalDurationMinutes: 150,
               clientBuckets: [
-                { name: "Bandao", durationMinutes: 74 },
-                { name: "Acme", durationMinutes: 60 },
-                { name: null, durationMinutes: 16 },
+                { name: "Bandao", durationMinutes: 74, billableAmount: 74 },
+                { name: "Acme", durationMinutes: 60, billableAmount: 120 },
+                { name: null, durationMinutes: 16, billableAmount: 0 },
               ],
             }),
           });

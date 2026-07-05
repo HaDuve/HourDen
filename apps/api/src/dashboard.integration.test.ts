@@ -109,8 +109,8 @@ describe.skipIf(!databaseUrl)("Dashboard API", () => {
         { date: "2026-06-19", durationMinutes: 60 },
       ],
       clientBuckets: [
-        { name: "Bandao", durationMinutes: 74 },
-        { name: "Acme", durationMinutes: 60 },
+        { name: "Bandao", durationMinutes: 74, billableAmount: 74 },
+        { name: "Acme", durationMinutes: 60, billableAmount: 120 },
       ],
       topActivities: [
         {
@@ -161,7 +161,9 @@ describe.skipIf(!databaseUrl)("Dashboard API", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.totalDurationMinutes).toBe(60);
-    expect(body.clientBuckets).toEqual([{ name: null, durationMinutes: 60 }]);
+    expect(body.clientBuckets).toEqual([
+      { name: null, durationMinutes: 60, billableAmount: 0 },
+    ]);
     expect(body.topActivities).toEqual([
       {
         description: "Internal admin",
