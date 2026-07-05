@@ -108,6 +108,13 @@
     "exportInvoicesFailed": "Failed to export invoices",
     "downloadInvoiceFailed": "Failed to download invoice",
     "saveInvoiceSenderFailed": "Failed to save invoice sender",
+    "blockers": {
+      "noClients": "Create a Client on the <actionLink>Clients page</actionLink>.",
+      "missingRecipient": "Add Recipient details on the <actionLink>Clients page</actionLink>.",
+      "noBillableEntries": "Log billable time for this Client in the <actionLink>Tracker</actionLink>.",
+      "entriesWithoutProject": "Assign tracked time to a Project on the <actionLink>Projects page</actionLink>.",
+      "entriesMissingDescription": "Add descriptions to stopped time entries in the <actionLink>Tracker</actionLink>."
+    },
     "senderName": "Name",
     "senderStreet": "Street",
     "senderCity": "City",
@@ -174,6 +181,7 @@
     "deleteTitle": "Delete client?",
     "deleteBody": "This will permanently delete {{name}}.",
     "loadFailed": "Failed to load clients",
+    "editClientNotFound": "That client could not be found. It may have been deleted.",
     "saveFailed": "Failed to save client",
     "deleteFailed": "Failed to delete client"
   },

@@ -2,9 +2,18 @@ import "./test/load-env.js";
 
 import { Pool } from "pg";
 import { fireEvent, render, screen, waitFor, within, act } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { setupAuthenticatedApiFetch } from "./test/authenticated-api.js";
 import InvoicesPage from "./InvoicesPage.js";
+
+function renderInvoicesPage() {
+  return render(
+    <MemoryRouter>
+      <InvoicesPage />
+    </MemoryRouter>,
+  );
+}
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -91,7 +100,7 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", { timeout: 30_000 },
       }),
     });
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandao.id);
 
@@ -149,10 +158,10 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", { timeout: 30_000 },
     clickSpy2.mockRestore();
   });
 
-  it("shows an inline error when Recipient fields are missing", async () => {
+  it("links to the Clients page when Recipient fields are missing", async () => {
     const hannah = await createClient({ name: "Hannah", defaultRate: 80 });
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Hannah", hannah.id);
 
@@ -162,15 +171,16 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", { timeout: 30_000 },
 
     await waitFor(
       () => {
-        expect(
-          screen.getByText(/client recipient fields are required before invoicing/i),
-        ).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: /clients page/i })).toHaveAttribute(
+          "href",
+          `/clients?edit=${hannah.id}`,
+        );
       },
       { timeout: 10_000 },
     );
   });
 
-  it("shows an inline error when there are no billable entries", async () => {
+  it("links to the Tracker when there are no billable entries", async () => {
     const bandao = await createClient({
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
@@ -178,7 +188,7 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", { timeout: 30_000 },
       addressLine2: "82319 Starnberg",
     });
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandao.id);
     expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeDisabled();
@@ -189,9 +199,10 @@ describe.skipIf(!databaseUrl)("InvoicesPage with live API", { timeout: 30_000 },
 
     await waitFor(
       () => {
-        expect(
-          screen.getByText(/no billable time entries in this billing period/i),
-        ).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: /^tracker$/i })).toHaveAttribute(
+          "href",
+          "/tracker",
+        );
       },
       { timeout: 10_000 },
     );

@@ -2,11 +2,20 @@ import "./test/load-env.js";
 
 import { Pool } from "pg";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { setupAuthenticatedApiFetch } from "./test/authenticated-api.js";
 import ClientsPage from "./ClientsPage.js";
 
 const databaseUrl = process.env.DATABASE_URL;
+
+function renderClientsPage() {
+  return render(
+    <MemoryRouter>
+      <ClientsPage />
+    </MemoryRouter>,
+  );
+}
 
 describe.skipIf(!databaseUrl)("ClientsPage with live API", () => {
   const pool = new Pool({ connectionString: databaseUrl });
@@ -28,7 +37,7 @@ describe.skipIf(!databaseUrl)("ClientsPage with live API", () => {
   });
 
   it("creates and lists a Client end-to-end", async () => {
-    render(<ClientsPage />);
+    renderClientsPage();
 
     await waitFor(() => {
       expect(screen.getByText(/no clients yet/i)).toBeInTheDocument();

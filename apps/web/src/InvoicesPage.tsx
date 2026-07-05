@@ -5,6 +5,12 @@ import { useTranslation } from "react-i18next";
 import { useLocaleFormat } from "./locale/use-locale-format.js";
 import { DateRangeFilter } from "./DateRangeFilter.js";
 import { currentMonthRange } from "./date-range.js";
+import { InvoiceAlertBanner } from "./invoices/InvoiceAlertBanner.js";
+import type { InvoiceAlert } from "./invoices/invoice-alert.js";
+import {
+  readApiErrorBody,
+  readApiErrorMessage,
+} from "./invoices/read-api-error.js";
 import { IssuedInvoicesList } from "./layout/IssuedInvoicesList.js";
 import { PageMain } from "./layout/PageMain.js";
 import { ResponsiveOverlay } from "./layout/ResponsiveOverlay.js";
@@ -14,7 +20,6 @@ import {
 } from "./layout/tap-targets.js";
 import {
   emptyStateClass,
-  errorBannerClass,
   fieldLabelClass,
   inputClass,
   metaTextClass,
@@ -137,7 +142,7 @@ async function saveInvoiceSender(
     body: JSON.stringify(form),
   });
   if (!res.ok) {
-    throw new Error(await readApiError(res));
+    throw new Error(await readApiErrorMessage(res));
   }
   return res.json() as Promise<{
     invoiceSender: InvoiceSender;
@@ -163,21 +168,9 @@ async function fetchNumberingPreview(
   }
   const res = await fetch(`/api/invoices/numbering-preview?${params}`);
   if (!res.ok) {
-    throw new Error(await readApiError(res));
+    throw new Error(await readApiErrorMessage(res));
   }
   return res.json() as Promise<NumberingPreview>;
-}
-
-async function readApiError(res: Response): Promise<string> {
-  try {
-    const data = (await res.json()) as { error?: string };
-    if (data.error) {
-      return data.error;
-    }
-  } catch {
-    // Fall through to generic message.
-  }
-  return `Request failed (${res.status})`;
 }
 
 function downloadAttachmentBlob(blob: Blob, disposition: string) {
@@ -202,7 +195,7 @@ export default function InvoicesPage() {
   const [from, setFrom] = useState(initialRange.from);
   const [to, setTo] = useState(initialRange.to);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [alert, setAlert] = useState<InvoiceAlert | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [issuing, setIssuing] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null);
@@ -243,6 +236,26 @@ export default function InvoicesPage() {
     null,
   );
 
+  const setPlainAlert = useCallback((message: string) => {
+    setAlert({ kind: "plain", message });
+  }, []);
+
+  const applyApiErrorAlert = useCallback(
+    async (res: Response, options?: { clientId?: string }) => {
+      const apiError = await readApiErrorBody(res);
+      if (apiError.code) {
+        setAlert({
+          kind: "blocker",
+          code: apiError.code,
+          clientId: options?.clientId,
+        });
+        return;
+      }
+      setAlert({ kind: "plain", message: apiError.message });
+    },
+    [],
+  );
+
   const clearPreviewBlob = useCallback(() => {
     if (previewUrlRef.current) {
       URL.revokeObjectURL(previewUrlRef.current);
@@ -269,7 +282,7 @@ export default function InvoicesPage() {
       const invoices = await fetchIssuedInvoices();
       setIssuedInvoices(invoices);
     } catch (err) {
-      setError(t("invoices.loadInvoicesFailed"));
+      setPlainAlert(t("invoices.loadInvoicesFailed"));
     }
   }, [t]);
 
@@ -278,22 +291,24 @@ export default function InvoicesPage() {
       const status = await fetchInvoiceSenderStatus();
       setInvoiceSenderConfigured(status.configured);
     } catch (err) {
-      setError(t("invoices.loadInvoiceSenderFailed"));
+      setPlainAlert(t("invoices.loadInvoiceSenderFailed"));
     }
   }, [t]);
 
   const loadClients = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setAlert(null);
     try {
       const loaded = await fetchClients();
       setClients(loaded);
       if (loaded.length > 0) {
         setClientId((current) => current || loaded[0]!.id);
+      } else {
+        setAlert({ kind: "blocker", code: "NO_CLIENTS" });
       }
       await Promise.all([loadIssuedInvoices(), loadInvoiceSenderStatus()]);
     } catch (err) {
-      setError(t("invoices.loadClientsFailed"));
+      setPlainAlert(t("invoices.loadClientsFailed"));
     } finally {
       setLoading(false);
     }
@@ -348,7 +363,7 @@ export default function InvoicesPage() {
         setNumberingPreview(preview);
         setNumberingStrategy((current) => current ?? "from_last");
       } catch {
-        setError(t("invoices.loadNumberingPreviewFailed"));
+        setPlainAlert(t("invoices.loadNumberingPreviewFailed"));
       }
     },
     [clientId, suggestedInvoiceNumber, to, usePrefix, t],
@@ -357,14 +372,14 @@ export default function InvoicesPage() {
   const openSenderEditor = useCallback(async () => {
     setEditingSender(true);
     setLoadingSender(true);
-    setError(null);
+    setAlert(null);
 
     try {
       const status = await fetchInvoiceSenderStatus();
       setSenderForm(invoiceSenderToForm(status.invoiceSender));
     } catch (err) {
       setEditingSender(false);
-      setError(t("invoices.loadInvoiceSenderFailed"));
+      setPlainAlert(t("invoices.loadInvoiceSenderFailed"));
     } finally {
       setLoadingSender(false);
     }
@@ -377,13 +392,13 @@ export default function InvoicesPage() {
       usePrefix?: boolean;
     }) => {
       if (!clientId) {
-        setError(t("invoices.selectClientBeforePreview"));
+        setPlainAlert(t("invoices.selectClientBeforePreview"));
         return;
       }
 
       const requestId = ++previewRequestIdRef.current;
       setPreviewing(true);
-      setError(null);
+      setAlert(null);
 
       try {
         const body: {
@@ -416,7 +431,7 @@ export default function InvoicesPage() {
         }
 
         if (!res.ok) {
-          setError(await readApiError(res));
+          await applyApiErrorAlert(res, { clientId });
           return;
         }
 
@@ -463,7 +478,7 @@ export default function InvoicesPage() {
         }
       } catch (err) {
         if (requestId === previewRequestIdRef.current) {
-          setError(t("invoices.previewFailed"));
+          setPlainAlert(t("invoices.previewFailed"));
         }
       } finally {
         if (requestId === previewRequestIdRef.current) {
@@ -481,6 +496,8 @@ export default function InvoicesPage() {
       refreshNumberingPreview,
       invoiceSenderConfigured,
       openSenderEditor,
+      applyApiErrorAlert,
+      setPlainAlert,
       t,
     ],
   );
@@ -561,25 +578,25 @@ export default function InvoicesPage() {
 
   async function handleIssue() {
     if (!clientId) {
-      setError(t("invoices.selectClientBeforeIssue"));
+      setPlainAlert(t("invoices.selectClientBeforeIssue"));
       return;
     }
     if (!invoiceNumber) {
-      setError(t("invoices.previewBeforeIssue"));
+      setPlainAlert(t("invoices.previewBeforeIssue"));
       return;
     }
     if (!invoiceSenderConfigured) {
-      setError(t("invoices.setupInvoiceSenderBeforeIssue"));
+      setPlainAlert(t("invoices.setupInvoiceSenderBeforeIssue"));
       void openSenderEditor();
       return;
     }
     if (invoiceNumberEdited && !numberingStrategy) {
-      setError(t("invoices.chooseNumberingStrategy"));
+      setPlainAlert(t("invoices.chooseNumberingStrategy"));
       return;
     }
 
     setIssuing(true);
-    setError(null);
+    setAlert(null);
 
     try {
       const body: {
@@ -608,7 +625,7 @@ export default function InvoicesPage() {
       });
 
       if (!res.ok) {
-        setError(await readApiError(res));
+        await applyApiErrorAlert(res, { clientId });
         return;
       }
 
@@ -624,7 +641,7 @@ export default function InvoicesPage() {
       setNumberingStrategy(null);
       await loadIssuedInvoices();
     } catch (err) {
-      setError(t("invoices.issueFailed"));
+      setPlainAlert(t("invoices.issueFailed"));
     } finally {
       setIssuing(false);
     }
@@ -632,7 +649,7 @@ export default function InvoicesPage() {
 
   async function handleExportOutgoing() {
     setExporting(true);
-    setError(null);
+    setAlert(null);
 
     try {
       const params = new URLSearchParams();
@@ -649,7 +666,7 @@ export default function InvoicesPage() {
         : "/api/invoices/export.zip";
       const res = await fetch(url);
       if (!res.ok) {
-        setError(await readApiError(res));
+        await applyApiErrorAlert(res, { clientId });
         return;
       }
 
@@ -657,7 +674,7 @@ export default function InvoicesPage() {
       const disposition = res.headers.get("Content-Disposition") ?? "";
       downloadAttachmentBlob(blob, disposition);
     } catch (err) {
-      setError(t("invoices.exportInvoicesFailed"));
+      setPlainAlert(t("invoices.exportInvoicesFailed"));
     } finally {
       setExporting(false);
     }
@@ -665,12 +682,12 @@ export default function InvoicesPage() {
 
   async function handleDownloadIssued(invoice: IssuedInvoice) {
     setDownloadingId(invoice.id);
-    setError(null);
+    setAlert(null);
 
     try {
       const res = await fetch(`/api/invoices/${invoice.id}/pdf`);
       if (!res.ok) {
-        setError(await readApiError(res));
+        await applyApiErrorAlert(res, { clientId });
         return;
       }
 
@@ -678,7 +695,7 @@ export default function InvoicesPage() {
       const disposition = res.headers.get("Content-Disposition") ?? "";
       downloadAttachmentBlob(blob, disposition);
     } catch (err) {
-      setError(t("invoices.downloadInvoiceFailed"));
+      setPlainAlert(t("invoices.downloadInvoiceFailed"));
     } finally {
       setDownloadingId(null);
     }
@@ -692,7 +709,7 @@ export default function InvoicesPage() {
   async function handleSaveSender(event: React.FormEvent) {
     event.preventDefault();
     setSavingSender(true);
-    setError(null);
+    setAlert(null);
 
     try {
       const status = await saveInvoiceSender(senderForm);
@@ -708,7 +725,7 @@ export default function InvoicesPage() {
         });
       }
     } catch (err) {
-      setError(t("invoices.saveInvoiceSenderFailed"));
+      setPlainAlert(t("invoices.saveInvoiceSenderFailed"));
     } finally {
       setSavingSender(false);
     }
@@ -791,10 +808,8 @@ export default function InvoicesPage() {
         />
       </div>
 
-      {error ? (
-        <p className={`mb-4 ${errorBannerClass}`}>
-          {error}
-        </p>
+      {alert ? (
+        <InvoiceAlertBanner alert={alert} />
       ) : null}
 
       {invoiceNumber ? (

@@ -425,6 +425,61 @@ export async function listInvoiceableEntriesForClient(
   return result.rows;
 }
 
+export async function hasStoppedEntriesWithoutProjectInPeriod(
+  pool: Pool,
+  workspaceId: string,
+  from: string,
+  to: string,
+  timeZone = reportTimeZone(),
+): Promise<boolean> {
+  const result = await pool.query<{ exists: boolean }>(
+    `
+      SELECT EXISTS (
+        SELECT 1
+        FROM time_entries te
+        WHERE te.workspace_id = $1
+          AND te.invoice_id IS NULL
+          AND te.ended_at IS NOT NULL
+          AND te.project_id IS NULL
+          AND ((te.started_at AT TIME ZONE $4)::date >= $2::date)
+          AND ((te.started_at AT TIME ZONE $4)::date <= $3::date)
+      ) AS exists
+    `,
+    [workspaceId, from, to, timeZone],
+  );
+
+  return result.rows[0]?.exists ?? false;
+}
+
+export async function hasStoppedEntriesMissingDescriptionForClientInPeriod(
+  pool: Pool,
+  workspaceId: string,
+  clientId: string,
+  from: string,
+  to: string,
+  timeZone = reportTimeZone(),
+): Promise<boolean> {
+  const result = await pool.query<{ exists: boolean }>(
+    `
+      SELECT EXISTS (
+        SELECT 1
+        FROM time_entries te
+        INNER JOIN projects p ON p.id = te.project_id
+        WHERE te.workspace_id = $1
+          AND p.client_id = $2
+          AND te.invoice_id IS NULL
+          AND te.ended_at IS NOT NULL
+          AND (te.description IS NULL OR trim(te.description) = '')
+          AND ((te.started_at AT TIME ZONE $5)::date >= $3::date)
+          AND ((te.started_at AT TIME ZONE $5)::date <= $4::date)
+      ) AS exists
+    `,
+    [workspaceId, clientId, from, to, timeZone],
+  );
+
+  return result.rows[0]?.exists ?? false;
+}
+
 export function rowsToGroupedInvoiceLines(
   rows: InvoiceableEntryRow[],
   timeZone = reportTimeZone(),

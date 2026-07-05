@@ -61,6 +61,12 @@ export {
   type InvoiceNumberingStrategy,
 } from "./invoice-number.js";
 export type { InvoiceIssuanceSnapshot } from "./invoice-issuance-snapshot.js";
+export {
+  INVOICE_BLOCKER_CODES,
+  isInvoiceBlockerCode,
+  type InvoiceBlockerCode,
+  type InvoiceBlockerResponse,
+} from "./invoice-blocker.js";
 export type {
   ClockifyExportEntry,
   ClockifyExportOptions,

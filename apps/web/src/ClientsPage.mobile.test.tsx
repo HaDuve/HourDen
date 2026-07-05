@@ -1,7 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import ClientsPage from "./ClientsPage.js";
 import { mockMobileViewport } from "./test/viewport.js";
+
+function renderClientsPage(initialEntry = "/clients") {
+  return render(
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <ClientsPage />
+    </MemoryRouter>,
+  );
+}
 
 const bandaoClient = {
   id: "c0000000-0000-4000-8000-000000000001",
@@ -23,7 +32,7 @@ describe("ClientsPage mobile layout", () => {
       }),
     );
 
-    render(<ClientsPage />);
+    renderClientsPage();
 
     await waitFor(() => {
       expect(screen.getByTestId("client-card")).toBeInTheDocument();
@@ -43,7 +52,7 @@ describe("ClientsPage mobile layout", () => {
       }),
     );
 
-    render(<ClientsPage />);
+    renderClientsPage();
 
     await waitFor(() => {
       expect(screen.getByText("Bandao")).toBeInTheDocument();

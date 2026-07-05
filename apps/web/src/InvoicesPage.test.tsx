@@ -1,7 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import i18n from "./i18n/i18n.js";
 import InvoicesPage from "./InvoicesPage.js";
+
+function renderInvoicesPage() {
+  return render(
+    <MemoryRouter>
+      <InvoicesPage />
+    </MemoryRouter>,
+  );
+}
 
 const bandaoClient = {
   id: "c0000000-0000-4000-8000-000000000001",
@@ -87,6 +96,7 @@ function clientsFetchMock(clients: unknown[]) {
         status: 400,
         json: async () => ({
           error: "Client Recipient fields are required before invoicing",
+          code: "MISSING_RECIPIENT",
         }),
       });
     }
@@ -96,6 +106,7 @@ function clientsFetchMock(clients: unknown[]) {
         status: 400,
         json: async () => ({
           error: "No billable Time Entries in this Billing Period",
+          code: "NO_BILLABLE_ENTRIES",
         }),
       });
     }
@@ -162,7 +173,7 @@ describe("InvoicesPage", () => {
   it("labels the billing period and shows a clear issued-invoices empty state", async () => {
     vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitFor(() => {
       expect(screen.getByText("Billing Period")).toBeInTheDocument();
@@ -174,7 +185,7 @@ describe("InvoicesPage", () => {
     await i18n.changeLanguage("de");
     vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitFor(() => {
       expect(screen.getByText("Abrechnungszeitraum")).toBeInTheDocument();
@@ -193,7 +204,7 @@ describe("InvoicesPage", () => {
       }),
     );
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitFor(() => {
       expect(screen.getByText("Failed to load clients")).toBeInTheDocument();
@@ -212,7 +223,7 @@ describe("InvoicesPage", () => {
       }),
     );
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitFor(() => {
       expect(screen.getByText("Kunden konnten nicht geladen werden")).toBeInTheDocument();
@@ -223,7 +234,7 @@ describe("InvoicesPage", () => {
     await i18n.changeLanguage("de");
     vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitFor(() => {
       const clientSelect = screen.getByLabelText(/^kunde$/i);
@@ -245,7 +256,7 @@ describe("InvoicesPage", () => {
     vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
     vi.setSystemTime(new Date(2026, 5, 18));
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^client$/i)).toBeInTheDocument();
@@ -261,7 +272,7 @@ describe("InvoicesPage", () => {
     vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
 
     const expectedRange = currentMonthRange();
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitFor(() => {
       const clientSelect = screen.getByLabelText(/^client$/i);
@@ -291,7 +302,7 @@ describe("InvoicesPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
@@ -316,23 +327,50 @@ describe("InvoicesPage", () => {
     });
   });
 
-  it("shows an inline error when preview fails because Recipient fields are missing", async () => {
+  it("shows plain text when preview fails with an unknown blocker code", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        return Promise.resolve({
+          ok: false,
+          status: 400,
+          json: async () => ({
+            error: "Something went wrong",
+            code: "NOT_A_REAL_BLOCKER",
+          }),
+        });
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderInvoicesPage();
+    await waitForClientReady("Bandao", bandaoClient.id);
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("links to the Clients page when preview fails because Recipient fields are missing", async () => {
     vi.stubGlobal("fetch", clientsFetchMock([clientWithoutRecipient]));
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Hannah", clientWithoutRecipient.id);
 
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/client recipient fields are required before invoicing/i),
-      ).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /clients page/i })).toHaveAttribute(
+        "href",
+        `/clients?edit=${clientWithoutRecipient.id}`,
+      );
     });
   });
 
-  it("shows an inline error when issue fails because there are no billable entries", async () => {
+  it("links to the Tracker when preview succeeds but issue fails because there are no billable entries", async () => {
     const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
       if (url === "/api/invoices/preview" && init?.method === "POST") {
         return Promise.resolve(previewPdfResponse("BAN2026001"));
@@ -343,6 +381,7 @@ describe("InvoicesPage", () => {
           status: 400,
           json: async () => ({
             error: "No billable Time Entries in this Billing Period",
+            code: "NO_BILLABLE_ENTRIES",
           }),
         });
       }
@@ -350,7 +389,7 @@ describe("InvoicesPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
 
@@ -359,15 +398,84 @@ describe("InvoicesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
-      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/no billable time entries in this billing period/i),
-      ).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /^tracker$/i })).toHaveAttribute(
+        "href",
+        "/tracker",
+      );
+    });
+  });
+
+  it("links to the Projects page when preview fails because time is not assigned to a Project", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        return Promise.resolve({
+          ok: false,
+          status: 400,
+          json: async () => ({
+            error: "Time Entries in this Billing Period are not assigned to a Project",
+            code: "ENTRIES_WITHOUT_PROJECT",
+          }),
+        });
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderInvoicesPage();
+    await waitForClientReady("Bandao", bandaoClient.id);
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: /projects page/i })).toHaveAttribute(
+        "href",
+        "/projects",
+      );
+    });
+  });
+
+  it("links to the Tracker when preview fails because stopped entries need a Description", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        return Promise.resolve({
+          ok: false,
+          status: 400,
+          json: async () => ({
+            error: "Time Entries in this Billing Period need a Description before invoicing",
+            code: "ENTRIES_MISSING_DESCRIPTION",
+          }),
+        });
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderInvoicesPage();
+    await waitForClientReady("Bandao", bandaoClient.id);
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: /^tracker$/i })).toHaveAttribute(
+        "href",
+        "/tracker",
+      );
+    });
+  });
+
+  it("shows a proactive Clients link when there are no Clients", async () => {
+    vi.stubGlobal("fetch", createInvoicesPageFetchMock([]));
+
+    renderInvoicesPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: /clients page/i })).toHaveAttribute(
+        "href",
+        "/clients?new=1",
+      );
     });
   });
 
@@ -392,7 +500,7 @@ describe("InvoicesPage", () => {
       }),
     );
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
 
@@ -432,7 +540,7 @@ describe("InvoicesPage", () => {
       }),
     );
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
 
@@ -460,7 +568,7 @@ describe("InvoicesPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
 
@@ -500,7 +608,7 @@ describe("InvoicesPage", () => {
       }),
     );
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
 
@@ -526,7 +634,7 @@ describe("InvoicesPage", () => {
     vi.stubGlobal("fetch", fetchMock);
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click");
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
 
@@ -598,7 +706,7 @@ describe("InvoicesPage", () => {
     vi.stubGlobal("fetch", fetchMock);
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click");
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitFor(() => {
       expect(screen.getByText("BANDAO Guidance GmbH")).toBeInTheDocument();
@@ -639,7 +747,7 @@ describe("InvoicesPage", () => {
     vi.stubGlobal("fetch", fetchMock);
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click");
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/export client/i)).toBeInTheDocument();
@@ -684,7 +792,7 @@ describe("InvoicesPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
@@ -744,7 +852,7 @@ describe("InvoicesPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
@@ -795,7 +903,7 @@ describe("InvoicesPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
@@ -839,7 +947,7 @@ describe("InvoicesPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
@@ -894,7 +1002,7 @@ describe("InvoicesPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
@@ -959,7 +1067,7 @@ describe("InvoicesPage", () => {
     vi.stubGlobal("fetch", fetchMock);
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click");
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
@@ -1035,7 +1143,7 @@ describe("InvoicesPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
@@ -1107,7 +1215,7 @@ describe("InvoicesPage", () => {
     vi.stubGlobal("fetch", fetchMock);
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click");
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
@@ -1171,7 +1279,7 @@ describe("InvoicesPage", () => {
     });
 
     vi.stubGlobal("fetch", fetchMock);
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
     fireEvent.click(screen.getByRole("button", { name: /^invoice sender$/i }));
@@ -1229,7 +1337,7 @@ describe("InvoicesPage", () => {
     });
 
     vi.stubGlobal("fetch", fetchMock);
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
@@ -1267,7 +1375,7 @@ describe("InvoicesPage", () => {
     });
 
     vi.stubGlobal("fetch", fetchMock);
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
     fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));

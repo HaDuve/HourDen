@@ -3,7 +3,7 @@ import {
   type InvoiceOperator,
 } from "@hourden/domain/invoice-pdf";
 import type { InvoiceIssuanceSnapshot } from "@hourden/domain/invoice-issuance-snapshot";
-import type { GroupedReportLine, InvoiceNumberingStrategy } from "@hourden/domain";
+import type { GroupedReportLine, InvoiceBlockerCode, InvoiceNumberingStrategy } from "@hourden/domain";
 import {
   isValidInvoiceNumber,
   isValidInvoicePrefix,
@@ -24,6 +24,8 @@ import {
   listInvoiceableEntriesForClient,
   listIssuedInvoiceDetails,
   listIssuedInvoices,
+  hasStoppedEntriesWithoutProjectInPeriod,
+  hasStoppedEntriesMissingDescriptionForClientInPeriod,
   peekNextInvoiceNumber,
   resolveInvoicePrefix,
   rowsToGroupedInvoiceLines,
@@ -75,7 +77,11 @@ type PreparedInvoice = {
   entryIds: string[];
 };
 
-type PrepareInvoiceError = { error: string; status: 400 | 404 | 409 };
+type PrepareInvoiceError = {
+  error: string;
+  code?: InvoiceBlockerCode;
+  status: 400 | 404 | 409;
+};
 
 function parseDateRange(
   from: string | undefined,
@@ -121,6 +127,7 @@ async function prepareInvoice(
   if (!client.legalName || !client.addressLine1 || !client.addressLine2) {
     return {
       error: "Client Recipient fields are required before invoicing",
+      code: "MISSING_RECIPIENT",
       status: 400,
     };
   }
@@ -161,8 +168,42 @@ async function prepareInvoice(
   );
 
   if (entryRows.length === 0) {
+    if (
+      await hasStoppedEntriesWithoutProjectInPeriod(
+        pool,
+        workspaceId,
+        range.from,
+        range.to,
+        timeZone,
+      )
+    ) {
+      return {
+        error: "Time Entries in this Billing Period are not assigned to a Project",
+        code: "ENTRIES_WITHOUT_PROJECT",
+        status: 400,
+      };
+    }
+
+    if (
+      await hasStoppedEntriesMissingDescriptionForClientInPeriod(
+        pool,
+        workspaceId,
+        client.id,
+        range.from,
+        range.to,
+        timeZone,
+      )
+    ) {
+      return {
+        error: "Time Entries in this Billing Period need a Description before invoicing",
+        code: "ENTRIES_MISSING_DESCRIPTION",
+        status: 400,
+      };
+    }
+
     return {
       error: "No billable Time Entries in this Billing Period",
+      code: "NO_BILLABLE_ENTRIES",
       status: 400,
     };
   }
@@ -474,7 +515,12 @@ export function createInvoicesRouter(pool: Pool) {
 
     const prepared = await prepareInvoice(pool, body);
     if ("error" in prepared) {
-      return c.json({ error: prepared.error }, prepared.status);
+      return c.json(
+        prepared.code
+          ? { error: prepared.error, code: prepared.code }
+          : { error: prepared.error },
+        prepared.status,
+      );
     }
 
     const usePrefix = parseUsePrefix(body.usePrefix);
@@ -532,7 +578,12 @@ export function createInvoicesRouter(pool: Pool) {
 
     const prepared = await prepareInvoice(pool, body);
     if ("error" in prepared) {
-      return c.json({ error: prepared.error }, prepared.status);
+      return c.json(
+        prepared.code
+          ? { error: prepared.error, code: prepared.code }
+          : { error: prepared.error },
+        prepared.status,
+      );
     }
 
     const client = prepared.client;
