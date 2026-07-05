@@ -62,7 +62,7 @@ describe.skipIf(!databaseUrl)("resetWorkspace", () => {
     await pool.end();
   });
 
-  it("clears all workspace-scoped rows in FK-safe order", async () => {
+  it("clears all workspace-scoped rows in FK-safe order (wrong delete order would raise FK errors)", async () => {
     const clientId = (
       await pool.query<{ id: string }>(
         `

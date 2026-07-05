@@ -1,19 +1,8 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { withAuthenticatedWorkspace } from "./test/integration-fixture.js";
+import { expect, it } from "vitest";
+import { describeWithAuthenticatedWebWorkspace } from "./test/describe-with-live-api.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-
-describe.skipIf(!databaseUrl)("fetch proxy for web integration tests", () => {
-  const workspaces: Array<{ teardown: () => Promise<void> }> = [];
-
-  afterEach(async () => {
-    await Promise.all(workspaces.splice(0).map((w) => w.teardown()));
-  });
-
+describeWithAuthenticatedWebWorkspace("fetch proxy for web integration tests", () => {
   it("previews an invoice through proxied fetch with a blob response", async () => {
-    const workspace = await withAuthenticatedWorkspace("web");
-    workspaces.push(workspace);
-
     const clientRes = await fetch("/api/clients", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
