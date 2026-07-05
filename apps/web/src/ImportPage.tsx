@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 type ImportSummary = {
   imported: number;
@@ -23,6 +24,7 @@ async function importClockifyFile(file: File): Promise<ImportSummary> {
 }
 
 export default function ImportPage() {
+  const { t } = useTranslation();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [importing, setImporting] = useState(false);
@@ -53,7 +55,7 @@ export default function ImportPage() {
 
       setSummary(totals);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Import failed");
+      setError(err instanceof Error ? err.message : t("import.failed"));
     } finally {
       setImporting(false);
     }
@@ -61,20 +63,17 @@ export default function ImportPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-8 py-8">
-      <h1 className="mb-2 text-2xl font-semibold text-slate-900">Import</h1>
-      <p className="mb-6 text-sm text-neutral-600">
-        Upload one or more Clockify Detailed CSV exports to create historical Time
-        Entries. Re-importing the same file will not create duplicates.
-      </p>
+      <h1 className="mb-2 text-2xl font-semibold text-slate-900">{t("import.title")}</h1>
+      <p className="mb-6 text-sm text-neutral-600">{t("import.subtitle")}</p>
 
       <div className="mb-6 space-y-4">
         <label className="flex flex-col gap-2 text-sm text-neutral-700">
-          Clockify CSV file
+          {t("import.fileLabel")}
           <input
             type="file"
             accept=".csv,text/csv"
             multiple
-            aria-label="Clockify CSV file"
+            aria-label={t("import.fileLabel")}
             onChange={(event) => {
               setSelectedFiles(Array.from(event.target.files ?? []));
               setSummary(null);
@@ -98,7 +97,7 @@ export default function ImportPage() {
           disabled={importing || selectedFiles.length === 0}
           className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
         >
-          {importing ? "Importing…" : "Import"}
+          {importing ? t("import.importing") : t("import.importAction")}
         </button>
       </div>
 
@@ -110,12 +109,12 @@ export default function ImportPage() {
 
       {summary ? (
         <div className="rounded-md border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-800">
-          <p>Imported {summary.imported} entries.</p>
+          <p>{t("import.importedCount", { count: summary.imported })}</p>
           {summary.duplicates > 0 ? (
-            <p>Skipped {summary.duplicates} duplicate entries.</p>
+            <p>{t("import.skippedDuplicates", { count: summary.duplicates })}</p>
           ) : null}
           {summary.skippedEmptyClient > 0 ? (
-            <p>Skipped {summary.skippedEmptyClient} rows with empty Client.</p>
+            <p>{t("import.skippedEmptyClient", { count: summary.skippedEmptyClient })}</p>
           ) : null}
         </div>
       ) : null}

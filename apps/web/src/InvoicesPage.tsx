@@ -2,6 +2,7 @@ import type { Client, InvoiceNumberingStrategy } from "@hourden/domain";
 import { deriveDefaultInvoicePrefix, isValidAnyInvoiceNumber } from "@hourden/domain";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useLocaleFormat } from "./locale/use-locale-format.js";
 import { DateRangeFilter } from "./DateRangeFilter.js";
 import { currentMonthRange } from "./date-range.js";
 import { IssuedInvoicesList } from "./layout/IssuedInvoicesList.js";
@@ -154,14 +155,6 @@ async function fetchNumberingPreview(
   return res.json() as Promise<NumberingPreview>;
 }
 
-function formatAmount(amount: number): string {
-  return `${amount.toFixed(2)} EUR`;
-}
-
-function formatBillingPeriod(periodStart: string, periodEnd: string): string {
-  return `${periodStart} – ${periodEnd}`;
-}
-
 async function readApiError(res: Response): Promise<string> {
   try {
     const data = (await res.json()) as { error?: string };
@@ -187,6 +180,9 @@ function downloadAttachmentBlob(blob: Blob, disposition: string) {
 
 export default function InvoicesPage() {
   const { t } = useTranslation();
+  const { formatCurrency, formatIsoDate } = useLocaleFormat();
+  const formatBillingPeriod = (periodStart: string, periodEnd: string) =>
+    `${formatIsoDate(periodStart)} – ${formatIsoDate(periodEnd)}`;
   const initialRange = currentMonthRange();
   const [clients, setClients] = useState<Client[]>([]);
   const [clientId, setClientId] = useState("");
@@ -978,7 +974,7 @@ export default function InvoicesPage() {
             downloadingId={downloadingId}
             onDownload={(invoice) => void handleDownloadIssued(invoice)}
             formatBillingPeriod={formatBillingPeriod}
-            formatAmount={formatAmount}
+            formatAmount={formatCurrency}
           />
         )}
       </section>

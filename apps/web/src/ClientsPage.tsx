@@ -1,5 +1,6 @@
 import type { Client } from "@hourden/domain";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { PageMain } from "./layout/PageMain.js";
 import { ResponsiveOverlay } from "./layout/ResponsiveOverlay.js";
 import {
@@ -8,6 +9,7 @@ import {
 } from "./layout/tap-targets.js";
 import { useIsMobile } from "./layout/use-is-mobile.js";
 import { useDeleteDialog } from "./useDeleteDialog.js";
+import { useLocaleFormat } from "./locale/use-locale-format.js";
 
 type ClientFormData = {
   name: string;
@@ -45,6 +47,8 @@ async function fetchClients(): Promise<Client[]> {
 }
 
 export default function ClientsPage() {
+  const { t } = useTranslation();
+  const { formatHourlyRate } = useLocaleFormat();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +69,7 @@ export default function ClientsPage() {
     try {
       setClients(await fetchClients());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load clients");
+      setError(err instanceof Error ? err.message : t("clients.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -124,7 +128,7 @@ export default function ClientsPage() {
       closeForm();
       await loadClients();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save client");
+      setError(err instanceof Error ? err.message : t("clients.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -149,7 +153,7 @@ export default function ClientsPage() {
       closeDeleteDialog();
       await loadClients();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete client");
+      setError(err instanceof Error ? err.message : t("clients.deleteFailed"));
     } finally {
       setSaving(false);
     }
@@ -163,17 +167,15 @@ export default function ClientsPage() {
     <PageMain variant="flex">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Clients</h1>
-          <p className="text-neutral-600">
-            Billable organizations and their default rates.
-          </p>
+          <h1 className="text-3xl font-semibold tracking-tight">{t("clients.title")}</h1>
+          <p className="text-neutral-600">{t("clients.subtitle")}</p>
         </div>
         <button
           type="button"
           onClick={openCreate}
           className={`${primaryButtonClass} bg-slate-900 text-white hover:bg-slate-800`}
         >
-          New client
+          {t("clients.newClient")}
         </button>
       </header>
 
@@ -184,11 +186,10 @@ export default function ClientsPage() {
       )}
 
       {loading ? (
-        <p className="text-neutral-500">Loading clients…</p>
+        <p className="text-neutral-500">{t("clients.loading")}</p>
       ) : clients.length === 0 ? (
         <p className="rounded-lg border border-dashed border-neutral-300 bg-white px-4 py-8 text-center text-neutral-500">
-          No clients yet. Create your first client to start tracking billable
-          work.
+          {t("clients.empty")}
         </p>
       ) : (
         <ul
@@ -209,18 +210,18 @@ export default function ClientsPage() {
               {isMobile ? (
                 <dl className="grid gap-1 text-sm">
                   <div className="flex justify-between gap-3">
-                    <dt className="text-neutral-500">Name</dt>
+                    <dt className="text-neutral-500">{t("clients.name")}</dt>
                     <dd className="text-right font-medium">{client.name}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <dt className="text-neutral-500">Default rate</dt>
+                    <dt className="text-neutral-500">{t("clients.defaultRate")}</dt>
                     <dd className="text-right text-neutral-600">
-                      {client.defaultRate} €/h
+                      {formatHourlyRate(client.defaultRate)}
                     </dd>
                   </div>
                   {client.legalName && (
                     <div className="flex justify-between gap-3">
-                      <dt className="text-neutral-500">Recipient</dt>
+                      <dt className="text-neutral-500">{t("clients.recipient")}</dt>
                       <dd className="text-right text-xs text-neutral-500">
                         {client.legalName}
                       </dd>
@@ -231,11 +232,11 @@ export default function ClientsPage() {
                 <div>
                   <p className="font-medium">{client.name}</p>
                   <p className="text-sm text-neutral-600">
-                    {client.defaultRate} €/h
+                    {formatHourlyRate(client.defaultRate)}
                   </p>
                   {client.legalName && (
                     <p className="mt-1 text-xs text-neutral-500">
-                      Recipient: {client.legalName}
+                      {t("clients.recipientPrefix", { name: client.legalName })}
                     </p>
                   )}
                 </div>
@@ -248,7 +249,7 @@ export default function ClientsPage() {
                     isMobile ? " flex-1" : ""
                   }`}
                 >
-                  Edit
+                  {t("common.edit")}
                 </button>
                 <button
                   type="button"
@@ -257,7 +258,7 @@ export default function ClientsPage() {
                     isMobile ? " flex-1" : ""
                   }`}
                 >
-                  Delete
+                  {t("common.delete")}
                 </button>
               </div>
             </li>
@@ -266,15 +267,17 @@ export default function ClientsPage() {
       )}
 
       {editing && (
-        <ResponsiveOverlay ariaLabel={editing === "new" ? "New client" : "Edit client"}>
+        <ResponsiveOverlay
+          ariaLabel={editing === "new" ? t("clients.newClient") : t("clients.editClient")}
+        >
           <form onSubmit={saveClient} className="w-full">
             <h2 className="text-lg font-semibold">
-              {editing === "new" ? "New client" : "Edit client"}
+              {editing === "new" ? t("clients.newClient") : t("clients.editClient")}
             </h2>
 
             <div className="mt-4 grid gap-3">
               <label className="grid gap-1 text-sm">
-                <span>Name</span>
+                <span>{t("clients.name")}</span>
                 <input
                   required
                   value={form.name}
@@ -286,7 +289,7 @@ export default function ClientsPage() {
               </label>
 
               <label className="grid gap-1 text-sm">
-                <span>Default rate (€/h)</span>
+                <span>{t("clients.defaultRate")}</span>
                 <input
                   required
                   type="number"
@@ -305,10 +308,10 @@ export default function ClientsPage() {
 
               <fieldset className="grid gap-3 rounded-md border border-neutral-200 p-3">
                 <legend className="px-1 text-sm font-medium">
-                  Recipient (optional)
+                  {t("clients.recipientOptional")}
                 </legend>
                 <label className="grid gap-1 text-sm">
-                  <span>Legal name</span>
+                  <span>{t("clients.legalName")}</span>
                   <input
                     value={form.legalName}
                     onChange={(e) =>
@@ -321,7 +324,7 @@ export default function ClientsPage() {
                   />
                 </label>
                 <label className="grid gap-1 text-sm">
-                  <span>Address line 1</span>
+                  <span>{t("clients.addressLine1")}</span>
                   <input
                     value={form.addressLine1}
                     onChange={(e) =>
@@ -334,7 +337,7 @@ export default function ClientsPage() {
                   />
                 </label>
                 <label className="grid gap-1 text-sm">
-                  <span>Address line 2</span>
+                  <span>{t("clients.addressLine2")}</span>
                   <input
                     value={form.addressLine2}
                     onChange={(e) =>
@@ -355,14 +358,14 @@ export default function ClientsPage() {
                 onClick={closeForm}
                 className="rounded-md border border-neutral-300 px-4 py-2 text-sm"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 type="submit"
                 disabled={saving}
                 className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
               >
-                {saving ? "Saving…" : "Save"}
+                {saving ? t("common.saving") : t("common.save")}
               </button>
             </div>
           </form>
@@ -371,15 +374,15 @@ export default function ClientsPage() {
 
       {pendingDelete && (
         <ResponsiveOverlay
-          ariaLabel="Delete client"
+          ariaLabel={t("common.delete")}
           labelledBy="delete-client-title"
           onBackdropClick={closeDeleteDialog}
         >
           <h2 id="delete-client-title" className="text-lg font-semibold">
-            Delete client?
+            {t("clients.deleteTitle")}
           </h2>
           <p className="mt-2 text-sm text-neutral-600">
-            This will permanently delete <strong>{pendingDelete.name}</strong>.
+            {t("clients.deleteBody", { name: pendingDelete.name })}
           </p>
           <div className="mt-6 flex justify-end gap-2">
             <button
@@ -387,7 +390,7 @@ export default function ClientsPage() {
               onClick={closeDeleteDialog}
               className={`${actionButtonClass} border-neutral-300`}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -395,7 +398,7 @@ export default function ClientsPage() {
               disabled={saving}
               className={`${actionButtonClass} bg-red-600 font-medium text-white disabled:opacity-60`}
             >
-              {saving ? "Deleting…" : "Confirm delete"}
+              {saving ? t("common.deleting") : t("common.confirmDelete")}
             </button>
           </div>
         </ResponsiveOverlay>

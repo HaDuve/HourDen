@@ -29,8 +29,8 @@ describe("ClientsPage mobile layout", () => {
       expect(screen.getByTestId("client-card")).toBeInTheDocument();
     });
 
-    expect(screen.getByText("Name")).toBeInTheDocument();
-    expect(screen.getByText("Default rate")).toBeInTheDocument();
+    expect(screen.getByText(/^name$/i)).toBeInTheDocument();
+    expect(screen.getByText(/default rate \(€\/h\)/i)).toBeInTheDocument();
   });
 
   it("opens the edit form as a bottom sheet on mobile", async () => {

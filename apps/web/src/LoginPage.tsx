@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -21,13 +23,13 @@ export default function LoginPage() {
 
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        setError(body?.error ?? "Login failed");
+        setError(body?.error ?? t("login.failed"));
         return;
       }
 
       window.location.href = "/";
     } catch {
-      setError("Login failed");
+      setError(t("login.failed"));
     } finally {
       setSubmitting(false);
     }
@@ -42,7 +44,7 @@ export default function LoginPage() {
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
             <label htmlFor="email" className="mb-1 block text-sm font-medium text-neutral-700">
-              Email
+              {t("login.email")}
             </label>
             <input
               id="email"
@@ -56,7 +58,7 @@ export default function LoginPage() {
           </div>
           <div>
             <label htmlFor="password" className="mb-1 block text-sm font-medium text-neutral-700">
-              Password
+              {t("login.password")}
             </label>
             <input
               id="password"
@@ -78,7 +80,7 @@ export default function LoginPage() {
             disabled={submitting}
             className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
           >
-            {submitting ? "Signing in…" : "Sign in"}
+            {submitting ? t("login.signingIn") : t("login.signIn")}
           </button>
         </form>
       </div>

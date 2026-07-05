@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { completeOnboarding } from "./onboarding-api.js";
 
 type InvoiceSenderFormData = {
@@ -37,6 +38,7 @@ async function fetchInvoiceSender(): Promise<InvoiceSenderFormData> {
 }
 
 export default function InvoiceSenderStepPage() {
+  const { t } = useTranslation();
   const [form, setForm] = useState<InvoiceSenderFormData>(emptyForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -55,7 +57,9 @@ export default function InvoiceSenderStepPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load invoice sender");
+          setError(
+            err instanceof Error ? err.message : t("onboarding.loadInvoiceSenderFailed"),
+          );
         }
       } finally {
         if (!cancelled) {
@@ -69,7 +73,7 @@ export default function InvoiceSenderStepPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -92,7 +96,9 @@ export default function InvoiceSenderStepPage() {
 
       await completeOnboarding();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save invoice sender");
+      setError(
+        err instanceof Error ? err.message : t("onboarding.saveInvoiceSenderFailed"),
+      );
     } finally {
       setSaving(false);
     }
@@ -100,10 +106,8 @@ export default function InvoiceSenderStepPage() {
 
   return (
     <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold">Invoice data</h2>
-      <p className="mt-1 text-sm text-neutral-600">
-        Your business identity printed on invoice PDFs for this workspace.
-      </p>
+      <h2 className="text-lg font-semibold">{t("onboarding.invoiceSenderTitle")}</h2>
+      <p className="mt-1 text-sm text-neutral-600">{t("onboarding.invoiceSenderHint")}</p>
 
       {error ? (
         <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -112,11 +116,11 @@ export default function InvoiceSenderStepPage() {
       ) : null}
 
       {loading ? (
-        <p className="mt-4 text-sm text-neutral-600">Loading…</p>
+        <p className="mt-4 text-sm text-neutral-600">{t("onboarding.loading")}</p>
       ) : (
         <form onSubmit={handleSubmit} className="mt-4 grid gap-3">
           <label className="grid gap-1 text-sm">
-            <span>Name</span>
+            <span>{t("invoices.senderName")}</span>
             <input
               required
               value={form.name}
@@ -128,7 +132,7 @@ export default function InvoiceSenderStepPage() {
           </label>
 
           <label className="grid gap-1 text-sm">
-            <span>Street</span>
+            <span>{t("invoices.senderStreet")}</span>
             <input
               value={form.street}
               onChange={(e) =>
@@ -139,7 +143,7 @@ export default function InvoiceSenderStepPage() {
           </label>
 
           <label className="grid gap-1 text-sm">
-            <span>City</span>
+            <span>{t("invoices.senderCity")}</span>
             <input
               value={form.city}
               onChange={(e) =>
@@ -150,7 +154,7 @@ export default function InvoiceSenderStepPage() {
           </label>
 
           <label className="grid gap-1 text-sm">
-            <span>Tax number</span>
+            <span>{t("invoices.senderTaxNumber")}</span>
             <input
               value={form.taxNumber}
               onChange={(e) =>
@@ -161,7 +165,7 @@ export default function InvoiceSenderStepPage() {
           </label>
 
           <label className="grid gap-1 text-sm">
-            <span>Email</span>
+            <span>{t("invoices.senderEmail")}</span>
             <input
               required
               type="email"
@@ -174,7 +178,7 @@ export default function InvoiceSenderStepPage() {
           </label>
 
           <label className="grid gap-1 text-sm">
-            <span>Phone</span>
+            <span>{t("invoices.senderPhone")}</span>
             <input
               value={form.phone}
               onChange={(e) =>
@@ -185,9 +189,9 @@ export default function InvoiceSenderStepPage() {
           </label>
 
           <fieldset className="grid gap-3 rounded-md border border-neutral-200 p-3">
-            <legend className="px-1 text-sm font-medium">Bank details</legend>
+            <legend className="px-1 text-sm font-medium">{t("invoices.bankDetails")}</legend>
             <label className="grid gap-1 text-sm">
-              <span>Bank name</span>
+              <span>{t("invoices.senderBankName")}</span>
               <input
                 value={form.bankName}
                 onChange={(e) =>
@@ -197,7 +201,7 @@ export default function InvoiceSenderStepPage() {
               />
             </label>
             <label className="grid gap-1 text-sm">
-              <span>IBAN</span>
+              <span>{t("invoices.senderIban")}</span>
               <input
                 value={form.iban}
                 onChange={(e) =>
@@ -207,7 +211,7 @@ export default function InvoiceSenderStepPage() {
               />
             </label>
             <label className="grid gap-1 text-sm">
-              <span>BIC</span>
+              <span>{t("invoices.senderBic")}</span>
               <input
                 value={form.bic}
                 onChange={(e) =>
@@ -224,7 +228,7 @@ export default function InvoiceSenderStepPage() {
               disabled={saving}
               className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
             >
-              {saving ? "Saving…" : "Finish setup"}
+              {saving ? t("common.saving") : t("onboarding.finish")}
             </button>
           </div>
         </form>

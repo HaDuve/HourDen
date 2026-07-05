@@ -64,7 +64,7 @@ describe("ClientsPage", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Bandao")).toBeInTheDocument();
-      expect(screen.getByText("60 €/h")).toBeInTheDocument();
+      expect(screen.getByText("€60.00/h")).toBeInTheDocument();
     });
   });
 
@@ -187,7 +187,7 @@ describe("ClientsPage", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Bandao GmbH")).toBeInTheDocument();
-      expect(screen.getByText("65 €/h")).toBeInTheDocument();
+      expect(screen.getByText("€65.00/h")).toBeInTheDocument();
       expect(screen.getByText(/Recipient: BANDAO Guidance GmbH/i)).toBeInTheDocument();
     });
 

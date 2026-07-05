@@ -38,4 +38,17 @@ describe("groupTrackerEntriesByWeek", () => {
 
     expect(groups[0]!.weekLabel).toBe("Jun 8 - Jun 14");
   });
+
+  it("uses German week labels when locale is de", () => {
+    const groups = groupTrackerEntriesByWeek(
+      [
+        entry("1", "2026-07-02T10:00:00.000Z", 60),
+        entry("2", "2026-06-25T09:00:00.000Z", 45),
+      ],
+      { timeZone: "UTC", today: "2026-07-02", locale: "de" },
+    );
+
+    expect(groups[0]!.weekLabel).toBe("Diese Woche");
+    expect(groups[1]!.weekLabel).toBe("Letzte Woche");
+  });
 });

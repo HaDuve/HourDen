@@ -1,8 +1,4 @@
-import {
-  formatTrackerTotal,
-  groupTrackerEntriesByWeek,
-  type TimeEntry,
-} from "@hourden/domain";
+import { groupTrackerEntriesByWeek, type TimeEntry } from "@hourden/domain";
 import type { Project } from "@hourden/domain";
 import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useState } from "react";
@@ -13,6 +9,7 @@ import {
   mobilePrimaryButtonClass,
 } from "./layout/tap-targets.js";
 import { useIsMobile } from "./layout/use-is-mobile.js";
+import { useLocaleFormat } from "./locale/use-locale-format.js";
 import {
   readStoredTrackerEntryLimit,
   TRACKER_ENTRY_LIMITS,
@@ -37,13 +34,6 @@ type EditFormData = {
 function localDatetimeValue(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-function formatDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return mins > 0 ? `${hours} h ${mins} min` : `${hours} h`;
 }
 
 function emptyManualForm(): ManualFormData {
@@ -95,6 +85,7 @@ async function fetchProjects(): Promise<Project[]> {
 
 export default function TrackerPage() {
   const { t } = useTranslation();
+  const { locale, formatCurrency, formatDurationMinutes } = useLocaleFormat();
   const [calendarTimezone, setCalendarTimezone] = useState<string | null>(null);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [running, setRunning] = useState<TimeEntry | null>(null);
@@ -133,7 +124,7 @@ export default function TrackerPage() {
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load session");
+          setError(err instanceof Error ? err.message : t("tracker.loadFailed"));
           setLoading(false);
         }
       });
@@ -158,7 +149,7 @@ export default function TrackerPage() {
       setRunning(loadedRunning);
       setProjects(loadedProjects);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load tracker entries");
+      setError(err instanceof Error ? err.message : t("tracker.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -189,7 +180,7 @@ export default function TrackerPage() {
       }
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start timer");
+      setError(err instanceof Error ? err.message : t("tracker.startFailed"));
     } finally {
       setSaving(false);
     }
@@ -211,7 +202,7 @@ export default function TrackerPage() {
       }
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to stop timer");
+      setError(err instanceof Error ? err.message : t("tracker.stopFailed"));
     } finally {
       setSaving(false);
     }
@@ -243,7 +234,7 @@ export default function TrackerPage() {
       setManualForm(emptyManualForm());
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save entry");
+      setError(err instanceof Error ? err.message : t("tracker.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -281,7 +272,7 @@ export default function TrackerPage() {
       setEditing(null);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update entry");
+      setError(err instanceof Error ? err.message : t("tracker.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -303,7 +294,7 @@ export default function TrackerPage() {
       closeDeleteDialog();
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete entry");
+      setError(err instanceof Error ? err.message : t("tracker.deleteFailed"));
     } finally {
       setSaving(false);
     }
@@ -317,6 +308,7 @@ export default function TrackerPage() {
       ? groupTrackerEntriesByWeek(entries, {
           timeZone: calendarTimezone,
           today,
+          locale,
         })
       : [];
 
@@ -333,7 +325,7 @@ export default function TrackerPage() {
             onClick={() => setShowManualForm(true)}
             className={`${primaryButtonClass} border border-neutral-300 hover:bg-neutral-50`}
           >
-            Add manual entry
+            {t("tracker.addManualEntry")}
           </button>
           {running ? (
             <button
@@ -342,7 +334,7 @@ export default function TrackerPage() {
               disabled={saving}
               className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
             >
-              Stop timer
+              {t("tracker.stopTimer")}
             </button>
           ) : (
             <button
@@ -351,7 +343,7 @@ export default function TrackerPage() {
               disabled={saving}
               className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
             >
-              Start timer
+              {t("tracker.startTimer")}
             </button>
           )}
         </div>
@@ -359,9 +351,13 @@ export default function TrackerPage() {
 
       {running && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-          Timer running — {formatDuration(running.durationMinutes)}
-          {running.description ? ` · ${running.description}` : (
-            <span className="ml-2 text-emerald-700">(add description when done)</span>
+          {t("tracker.timerRunning", {
+            duration: formatDurationMinutes(running.durationMinutes),
+          })}
+          {running.description ? (
+            ` · ${running.description}`
+          ) : (
+            <span className="ml-2 text-emerald-700">{t("tracker.addDescriptionWhenDone")}</span>
           )}
         </div>
       )}
@@ -373,7 +369,7 @@ export default function TrackerPage() {
       )}
 
       {loading ? (
-        <p className="text-neutral-500">Loading entries…</p>
+        <p className="text-neutral-500">{t("tracker.loading")}</p>
       ) : entries.length === 0 ? (
         <p className="rounded-lg border border-dashed border-neutral-300 bg-white px-4 py-8 text-center text-neutral-500">
           {t("tracker.empty")}
@@ -387,7 +383,7 @@ export default function TrackerPage() {
               <div className="mb-2 flex items-baseline justify-between gap-4 px-1">
                 <h2 className="text-sm font-semibold text-neutral-900">{week.weekLabel}</h2>
                 <p className="text-sm text-neutral-500">
-                  {t("tracker.weekTotal")}: {formatTrackerTotal(week.totalDurationMinutes)}
+                  {t("tracker.weekTotal")}: {formatDurationMinutes(week.totalDurationMinutes)}
                 </p>
               </div>
 
@@ -397,7 +393,7 @@ export default function TrackerPage() {
                     <div className="mb-1 flex items-baseline justify-between gap-4 border-b border-neutral-200 px-4 py-2">
                       <h3 className="text-sm font-medium text-neutral-700">{day.dayLabel}</h3>
                       <p className="text-sm text-neutral-500">
-                        {t("tracker.dayTotal")}: {formatTrackerTotal(day.totalDurationMinutes)}
+                        {t("tracker.dayTotal")}: {formatDurationMinutes(day.totalDurationMinutes)}
                       </p>
                     </div>
 
@@ -410,14 +406,18 @@ export default function TrackerPage() {
                           <div>
                             <p className="font-medium">
                               {entry.description?.trim() || (
-                                <span className="text-neutral-400 italic">No description</span>
+                                <span className="text-neutral-400 italic">
+                                  {t("tracker.noDescription")}
+                                </span>
                               )}
                             </p>
                             <p className="mt-1 text-sm text-neutral-600">
-                              {formatDuration(entry.durationMinutes)}
-                              {entry.isRunning && " · running"}
-                              {entry.amount !== null && ` · ${entry.amount} €`}
-                              {!entry.billableComplete && !entry.isRunning && " · incomplete"}
+                              {formatDurationMinutes(entry.durationMinutes)}
+                              {entry.isRunning && ` · ${t("tracker.running")}`}
+                              {entry.amount !== null && ` · ${formatCurrency(entry.amount)}`}
+                              {!entry.billableComplete &&
+                                !entry.isRunning &&
+                                ` · ${t("tracker.incomplete")}`}
                             </p>
                           </div>
                           {!entry.invoiced && !entry.isRunning && (
@@ -427,14 +427,14 @@ export default function TrackerPage() {
                                 onClick={() => openEdit(entry)}
                                 className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
                               >
-                                Edit
+                                {t("common.edit")}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => openDeleteDialog(entry)}
                                 className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
                               >
-                                Delete
+                                {t("common.delete")}
                               </button>
                             </div>
                           )}
@@ -470,13 +470,13 @@ export default function TrackerPage() {
       </div>
 
       {showManualForm && (
-        <ResponsiveOverlay ariaLabel="Manual entry">
+        <ResponsiveOverlay ariaLabel={t("tracker.manualEntry")}>
           <form onSubmit={saveManualEntry} className="w-full">
-            <h2 className="text-lg font-semibold">Manual entry</h2>
+            <h2 className="text-lg font-semibold">{t("tracker.manualEntry")}</h2>
 
             <div className="mt-4 grid gap-3">
               <label className="grid gap-1 text-sm">
-                <span>Description</span>
+                <span>{t("tracker.description")}</span>
                 <input
                   required
                   value={manualForm.description}
@@ -491,7 +491,7 @@ export default function TrackerPage() {
               </label>
 
               <label className="grid gap-1 text-sm">
-                <span>Start</span>
+                <span>{t("tracker.start")}</span>
                 <input
                   required
                   type="datetime-local"
@@ -507,7 +507,7 @@ export default function TrackerPage() {
               </label>
 
               <label className="grid gap-1 text-sm">
-                <span>End</span>
+                <span>{t("tracker.end")}</span>
                 <input
                   required
                   type="datetime-local"
@@ -523,7 +523,7 @@ export default function TrackerPage() {
               </label>
 
               <label className="grid gap-1 text-sm">
-                <span>Project (optional)</span>
+                <span>{t("tracker.projectOptional")}</span>
                 <select
                   value={manualForm.projectId}
                   onChange={(e) =>
@@ -534,7 +534,7 @@ export default function TrackerPage() {
                   }
                   className="rounded-md border border-neutral-300 px-3 py-2"
                 >
-                  <option value="">No project</option>
+                  <option value="">{t("tracker.noProject")}</option>
                   {projects.map((project) => (
                     <option key={project.id} value={project.id}>
                       {project.name}
@@ -553,14 +553,14 @@ export default function TrackerPage() {
                 }}
                 className="rounded-md border border-neutral-300 px-4 py-2 text-sm"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 type="submit"
                 disabled={saving}
                 className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
               >
-                {saving ? "Saving…" : "Save"}
+                {saving ? t("common.saving") : t("common.save")}
               </button>
             </div>
           </form>
@@ -568,13 +568,13 @@ export default function TrackerPage() {
       )}
 
       {editing && (
-        <ResponsiveOverlay ariaLabel="Edit entry">
+        <ResponsiveOverlay ariaLabel={t("tracker.editEntry")}>
           <form onSubmit={saveEdit} className="w-full">
-            <h2 className="text-lg font-semibold">Edit entry</h2>
+            <h2 className="text-lg font-semibold">{t("tracker.editEntry")}</h2>
 
             <div className="mt-4 grid gap-3">
               <label className="grid gap-1 text-sm">
-                <span>Description</span>
+                <span>{t("tracker.description")}</span>
                 <input
                   required
                   value={editForm.description}
@@ -589,7 +589,7 @@ export default function TrackerPage() {
               </label>
 
               <label className="grid gap-1 text-sm">
-                <span>Project (optional)</span>
+                <span>{t("tracker.projectOptional")}</span>
                 <select
                   value={editForm.projectId}
                   onChange={(e) =>
@@ -600,7 +600,7 @@ export default function TrackerPage() {
                   }
                   className="rounded-md border border-neutral-300 px-3 py-2"
                 >
-                  <option value="">No project</option>
+                  <option value="">{t("tracker.noProject")}</option>
                   {projects.map((project) => (
                     <option key={project.id} value={project.id}>
                       {project.name}
@@ -616,14 +616,14 @@ export default function TrackerPage() {
                 onClick={() => setEditing(null)}
                 className="rounded-md border border-neutral-300 px-4 py-2 text-sm"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 type="submit"
                 disabled={saving}
                 className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
               >
-                {saving ? "Saving…" : "Save"}
+                {saving ? t("common.saving") : t("common.save")}
               </button>
             </div>
           </form>
@@ -632,15 +632,15 @@ export default function TrackerPage() {
 
       {pendingDelete && (
         <ResponsiveOverlay
-          ariaLabel="Delete entry"
+          ariaLabel={t("common.delete")}
           labelledBy="delete-entry-title"
           onBackdropClick={closeDeleteDialog}
         >
           <h2 id="delete-entry-title" className="text-lg font-semibold">
-            Delete entry?
+            {t("tracker.deleteEntryTitle")}
           </h2>
           <p className="mt-2 text-sm text-neutral-600">
-            This will permanently delete this time entry.
+            {t("tracker.deleteEntryBody")}
           </p>
           <div className="mt-6 flex justify-end gap-2">
             <button
@@ -648,7 +648,7 @@ export default function TrackerPage() {
               onClick={closeDeleteDialog}
               className={`${actionButtonClass} border-neutral-300`}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -656,7 +656,7 @@ export default function TrackerPage() {
               disabled={saving}
               className={`${actionButtonClass} bg-red-600 font-medium text-white disabled:opacity-60`}
             >
-              {saving ? "Deleting…" : "Confirm delete"}
+              {saving ? t("common.deleting") : t("common.confirmDelete")}
             </button>
           </div>
         </ResponsiveOverlay>

@@ -7,21 +7,13 @@ import { currentMonthRange } from "./date-range.js";
 import { PageMain } from "./layout/PageMain.js";
 import { mobilePrimaryButtonClass } from "./layout/tap-targets.js";
 import { useIsMobile } from "./layout/use-is-mobile.js";
+import { useLocaleFormat } from "./locale/use-locale-format.js";
 
 type ReportResponse = {
   from: string;
   to: string;
   clients: ClientReport[];
 };
-
-function formatDisplayDate(isoDate: string): string {
-  const [year, month, day] = isoDate.split("-");
-  return `${day}/${month}/${year}`;
-}
-
-function formatAmount(amount: number): string {
-  return `€${amount.toFixed(2)}`;
-}
 
 async function fetchReport(from: string, to: string): Promise<ReportResponse> {
   const res = await fetch(
@@ -35,6 +27,7 @@ async function fetchReport(from: string, to: string): Promise<ReportResponse> {
 
 export default function ReportPage() {
   const { t } = useTranslation();
+  const { formatCurrency, formatIsoDate } = useLocaleFormat();
   const initialRange = currentMonthRange();
   const isMobile = useIsMobile();
   const primaryButtonClass = mobilePrimaryButtonClass(isMobile);
@@ -138,7 +131,7 @@ export default function ReportPage() {
                 </h2>
                 <p className="text-sm text-neutral-600">
                   {formatDurationHMM(client.totalDurationMinutes)} ·{" "}
-                  {formatAmount(client.totalAmount)}
+                  {formatCurrency(client.totalAmount)}
                 </p>
               </div>
               <ul className="space-y-2">
@@ -153,7 +146,7 @@ export default function ReportPage() {
                         <div className="flex justify-between gap-3">
                           <dt className="text-neutral-500">{t("report.date")}</dt>
                           <dd className="text-neutral-800">
-                            {formatDisplayDate(line.date)}
+                            {formatIsoDate(line.date)}
                           </dd>
                         </div>
                         <div className="flex justify-between gap-3">
@@ -171,7 +164,7 @@ export default function ReportPage() {
                         <div className="flex justify-between gap-3">
                           <dt className="text-neutral-500">{t("report.amount")}</dt>
                           <dd className="text-neutral-600">
-                            {formatAmount(line.amount)}
+                            {formatCurrency(line.amount)}
                           </dd>
                         </div>
                       </dl>
@@ -183,13 +176,13 @@ export default function ReportPage() {
                     >
                       <span className="text-neutral-800">
                         <span className="text-neutral-500">
-                          {formatDisplayDate(line.date)}
+                          {formatIsoDate(line.date)}
                         </span>{" "}
                         {line.description}
                       </span>
                       <span className="text-neutral-600">
                         {formatDurationHMM(line.durationMinutes)} ·{" "}
-                        {formatAmount(line.amount)}
+                        {formatCurrency(line.amount)}
                       </span>
                     </li>
                   ),

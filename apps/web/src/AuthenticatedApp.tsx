@@ -1,5 +1,6 @@
 import { isSupportedLocale, type SupportedLocale } from "@hourden/domain";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Outlet } from "react-router-dom";
 import { LocaleProvider } from "./LocaleProvider.js";
 
@@ -9,6 +10,7 @@ type AuthState =
   | { status: "unauthenticated" };
 
 export default function AuthenticatedApp() {
+  const { t } = useTranslation();
   const [auth, setAuth] = useState<AuthState>({ status: "loading" });
 
   useEffect(() => {
@@ -52,7 +54,7 @@ export default function AuthenticatedApp() {
   if (auth.status === "loading") {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-neutral-600">
-        Loading…
+        {t("common.loading")}
       </div>
     );
   }

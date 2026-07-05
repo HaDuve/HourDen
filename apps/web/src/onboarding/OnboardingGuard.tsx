@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { fetchOnboardingStatus, type OnboardingStatus } from "./onboarding-api.js";
 
@@ -8,6 +9,7 @@ type GuardState =
   | { status: "error" };
 
 export default function OnboardingGuard() {
+  const { t } = useTranslation();
   const location = useLocation();
   const [state, setState] = useState<GuardState>({ status: "loading" });
 
@@ -39,7 +41,7 @@ export default function OnboardingGuard() {
   if (state.status === "loading") {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-neutral-600">
-        Loading…
+        {t("common.loading")}
       </div>
     );
   }
@@ -47,13 +49,13 @@ export default function OnboardingGuard() {
   if (state.status === "error") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 p-8 text-center text-sm text-neutral-600">
-        <p>Could not load workspace setup status.</p>
+        <p>{t("guard.loadFailed")}</p>
         <button
           type="button"
           onClick={() => void load()}
           className="rounded-md border border-neutral-300 px-4 py-2 hover:bg-neutral-50"
         >
-          Retry
+          {t("common.retry")}
         </button>
       </div>
     );
