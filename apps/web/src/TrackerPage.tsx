@@ -223,6 +223,7 @@ export default function TrackerPage() {
   useWorkspaceEvents({
     "timer-changed": () => {
       void refreshRunningTimer();
+      void refreshEntries();
     },
     "today-changed": () => {
       void refreshEntries();

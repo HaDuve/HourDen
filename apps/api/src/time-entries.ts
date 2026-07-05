@@ -18,6 +18,11 @@ import {
   updateTimeEntry,
 } from "./db/time-entries.js";
 import { getWorkspaceCalendarTimezone } from "./db/workspaces.js";
+import {
+  notifyRunningTimerChanged,
+  notifyTimerMutation,
+  notifyTrackerEntriesChanged,
+} from "./events/notify-tracker.js";
 import { getCurrentWorkspaceId } from "./workspace.js";
 
 async function readJsonBody<T>(
@@ -86,6 +91,7 @@ export function createTimeEntriesRouter(pool: Pool) {
       return c.json({ error: "Project not found" }, 404);
     }
 
+    notifyTimerMutation(getCurrentWorkspaceId());
     return c.json(result, 201);
   });
 
@@ -107,6 +113,7 @@ export function createTimeEntriesRouter(pool: Pool) {
       return c.json({ error: "Time Entry is not running" }, 409);
     }
 
+    notifyTimerMutation(getCurrentWorkspaceId());
     return c.json(result);
   });
 
@@ -126,6 +133,7 @@ export function createTimeEntriesRouter(pool: Pool) {
       return c.json({ error: "Project not found" }, 404);
     }
 
+    notifyTrackerEntriesChanged(getCurrentWorkspaceId());
     return c.json(result, 201);
   });
 
@@ -153,6 +161,11 @@ export function createTimeEntriesRouter(pool: Pool) {
       return c.json({ error: "Time Entry not found" }, 404);
     }
 
+    const workspaceId = getCurrentWorkspaceId();
+    if (result.isRunning) {
+      notifyRunningTimerChanged(workspaceId);
+    }
+    notifyTrackerEntriesChanged(workspaceId);
     return c.json(result);
   });
 
@@ -170,6 +183,7 @@ export function createTimeEntriesRouter(pool: Pool) {
       return c.json({ error: "Invoiced Time Entry is read-only" }, 409);
     }
 
+    notifyTrackerEntriesChanged(getCurrentWorkspaceId());
     return c.body(null, 204);
   });
 

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { SupportedLocale } from "@hourden/domain";
 import i18n from "./i18n/i18n.js";
@@ -152,15 +152,6 @@ function mockAppFetch() {
 }
 
 describe("App", () => {
-  class MockEventSource {
-    close() {}
-    addEventListener() {}
-  }
-
-  beforeEach(() => {
-    vi.stubGlobal("EventSource", MockEventSource);
-  });
-
   it("renders the Tracker page by default", async () => {
     vi.stubGlobal("fetch", mockAppFetch());
 

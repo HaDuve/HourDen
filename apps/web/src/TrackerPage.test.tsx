@@ -2,15 +2,11 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import i18n from "./i18n/i18n.js";
 import TrackerPage from "./TrackerPage.js";
+import { MockEventSource, resetMockEventSources } from "./test/mock-event-source.js";
 
 vi.mock("./today-date.js", () => ({
   todayDateInTimeZone: () => "2026-07-02",
 }));
-
-class MockEventSource {
-  close() {}
-  addEventListener() {}
-}
 
 const morningEntry = {
   id: "e0000000-0000-4000-8000-000000000001",
@@ -104,8 +100,67 @@ function createFetchMock(
 describe("TrackerPage", () => {
   beforeEach(async () => {
     localStorage.clear();
-    vi.stubGlobal("EventSource", MockEventSource);
+    resetMockEventSources();
     await i18n.changeLanguage("en");
+  });
+
+  it("refetches running timer and entries when timer-changed is received", async () => {
+    let runningFetches = 0;
+    let entryFetches = 0;
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/auth/me") {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ calendarTimezone: "UTC" }),
+        });
+      }
+      if (url === "/api/time-entries?limit=50") {
+        entryFetches += 1;
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ entries: [] }),
+        });
+      }
+      if (url === "/api/time-entries/running") {
+        runningFetches += 1;
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ entry: null }),
+        });
+      }
+      if (url === "/api/projects") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ projects: [] }),
+        });
+      }
+      if (url === "/api/clients") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ clients: [] }),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<TrackerPage />);
+
+    await waitFor(() => {
+      expect(runningFetches).toBeGreaterThanOrEqual(1);
+      expect(entryFetches).toBeGreaterThanOrEqual(1);
+    });
+
+    const runningBefore = runningFetches;
+    const entriesBefore = entryFetches;
+
+    MockEventSource.instances[0]?.emit("timer-changed");
+
+    await waitFor(() => {
+      expect(runningFetches).toBeGreaterThan(runningBefore);
+      expect(entryFetches).toBeGreaterThan(entriesBefore);
+    });
   });
 
   it("renders a unified sticky timer bar with start control when idle", async () => {

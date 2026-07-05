@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import i18n from "../i18n/i18n.js";
 import TrackerPage from "../TrackerPage.js";
+import { resetMockEventSources } from "../test/mock-event-source.js";
 
 const morningEntry = {
   id: "e0000000-0000-4000-8000-000000000001",
@@ -17,11 +18,6 @@ const morningEntry = {
   durationMinutes: 60,
   invoiced: false,
 };
-
-class MockEventSource {
-  close() {}
-  addEventListener() {}
-}
 
 function createFetchMock() {
   return vi.fn((url: string) => {
@@ -62,7 +58,7 @@ function createFetchMock() {
 
 describe("TrackerPage entry list styling", () => {
   it("right-aligns entry durations with tabular-nums", async () => {
-    vi.stubGlobal("EventSource", MockEventSource);
+    resetMockEventSources();
     vi.stubGlobal("fetch", createFetchMock());
     await i18n.changeLanguage("en");
 

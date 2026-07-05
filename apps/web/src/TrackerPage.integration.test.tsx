@@ -13,6 +13,18 @@ async function workspaceToday(): Promise<string> {
   return todayDateInTimeZone(calendarTimezone);
 }
 
+function timerBar() {
+  return screen.getByRole("region", { name: /timer bar/i });
+}
+
+function manualEntryDialog() {
+  return screen.getByRole("dialog", { name: /manual entry/i });
+}
+
+function editEntryDialog() {
+  return screen.getByRole("dialog", { name: /edit entry/i });
+}
+
 const databaseUrl = process.env.DATABASE_URL;
 
 describe.skipIf(!databaseUrl)("TrackerPage with live API", () => {
@@ -25,6 +37,7 @@ describe.skipIf(!databaseUrl)("TrackerPage with live API", () => {
 
   beforeEach(async () => {
     await pool.query("DELETE FROM time_entries");
+    await pool.query("DELETE FROM invoices");
     await pool.query("DELETE FROM projects");
     await pool.query("DELETE FROM clients");
   });
@@ -59,16 +72,17 @@ describe.skipIf(!databaseUrl)("TrackerPage with live API", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: /add manual entry/i }));
-    fireEvent.change(screen.getByLabelText(/^description$/i), {
+    const manualDialog = manualEntryDialog();
+    fireEvent.change(within(manualDialog).getByLabelText(/^description$/i), {
       target: { value: "Follow-up work" },
     });
-    fireEvent.change(screen.getByLabelText(/^start$/i), {
+    fireEvent.change(within(manualDialog).getByLabelText(/^start$/i), {
       target: { value: `${today}T10:00` },
     });
-    fireEvent.change(screen.getByLabelText(/^end$/i), {
+    fireEvent.change(within(manualDialog).getByLabelText(/^end$/i), {
       target: { value: `${today}T11:00` },
     });
-    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    fireEvent.click(within(manualDialog).getByRole("button", { name: /^save$/i }));
 
     await waitFor(() => {
       expect(screen.getByText("Follow-up work")).toBeInTheDocument();
@@ -111,10 +125,11 @@ describe.skipIf(!databaseUrl)("TrackerPage with live API", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^edit$/i }));
-    fireEvent.change(screen.getByLabelText(/^description$/i), {
+    const editDialog = editEntryDialog();
+    fireEvent.change(within(editDialog).getByLabelText(/^description$/i), {
       target: { value: "Wrapped up design review" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    fireEvent.click(within(editDialog).getByRole("button", { name: /^save$/i }));
 
     await waitFor(() => {
       expect(screen.getByText("Wrapped up design review")).toBeInTheDocument();
@@ -157,8 +172,9 @@ describe.skipIf(!databaseUrl)("TrackerPage with live API", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: /add manual entry/i }));
+    const manualDialog = manualEntryDialog();
 
-    const descriptionInput = screen.getByLabelText(/^description$/i);
+    const descriptionInput = within(manualDialog).getByLabelText(/^description$/i);
     fireEvent.change(descriptionInput, { target: { value: "plan" } });
 
     await waitFor(() => {
@@ -168,7 +184,7 @@ describe.skipIf(!databaseUrl)("TrackerPage with live API", () => {
     fireEvent.click(screen.getByRole("option", { name: "Past planning session" }));
 
     expect(descriptionInput).toHaveValue("Past planning session");
-    expect(screen.getByLabelText(/project \(optional\)/i)).toHaveValue(project.id);
+    expect(within(manualDialog).getByLabelText(/project \(optional\)/i)).toHaveValue(project.id);
   });
 
   it("prefills description and project when picking a suggestion on edit entry", async () => {
@@ -220,7 +236,8 @@ describe.skipIf(!databaseUrl)("TrackerPage with live API", () => {
     expect(originalRow).not.toBeNull();
     fireEvent.click(within(originalRow!).getByRole("button", { name: /^edit$/i }));
 
-    const descriptionInput = screen.getByLabelText(/^description$/i);
+    const editDialog = editEntryDialog();
+    const descriptionInput = within(editDialog).getByLabelText(/^description$/i);
     fireEvent.change(descriptionInput, { target: { value: "plan" } });
 
     await waitFor(() => {
@@ -230,9 +247,9 @@ describe.skipIf(!databaseUrl)("TrackerPage with live API", () => {
     fireEvent.click(screen.getByRole("option", { name: "Past planning session" }));
 
     expect(descriptionInput).toHaveValue("Past planning session");
-    expect(screen.getByLabelText(/project \(optional\)/i)).toHaveValue(project.id);
+    expect(within(editDialog).getByLabelText(/project \(optional\)/i)).toHaveValue(project.id);
 
-    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    fireEvent.click(within(editDialog).getByRole("button", { name: /^save$/i }));
 
     await waitFor(() => {
       expect(screen.queryByText("Original entry")).not.toBeInTheDocument();
@@ -287,7 +304,8 @@ describe.skipIf(!databaseUrl)("TrackerPage with live API", () => {
       expect(screen.getByRole("button", { name: /stop timer/i })).toBeInTheDocument();
     });
 
-    const descriptionInput = screen.getByLabelText(/^description$/i);
+    const bar = timerBar();
+    const descriptionInput = within(bar).getByLabelText(/^description$/i);
     fireEvent.change(descriptionInput, { target: { value: "plan" } });
 
     await waitFor(() => {
@@ -297,7 +315,7 @@ describe.skipIf(!databaseUrl)("TrackerPage with live API", () => {
     fireEvent.click(screen.getByRole("option", { name: "Past planning session" }));
 
     expect(descriptionInput).toHaveValue("Past planning session");
-    expect(screen.getByLabelText(/project \(optional\)/i)).toHaveValue(project.id);
+    expect(within(bar).getByLabelText(/project \(optional\)/i)).toHaveValue(project.id);
 
     await waitFor(async () => {
       const runningRes = await fetch("/api/time-entries/running");
