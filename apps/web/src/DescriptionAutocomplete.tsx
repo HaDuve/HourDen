@@ -9,7 +9,9 @@ type DescriptionAutocompleteProps = {
   label: string;
   value: string;
   required?: boolean;
+  /** Compact inline layout: hide the visible label; use placeholder (or label) plus aria-label. */
   hideLabel?: boolean;
+  /** Placeholder when hideLabel is true; defaults to label. Ignored when hideLabel is false. */
   placeholder?: string;
   onChange: (description: string) => void;
   onSuggestionSelect: (suggestion: DescriptionSuggestion) => void;

@@ -30,6 +30,38 @@ describe("DescriptionAutocomplete", () => {
     vi.useRealTimers();
   });
 
+  it("shows placeholder and aria-label without visible label when hideLabel is set", () => {
+    render(
+      <DescriptionAutocomplete
+        label="Description"
+        hideLabel
+        value=""
+        onChange={vi.fn()}
+        onSuggestionSelect={vi.fn()}
+      />,
+    );
+
+    const input = screen.getByLabelText(/^description$/i);
+    expect(input).toHaveAttribute("placeholder", "Description");
+    expect(screen.queryByText(/^description$/i)).not.toBeInTheDocument();
+  });
+
+  it("uses custom placeholder when hideLabel and placeholder are set", () => {
+    render(
+      <DescriptionAutocomplete
+        label="Description"
+        hideLabel
+        placeholder="What did you work on?"
+        value=""
+        onChange={vi.fn()}
+        onSuggestionSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByPlaceholderText("What did you work on?")).toBeInTheDocument();
+    expect(screen.getByLabelText(/^description$/i)).toBeInTheDocument();
+  });
+
   it("fetches matching suggestions after debounce and applies selection", async () => {
     const fetchMock = vi.fn((url: string) => {
       if (url === "/api/time-entries/suggestions?q=rev") {
