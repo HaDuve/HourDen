@@ -506,6 +506,8 @@ describe("TrackerPage", () => {
     render(<TrackerPage />);
 
     await waitFor(() => {
+      expect(screen.getByText("This month")).toBeInTheDocument();
+      expect(screen.getByText("Last month")).toBeInTheDocument();
       expect(screen.getByText("Thu, Jul 2")).toBeInTheDocument();
     });
 
@@ -521,6 +523,8 @@ describe("TrackerPage", () => {
       expect(jun25Header).not.toBeNull();
       expect(within(jun25Header!.parentElement!).getAllByText("Morning work").length).toBe(1);
       expect(screen.queryByText("Thu, Jul 2")).not.toBeInTheDocument();
+      expect(screen.queryByText("This month")).not.toBeInTheDocument();
+      expect(screen.getByText("Last month")).toBeInTheDocument();
     });
   });
 

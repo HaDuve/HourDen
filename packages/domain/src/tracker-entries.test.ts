@@ -39,6 +39,26 @@ describe("groupTrackerEntriesByMonth", () => {
     expect(groups[0]!.monthLabel).toBe("May 2026");
   });
 
+  it("labels older months in German", () => {
+    const groups = groupTrackerEntriesByMonth(
+      [entry("1", "2026-05-10T10:00:00.000Z", 60)],
+      { timeZone: "UTC", today: "2026-07-02", locale: "de" },
+    );
+
+    expect(groups[0]!.monthLabel).toBe("Mai 2026");
+  });
+
+  it("groups by calendar month in the workspace timezone", () => {
+    const groups = groupTrackerEntriesByMonth(
+      [entry("1", "2026-06-30T22:00:00.000Z", 60)],
+      { timeZone: "Europe/Berlin", today: "2026-07-02" },
+    );
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.monthLabel).toBe("This month");
+    expect(groups[0]!.days[0]!.date).toBe("2026-07-01");
+  });
+
   it("uses German month labels when locale is de", () => {
     const groups = groupTrackerEntriesByMonth(
       [
