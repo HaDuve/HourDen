@@ -1,4 +1,4 @@
-import { groupTrackerEntriesByWeek, type Client, type Project, type TimeEntry, type UpdateTimeEntryInput } from "@hourden/domain";
+import { groupTrackerEntriesByMonth, type Client, type Project, type TimeEntry, type UpdateTimeEntryInput } from "@hourden/domain";
 import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageMain } from "./layout/PageMain.js";
@@ -445,9 +445,9 @@ export default function TrackerPage() {
   const actionButtonClass = mobileActionButtonClass(isMobile);
   const primaryButtonClass = mobilePrimaryButtonClass(isMobile);
   const secondaryButtonClass = mobileSecondaryButtonClass(isMobile);
-  const weekGroups =
+  const monthGroups =
     calendarTimezone && today
-      ? groupTrackerEntriesByWeek(entries, {
+      ? groupTrackerEntriesByMonth(entries, {
           timeZone: calendarTimezone,
           today,
           locale,
@@ -512,17 +512,17 @@ export default function TrackerPage() {
         <div
           className={`space-y-6${isDeleteDialogOpen ? " pointer-events-none" : ""}`}
         >
-          {weekGroups.map((week) => (
-            <section key={week.weekStart}>
+          {monthGroups.map((month) => (
+            <section key={month.monthKey}>
               <div className="mb-2 flex items-baseline justify-between gap-4 px-1">
-                <h2 className="text-sm font-semibold text-content">{week.weekLabel}</h2>
+                <h2 className="text-sm font-semibold text-content">{month.monthLabel}</h2>
                 <p className={numericMetaValueClass}>
-                  {t("tracker.weekTotal")}: {formatDurationMinutes(week.totalDurationMinutes)}
+                  {t("tracker.monthTotal")}: {formatDurationMinutes(month.totalDurationMinutes)}
                 </p>
               </div>
 
               <div className="space-y-4">
-                {week.days.map((day) => (
+                {month.days.map((day) => (
                   <div key={day.date}>
                     <div className="mb-1 flex items-baseline justify-between gap-4 border-b border-divider px-4 py-2">
                       <h3 className="text-sm font-medium text-content">{day.dayLabel}</h3>

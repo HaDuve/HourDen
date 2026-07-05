@@ -14,10 +14,9 @@ export type TrackerDayGroup<T extends TrackerEntryInput> = {
   entries: T[];
 };
 
-export type TrackerWeekGroup<T extends TrackerEntryInput> = {
-  weekLabel: string;
-  weekStart: string;
-  weekEnd: string;
+export type TrackerMonthGroup<T extends TrackerEntryInput> = {
+  monthLabel: string;
+  monthKey: string;
   totalDurationMinutes: number;
   days: TrackerDayGroup<T>[];
 };
@@ -32,14 +31,14 @@ const MONTH_DAY_FORMATTERS: Record<SupportedLocale, Intl.DateTimeFormat> = {
   de: new Intl.DateTimeFormat("de-DE", { month: "short", day: "numeric" }),
 };
 
-const THIS_WEEK_LABEL: Record<SupportedLocale, string> = {
-  en: "This week",
-  de: "Diese Woche",
+const THIS_MONTH_LABEL: Record<SupportedLocale, string> = {
+  en: "This month",
+  de: "Dieser Monat",
 };
 
-const LAST_WEEK_LABEL: Record<SupportedLocale, string> = {
-  en: "Last week",
-  de: "Letzte Woche",
+const LAST_MONTH_LABEL: Record<SupportedLocale, string> = {
+  en: "Last month",
+  de: "Letzter Monat",
 };
 
 function parseDateKey(dateKey: string): Date {
@@ -47,25 +46,17 @@ function parseDateKey(dateKey: string): Date {
   return new Date(Date.UTC(year!, month! - 1, day!));
 }
 
-function formatDateKey(date: Date): string {
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+function monthKeyFromDateKey(dateKey: string): string {
+  return dateKey.slice(0, 7);
 }
 
-function addDays(dateKey: string, days: number): string {
-  const date = parseDateKey(dateKey);
-  date.setUTCDate(date.getUTCDate() + days);
-  return formatDateKey(date);
-}
-
-function mondayOfWeek(dateKey: string): string {
-  const date = parseDateKey(dateKey);
-  const weekday = date.getUTCDay();
-  const daysFromMonday = (weekday + 6) % 7;
-  date.setUTCDate(date.getUTCDate() - daysFromMonday);
-  return formatDateKey(date);
+function previousMonthKey(monthKey: string): string {
+  const [year, month] = monthKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year!, month! - 1, 1));
+  date.setUTCMonth(date.getUTCMonth() - 1);
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${y}-${m}`;
 }
 
 function formatDayLabel(dateKey: string, locale: SupportedLocale): string {
@@ -75,58 +66,50 @@ function formatDayLabel(dateKey: string, locale: SupportedLocale): string {
   return `${weekday}, ${monthDay}`;
 }
 
-function formatWeekRangeLabel(
-  weekStart: string,
-  weekEnd: string,
-  locale: SupportedLocale,
-): string {
-  const start = parseDateKey(weekStart);
-  const end = parseDateKey(weekEnd);
-  const startLabel = MONTH_DAY_FORMATTERS[locale].format(start);
-  const endLabel = MONTH_DAY_FORMATTERS[locale].format(end);
-  return `${startLabel} - ${endLabel}`;
-}
-
-function weekLabelForRange(
-  weekStart: string,
-  weekEnd: string,
+function monthLabelForKey(
+  monthKey: string,
   todayKey: string,
   locale: SupportedLocale,
 ): string {
-  const thisWeekStart = mondayOfWeek(todayKey);
-  const lastWeekStart = addDays(thisWeekStart, -7);
+  const thisMonthKey = monthKeyFromDateKey(todayKey);
+  const lastMonthKey = previousMonthKey(thisMonthKey);
 
-  if (weekStart === thisWeekStart) {
-    return THIS_WEEK_LABEL[locale];
+  if (monthKey === thisMonthKey) {
+    return THIS_MONTH_LABEL[locale];
   }
-  if (weekStart === lastWeekStart) {
-    return LAST_WEEK_LABEL[locale];
+  if (monthKey === lastMonthKey) {
+    return LAST_MONTH_LABEL[locale];
   }
-  return formatWeekRangeLabel(weekStart, weekEnd, locale);
+
+  const [year, month] = monthKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year!, month! - 1, 1));
+  return new Intl.DateTimeFormat(locale === "de" ? "de-DE" : "en-US", {
+    month: "long",
+    year: "numeric",
+  }).format(date);
 }
 
-export function groupTrackerEntriesByWeek<T extends TrackerEntryInput>(
+export function groupTrackerEntriesByMonth<T extends TrackerEntryInput>(
   entries: T[],
   options: { timeZone: string; today?: string; locale?: SupportedLocale },
-): TrackerWeekGroup<T>[] {
+): TrackerMonthGroup<T>[] {
   const locale = options.locale ?? "en";
   const todayKey = options.today ?? toLocalDateKey(new Date(), options.timeZone);
-  const byWeek = new Map<string, Map<string, T[]>>();
+  const byMonth = new Map<string, Map<string, T[]>>();
 
   for (const entry of entries) {
     const dateKey = toLocalDateKey(new Date(entry.startedAt), options.timeZone);
-    const weekStart = mondayOfWeek(dateKey);
-    const weekDays = byWeek.get(weekStart) ?? new Map<string, T[]>();
-    const dayEntries = weekDays.get(dateKey) ?? [];
+    const monthKey = monthKeyFromDateKey(dateKey);
+    const monthDays = byMonth.get(monthKey) ?? new Map<string, T[]>();
+    const dayEntries = monthDays.get(dateKey) ?? [];
     dayEntries.push(entry);
-    weekDays.set(dateKey, dayEntries);
-    byWeek.set(weekStart, weekDays);
+    monthDays.set(dateKey, dayEntries);
+    byMonth.set(monthKey, monthDays);
   }
 
-  return [...byWeek.entries()]
+  return [...byMonth.entries()]
     .sort(([a], [b]) => b.localeCompare(a))
-    .map(([weekStart, daysMap]) => {
-      const weekEnd = addDays(weekStart, 6);
+    .map(([monthKey, daysMap]) => {
       const days = [...daysMap.entries()]
         .sort(([a], [b]) => b.localeCompare(a))
         .map(([date, dayEntries]) => ({
@@ -148,9 +131,8 @@ export function groupTrackerEntriesByWeek<T extends TrackerEntryInput>(
       );
 
       return {
-        weekLabel: weekLabelForRange(weekStart, weekEnd, todayKey, locale),
-        weekStart,
-        weekEnd,
+        monthLabel: monthLabelForKey(monthKey, todayKey, locale),
+        monthKey,
         totalDurationMinutes,
         days,
       };

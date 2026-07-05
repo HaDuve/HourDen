@@ -40,12 +40,12 @@ const afternoonEntry = {
   invoiced: false,
 };
 
-const lastWeekEntry = {
+const lastMonthEntry = {
   id: "e0000000-0000-4000-8000-000000000003",
   projectId: null,
   startedAt: "2026-06-25T10:00:00.000Z",
   endedAt: "2026-06-25T11:00:00.000Z",
-  description: "Last week work",
+  description: "Last month work",
   tags: [],
   billable: true,
   amount: 60,
@@ -216,14 +216,14 @@ describe("TrackerPage", () => {
     });
   });
 
-  it("groups entries by week and day", async () => {
-    vi.stubGlobal("fetch", createFetchMock([morningEntry, lastWeekEntry]));
+  it("groups entries by month and day", async () => {
+    vi.stubGlobal("fetch", createFetchMock([morningEntry, lastMonthEntry]));
 
     render(<TrackerPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("This week")).toBeInTheDocument();
-      expect(screen.getByText("Last week")).toBeInTheDocument();
+      expect(screen.getByText("This month")).toBeInTheDocument();
+      expect(screen.getByText("Last month")).toBeInTheDocument();
       expect(screen.getByText("Thu, Jul 2")).toBeInTheDocument();
       expect(screen.getByText("Thu, Jun 25")).toBeInTheDocument();
     });
@@ -484,7 +484,7 @@ describe("TrackerPage", () => {
 
   it("re-buckets an entry when its start date moves to another day", async () => {
     window.matchMedia = createMatchMedia(true) as typeof window.matchMedia;
-    const fetchMock = createFetchMock([morningEntry, lastWeekEntry]);
+    const fetchMock = createFetchMock([morningEntry, lastMonthEntry]);
     fetchMock.mockImplementation((url: string, init?: RequestInit) => {
       if (
         url === `/api/time-entries/${morningEntry.id}` &&
@@ -499,7 +499,7 @@ describe("TrackerPage", () => {
           }),
         });
       }
-      return createFetchMock([morningEntry, lastWeekEntry])(url, init);
+      return createFetchMock([morningEntry, lastMonthEntry])(url, init);
     });
     vi.stubGlobal("fetch", fetchMock);
 

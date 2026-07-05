@@ -148,7 +148,7 @@
     "title": "Tracker",
     "subtitle": "Zeit mit laufendem Timer oder manuellen Einträgen erfassen.",
     "empty": "Noch keine Zeiteinträge. Timer starten oder manuellen Eintrag hinzufügen.",
-    "weekTotal": "Wochensumme",
+    "monthTotal": "Monatssumme",
     "dayTotal": "Summe",
     "showEntries": "Einträge anzeigen",
     "addManualEntry": "Manuellen Eintrag hinzufügen",
