@@ -4,10 +4,12 @@ import { DEFAULT_WORKSPACE_ID } from "@hourden/domain";
 import { createApp } from "./app.js";
 import { runMigrations } from "./db/migrate.js";
 import { loginAsOperator, withSessionCookie } from "./test/auth-helper.js";
+import {
+  TEST_OPERATOR_EMAIL,
+  TEST_OPERATOR_PASSWORD,
+} from "./test/setup.js";
 
 const databaseUrl = process.env.DATABASE_URL;
-const TEST_OPERATOR_EMAIL = "operator@test.hourden.local";
-const TEST_OPERATOR_PASSWORD = "TestPass1";
 
 describe.skipIf(!databaseUrl)("Auth API", () => {
   const pool = new Pool({ connectionString: databaseUrl });
