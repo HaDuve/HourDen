@@ -1,9 +1,13 @@
 import type { Hono } from "hono";
+import {
+  TEST_OPERATOR_EMAIL,
+  TEST_OPERATOR_PASSWORD,
+} from "./operator-credentials.js";
 
 export async function loginAsOperator(
   app: Hono,
-  email = process.env.HOURDEN_OPERATOR_EMAIL ?? "operator@test.hourden.local",
-  password = process.env.HOURDEN_OPERATOR_PASSWORD ?? "TestPass1",
+  email = process.env.HOURDEN_OPERATOR_EMAIL ?? TEST_OPERATOR_EMAIL,
+  password = process.env.HOURDEN_OPERATOR_PASSWORD ?? TEST_OPERATOR_PASSWORD,
 ): Promise<string> {
   const res = await app.request("/api/auth/login", {
     method: "POST",

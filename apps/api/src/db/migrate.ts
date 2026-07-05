@@ -1,5 +1,4 @@
 import type { Pool } from "pg";
-import { seedAuthMigration } from "./migrations/012-auth.js";
 import { MIGRATIONS } from "./migrations.js";
 
 export async function runMigrations(pool: Pool): Promise<void> {
@@ -40,12 +39,6 @@ export async function runMigrations(pool: Pool): Promise<void> {
       await pool.query("ROLLBACK");
       throw error;
     }
-  }
-
-  // Re-seed operator user on every test run so credentials match test setup even when
-  // migration 012 was first applied with a developer's .env operator email.
-  if (process.env.VITEST) {
-    await seedAuthMigration(pool);
   }
 }
 

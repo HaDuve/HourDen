@@ -2,7 +2,7 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "./app.js";
 import { createUserWithWorkspace } from "./db/workspaces.js";
-import { runMigrations } from "./db/migrate.js";
+import { runMigrationsForTests } from "./test/migrate-for-tests.js";
 import { loginAsOperator, withSessionCookie } from "./test/auth-helper.js";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -16,7 +16,7 @@ describe.skipIf(!databaseUrl)("create-user", () => {
   const app = createApp({ pool });
 
   beforeAll(async () => {
-    await runMigrations(pool);
+    await runMigrationsForTests(pool);
   });
 
   beforeEach(async () => {

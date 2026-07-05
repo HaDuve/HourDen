@@ -2,7 +2,7 @@ import { DEFAULT_WORKSPACE_ID } from "@hourden/domain";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "./app.js";
-import { runMigrations } from "./db/migrate.js";
+import { runMigrationsForTests } from "./test/migrate-for-tests.js";
 import { publishWorkspaceEvent } from "./events/workspace-bus.js";
 import { loginAsOperator, withSessionCookie } from "./test/auth-helper.js";
 import { readNextSseEvent } from "./test/sse-helper.js";
@@ -15,7 +15,7 @@ describe.skipIf(!databaseUrl)("SSE events API", () => {
   let sessionCookie: string;
 
   beforeAll(async () => {
-    await runMigrations(pool);
+    await runMigrationsForTests(pool);
     sessionCookie = await loginAsOperator(app);
   });
 

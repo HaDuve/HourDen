@@ -2,7 +2,7 @@ import type { Hono } from "hono";
 import type { Pool } from "pg";
 import { vi } from "vitest";
 import { createApp } from "../../../api/src/app.js";
-import { runMigrations } from "../../../api/src/db/migrate.js";
+import { runMigrationsForTests } from "../../../api/src/test/migrate-for-tests.js";
 import {
   bindSessionAuth,
   withSessionCookie,
@@ -31,7 +31,7 @@ export async function setupAuthenticatedApiFetch(
 ): Promise<{ app: Hono; restoreFetch: () => void }> {
   vi.unstubAllGlobals();
   const originalFetch = globalThis.fetch;
-  await runMigrations(pool);
+  await runMigrationsForTests(pool);
 
   const app = createApp({ pool });
   await bindSessionAuth(app);
@@ -80,7 +80,7 @@ export async function setupFreshUserApiFetch(
 ): Promise<{ app: Hono; restoreFetch: () => void; workspaceId: string }> {
   vi.unstubAllGlobals();
   const originalFetch = globalThis.fetch;
-  await runMigrations(pool);
+  await runMigrationsForTests(pool);
 
   const app = createApp({ pool });
   const created = await createUserWithWorkspace(pool, input);

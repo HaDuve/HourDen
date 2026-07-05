@@ -2,7 +2,7 @@ import { DEFAULT_WORKSPACE_ID } from "@hourden/domain";
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "./app.js";
-import { runMigrations } from "./db/migrate.js";
+import { runMigrationsForTests } from "./test/migrate-for-tests.js";
 import { bindSessionAuth } from "./test/auth-helper.js";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -38,7 +38,7 @@ describe.skipIf(!databaseUrl)("Report API", () => {
   const app = createApp({ pool });
 
   beforeAll(async () => {
-    await runMigrations(pool);
+    await runMigrationsForTests(pool);
     await bindSessionAuth(app);
   });
 

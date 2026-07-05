@@ -18,8 +18,13 @@ import "../i18n/i18n.js";
 import { createMatchMedia } from "./match-media.js";
 import { installMockEventSource } from "./mock-event-source.js";
 
-process.env.HOURDEN_OPERATOR_EMAIL = "operator@test.hourden.local";
-process.env.HOURDEN_OPERATOR_PASSWORD = "TestPass1";
+import {
+  TEST_OPERATOR_EMAIL,
+  TEST_OPERATOR_PASSWORD,
+} from "../../../api/src/test/operator-credentials.js";
+
+process.env.HOURDEN_OPERATOR_EMAIL = TEST_OPERATOR_EMAIL;
+process.env.HOURDEN_OPERATOR_PASSWORD = TEST_OPERATOR_PASSWORD;
 
 installMockEventSource();
 
