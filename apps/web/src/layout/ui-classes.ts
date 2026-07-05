@@ -30,7 +30,7 @@ export const destructiveButtonClass =
 export const destructiveOutlineButtonClass =
   "rounded-md border border-destructive-border text-danger hover:bg-destructive-muted";
 export const mutedOutlineButtonClass =
-  "cursor-not-allowed rounded-md border border-divider text-muted opacity-60";
+  "rounded-md border border-divider text-muted opacity-60";
 
 export const errorBannerClass =
   "rounded-lg border border-destructive-border bg-destructive-muted px-4 py-3 text-sm text-danger";

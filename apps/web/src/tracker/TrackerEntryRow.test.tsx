@@ -187,6 +187,20 @@ describe("TrackerEntryRow", () => {
     expect(invoicedButton).toBeDisabled();
   });
 
+  it("shows the invoiced status button on mobile invoiced rows", () => {
+    renderRow({
+      isMobile: true,
+      entry: { ...stoppedEntry, invoiced: true },
+    });
+
+    expect(
+      screen.queryByRole("button", {
+        name: /morning work no project · jul 2, 08:00 – jul 2, 08:00/i,
+      }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^invoiced$/i })).toBeDisabled();
+  });
+
   it("opens the mobile edit sheet when a stopped entry row is tapped", () => {
     const onMobileEdit = vi.fn();
     renderRow({ isMobile: true, onMobileEdit });
