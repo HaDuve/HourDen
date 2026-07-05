@@ -161,6 +161,7 @@
     "noDescription": "No description",
     "running": "running",
     "incomplete": "incomplete",
+    "invoiced": "Invoiced",
     "manualEntry": "Manual entry",
     "editEntry": "Edit entry",
     "description": "Description",

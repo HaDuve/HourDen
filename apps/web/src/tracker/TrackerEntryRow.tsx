@@ -5,6 +5,7 @@ import {
   destructiveOutlineButtonClass,
   inputClass,
   metaTextClass,
+  mutedOutlineButtonClass,
   numericValueClass,
   selectClass,
 } from "../layout/ui-classes.js";
@@ -319,7 +320,16 @@ export function TrackerEntryRow({
             <span className={`block ${metaTextClass}`}>{t("tracker.running")}</span>
           )}
         </p>
-        {!locked && (
+        {entry.invoiced ? (
+          <button
+            type="button"
+            disabled
+            aria-label={t("tracker.invoiced")}
+            className={`${mutedOutlineButtonClass} px-3 py-1.5 text-sm`}
+          >
+            {t("tracker.invoiced")}
+          </button>
+        ) : !entry.isRunning ? (
           <button
             type="button"
             onClick={onDelete}
@@ -328,7 +338,7 @@ export function TrackerEntryRow({
           >
             {t("common.delete")}
           </button>
-        )}
+        ) : null}
       </div>
 
       <span className="sr-only">{rowSummaryLabel}</span>

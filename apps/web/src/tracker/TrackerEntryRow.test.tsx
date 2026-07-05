@@ -175,13 +175,30 @@ describe("TrackerEntryRow", () => {
     expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
   });
 
-  it("does not offer inline edit controls for invoiced entries", () => {
+  it("shows an invoiced status button instead of delete for invoiced entries", () => {
     renderRow({
       entry: { ...stoppedEntry, invoiced: true },
     });
 
     expect(screen.queryByRole("button", { name: /morning work/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
+
+    const invoicedButton = screen.getByRole("button", { name: /^invoiced$/i });
+    expect(invoicedButton).toBeDisabled();
+  });
+
+  it("shows the invoiced status button on mobile invoiced rows", () => {
+    renderRow({
+      isMobile: true,
+      entry: { ...stoppedEntry, invoiced: true },
+    });
+
+    expect(
+      screen.queryByRole("button", {
+        name: /morning work no project · jul 2, 08:00 – jul 2, 08:00/i,
+      }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^invoiced$/i })).toBeDisabled();
   });
 
   it("opens the mobile edit sheet when a stopped entry row is tapped", () => {
