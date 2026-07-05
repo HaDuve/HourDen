@@ -216,7 +216,9 @@ describe.skipIf(!databaseUrl)("TrackerPage with live API", () => {
       expect(screen.getByText("Original entry")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /^edit$/i }));
+    const originalRow = screen.getByText("Original entry").closest("li");
+    expect(originalRow).not.toBeNull();
+    fireEvent.click(within(originalRow!).getByRole("button", { name: /^edit$/i }));
 
     const descriptionInput = screen.getByLabelText(/^description$/i);
     fireEvent.change(descriptionInput, { target: { value: "plan" } });
