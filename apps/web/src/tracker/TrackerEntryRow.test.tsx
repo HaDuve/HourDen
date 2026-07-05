@@ -107,6 +107,74 @@ describe("TrackerEntryRow", () => {
     });
   });
 
+  it("does not patch start when the inline field is blurred without edits", async () => {
+    const entryWithSeconds = {
+      ...stoppedEntry,
+      startedAt: "2026-07-02T08:34:42.123Z",
+    };
+    const { onPatch } = renderRow({
+      entry: entryWithSeconds,
+      formatDateTime: (iso) => iso,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^start:/i }));
+    fireEvent.blur(screen.getByLabelText(/^start$/i));
+
+    await waitFor(() => {
+      expect(onPatch).not.toHaveBeenCalled();
+    });
+  });
+
+  it("patches endedAt when the inline end field is saved on desktop", async () => {
+    const { onPatch } = renderRow();
+
+    fireEvent.click(screen.getByRole("button", { name: /^end:/i }));
+
+    const endInput = screen.getByLabelText(/^end$/i);
+    fireEvent.change(endInput, { target: { value: "2026-07-02T10:30" } });
+    fireEvent.blur(endInput);
+
+    await waitFor(() => {
+      expect(onPatch).toHaveBeenCalledWith({
+        endedAt: new Date("2026-07-02T10:30").toISOString(),
+      });
+    });
+  });
+
+  it("does not patch end when the inline field is blurred without edits", async () => {
+    const entryWithSeconds = {
+      ...stoppedEntry,
+      endedAt: "2026-07-02T09:45:12.456Z",
+    };
+    const { onPatch } = renderRow({
+      entry: entryWithSeconds,
+      formatDateTime: (iso) => iso,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^end:/i }));
+    fireEvent.blur(screen.getByLabelText(/^end$/i));
+
+    await waitFor(() => {
+      expect(onPatch).not.toHaveBeenCalled();
+    });
+  });
+
+  it("does not offer inline edit controls for running entries", () => {
+    renderRow({
+      entry: {
+        ...stoppedEntry,
+        endedAt: null,
+        isRunning: true,
+        billableComplete: false,
+        amount: null,
+        durationMinutes: 5,
+      },
+    });
+
+    expect(screen.queryByRole("button", { name: /morning work/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
+  });
+
   it("does not offer inline edit controls for invoiced entries", () => {
     renderRow({
       entry: { ...stoppedEntry, invoiced: true },

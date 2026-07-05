@@ -82,32 +82,30 @@ export function TrackerEntryRow({
 
   const saveStart = async () => {
     setActiveField(null);
-    const nextIso = new Date(startDraft).toISOString();
-    if (nextIso === entry.startedAt) {
+    const originalStartDraft = localDatetimeValue(new Date(entry.startedAt));
+    if (startDraft === originalStartDraft) {
       return;
     }
     try {
-      await onPatch({ startedAt: nextIso });
+      await onPatch({ startedAt: new Date(startDraft).toISOString() });
     } catch {
-      setStartDraft(localDatetimeValue(new Date(entry.startedAt)));
+      setStartDraft(originalStartDraft);
     }
   };
 
   const saveEnd = async () => {
     setActiveField(null);
-    if (!endDraft) {
+    if (!endDraft || !entry.endedAt) {
       return;
     }
-    const nextIso = new Date(endDraft).toISOString();
-    if (nextIso === entry.endedAt) {
+    const originalEndDraft = localDatetimeValue(new Date(entry.endedAt));
+    if (endDraft === originalEndDraft) {
       return;
     }
     try {
-      await onPatch({ endedAt: nextIso });
+      await onPatch({ endedAt: new Date(endDraft).toISOString() });
     } catch {
-      setEndDraft(
-        entry.endedAt ? localDatetimeValue(new Date(entry.endedAt)) : "",
-      );
+      setEndDraft(originalEndDraft);
     }
   };
 
@@ -206,18 +204,19 @@ export function TrackerEntryRow({
                     </optgroup>
                   ))}
                 </select>
-              ) : (
+              ) : editable ? (
                 <button
                   type="button"
-                  disabled={!editable}
                   onClick={() => {
                     setProjectDraft(entry.projectId ?? "");
                     setActiveField("project");
                   }}
-                  className={editable ? "hover:underline" : undefined}
+                  className="hover:underline"
                 >
                   {projectName ?? t("tracker.noProject")}
                 </button>
+              ) : (
+                <span>{projectName ?? t("tracker.noProject")}</span>
               )}
 
               <span aria-hidden="true">·</span>
@@ -241,19 +240,20 @@ export function TrackerEntryRow({
                   autoFocus
                   className={inputClass}
                 />
-              ) : (
+              ) : editable ? (
                 <button
                   type="button"
-                  disabled={!editable}
                   aria-label={`${t("tracker.start")}: ${formatDateTime(entry.startedAt)}`}
                   onClick={() => {
                     setStartDraft(localDatetimeValue(new Date(entry.startedAt)));
                     setActiveField("start");
                   }}
-                  className={editable ? "hover:underline" : undefined}
+                  className="hover:underline"
                 >
                   {formatDateTime(entry.startedAt)}
                 </button>
+              ) : (
+                <span>{formatDateTime(entry.startedAt)}</span>
               )}
 
               {entry.endedAt && (
@@ -278,19 +278,20 @@ export function TrackerEntryRow({
                       autoFocus
                       className={inputClass}
                     />
-                  ) : (
+                  ) : editable ? (
                     <button
                       type="button"
-                      disabled={!editable}
                       aria-label={`${t("tracker.end")}: ${formatDateTime(entry.endedAt)}`}
                       onClick={() => {
                         setEndDraft(localDatetimeValue(new Date(entry.endedAt!)));
                         setActiveField("end");
                       }}
-                      className={editable ? "hover:underline" : undefined}
+                      className="hover:underline"
                     >
                       {formatDateTime(entry.endedAt)}
                     </button>
+                  ) : (
+                    <span>{formatDateTime(entry.endedAt)}</span>
                   )}
                 </>
               )}
