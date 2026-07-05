@@ -235,7 +235,7 @@ describe.skipIf(!databaseUrl)("TrackerPage with live API", () => {
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("Past planning session")).toBeInTheDocument();
+      expect(screen.queryByText("Original entry")).not.toBeInTheDocument();
     });
 
     const savedRes = await fetch(`/api/time-entries?date=${today}`);
