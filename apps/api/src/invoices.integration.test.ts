@@ -504,6 +504,122 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     }
   });
 
+  it("returns ENTRIES_MISSING_DESCRIPTION when stopped Client time in the period has no Description", async () => {
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const ondojo = await createProject(app, bandao.id, "Ondojo");
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        startedAt: "2026-06-18T10:00:00.000Z",
+        endedAt: "2026-06-18T11:00:00.000Z",
+      }),
+    });
+
+    const preview = await app.request("/api/invoices/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+
+    expect(preview.status).toBe(400);
+    expect(await preview.json()).toEqual({
+      error: "Time Entries in this Billing Period need a Description before invoicing",
+      code: "ENTRIES_MISSING_DESCRIPTION",
+    });
+  });
+
+  it("returns NO_BILLABLE_ENTRIES when there is no invoiceable time for the Client in the period", async () => {
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+
+    const preview = await app.request("/api/invoices/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+
+    expect(preview.status).toBe(400);
+    expect(await preview.json()).toEqual({
+      error: "No billable Time Entries in this Billing Period",
+      code: "NO_BILLABLE_ENTRIES",
+    });
+  });
+
+  it("returns ENTRIES_WITHOUT_PROJECT when stopped time in the period has no Project", async () => {
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        description: "Unassigned work",
+        startedAt: "2026-06-18T10:00:00.000Z",
+        endedAt: "2026-06-18T11:00:00.000Z",
+      }),
+    });
+
+    const preview = await app.request("/api/invoices/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+
+    expect(preview.status).toBe(400);
+    expect(await preview.json()).toEqual({
+      error: "Time Entries in this Billing Period are not assigned to a Project",
+      code: "ENTRIES_WITHOUT_PROJECT",
+    });
+  });
+
+  it("returns MISSING_RECIPIENT when previewing a Client without Recipient fields", async () => {
+    const hannah = await createClient(app, { name: "Hannah", defaultRate: 80 });
+
+    const preview = await app.request("/api/invoices/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: hannah.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+
+    expect(preview.status).toBe(400);
+    expect(await preview.json()).toEqual({
+      error: "Client Recipient fields are required before invoicing",
+      code: "MISSING_RECIPIENT",
+    });
+  });
+
   it("preview renders a PDF with the next Invoice Number without committing", async () => {
     const bandao = await createClient(app, {
       name: "Bandao",

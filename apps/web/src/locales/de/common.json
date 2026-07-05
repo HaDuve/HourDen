@@ -108,6 +108,13 @@
     "exportInvoicesFailed": "Rechnungen konnten nicht exportiert werden",
     "downloadInvoiceFailed": "Rechnung konnte nicht heruntergeladen werden",
     "saveInvoiceSenderFailed": "Rechnungsabsender konnte nicht gespeichert werden",
+    "blockers": {
+      "noClients": "Legen Sie auf der <actionLink>Kundenseite</actionLink> einen Kunden an.",
+      "missingRecipient": "Ergänzen Sie Rechnungsempfänger-Angaben auf der <actionLink>Kundenseite</actionLink>.",
+      "noBillableEntries": "Erfassen Sie abrechenbare Zeit für diesen Kunden im <actionLink>Tracker</actionLink>.",
+      "entriesWithoutProject": "Weisen Sie erfasste Zeit auf der <actionLink>Projektseite</actionLink> einem Projekt zu.",
+      "entriesMissingDescription": "Ergänzen Sie Beschreibungen für gestoppte Zeiteinträge im <actionLink>Tracker</actionLink>."
+    },
     "senderName": "Name",
     "senderStreet": "Straße",
     "senderCity": "Stadt",

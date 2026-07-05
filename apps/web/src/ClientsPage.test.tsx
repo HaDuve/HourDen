@@ -1,8 +1,17 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import i18n from "./i18n/i18n.js";
 import ClientsPage from "./ClientsPage.js";
 import { mockDesktopViewport } from "./test/viewport.js";
+
+function renderClientsPage(initialEntry = "/clients") {
+  return render(
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <ClientsPage />
+    </MemoryRouter>,
+  );
+}
 
 describe("ClientsPage", () => {
   beforeEach(async () => {
@@ -26,6 +35,39 @@ describe("ClientsPage", () => {
     addressLine2: null,
   };
 
+  it("opens the edit form when the edit query param matches a Client", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ clients: [hannahClient] }),
+      }),
+    );
+
+    renderClientsPage(`/clients?edit=${hannahClient.id}`);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /edit client/i })).toBeInTheDocument();
+      expect(screen.getByLabelText(/^name$/i)).toHaveValue("Hannah");
+    });
+  });
+
+  it("opens the new-client form when the new query param is set", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ clients: [bandaoClient] }),
+      }),
+    );
+
+    renderClientsPage("/clients?new=1");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /new client/i })).toBeInTheDocument();
+    });
+  });
+
   it("shows an empty state when there are no Clients", async () => {
     vi.stubGlobal(
       "fetch",
@@ -35,7 +77,7 @@ describe("ClientsPage", () => {
       }),
     );
 
-    render(<ClientsPage />);
+    renderClientsPage();
 
     await waitFor(() => {
       expect(screen.getByText(/no clients yet/i)).toBeInTheDocument();
@@ -62,7 +104,7 @@ describe("ClientsPage", () => {
       }),
     );
 
-    render(<ClientsPage />);
+    renderClientsPage();
 
     await waitFor(() => {
       expect(screen.getByText("Bandao")).toBeInTheDocument();
@@ -80,7 +122,7 @@ describe("ClientsPage", () => {
       }),
     );
 
-    render(<ClientsPage />);
+    renderClientsPage();
 
     await waitFor(() => {
       expect(
@@ -126,7 +168,7 @@ describe("ClientsPage", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<ClientsPage />);
+    renderClientsPage();
     await waitFor(() => {
       expect(screen.getByText(/no clients yet/i)).toBeInTheDocument();
     });
@@ -190,7 +232,7 @@ describe("ClientsPage", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<ClientsPage />);
+    renderClientsPage();
     await waitFor(() => {
       expect(screen.getByText("Bandao")).toBeInTheDocument();
     });
@@ -236,7 +278,7 @@ describe("ClientsPage", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<ClientsPage />);
+    renderClientsPage();
     await waitFor(() => {
       expect(screen.getByText("Hannah")).toBeInTheDocument();
     });
@@ -281,7 +323,7 @@ describe("ClientsPage", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<ClientsPage />);
+    renderClientsPage();
     await waitFor(() => {
       expect(screen.getByText("Bandao")).toBeInTheDocument();
       expect(screen.getByText("Hannah")).toBeInTheDocument();
@@ -336,7 +378,7 @@ describe("ClientsPage", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<ClientsPage />);
+    renderClientsPage();
     await waitFor(() => {
       expect(screen.getByText("Bandao")).toBeInTheDocument();
     });
@@ -380,7 +422,7 @@ describe("ClientsPage", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<ClientsPage />);
+    renderClientsPage();
     await waitFor(() => {
       expect(screen.getByText("Bandao")).toBeInTheDocument();
     });

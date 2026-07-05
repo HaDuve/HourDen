@@ -1,6 +1,7 @@
 import type { Client } from "@hourden/domain";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 import { PageMain } from "./layout/PageMain.js";
 import { ResponsiveOverlay } from "./layout/ResponsiveOverlay.js";
 import {
@@ -63,6 +64,7 @@ async function fetchClients(): Promise<Client[]> {
 export default function ClientsPage() {
   const { t } = useTranslation();
   const { formatHourlyRate } = useLocaleFormat();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +94,31 @@ export default function ClientsPage() {
   useEffect(() => {
     void loadClients();
   }, [loadClients]);
+
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    const editId = searchParams.get("edit");
+    const wantsNew = searchParams.get("new") === "1";
+    if (!editId && !wantsNew) {
+      return;
+    }
+
+    if (editId) {
+      const client = clients.find((entry) => entry.id === editId);
+      if (client) {
+        setEditing(client);
+        setForm(clientToForm(client));
+      }
+    } else {
+      setEditing("new");
+      setForm(emptyForm);
+    }
+
+    setSearchParams({}, { replace: true });
+  }, [clients, loading, searchParams, setSearchParams]);
 
   const openCreate = () => {
     setEditing("new");
