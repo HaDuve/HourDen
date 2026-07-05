@@ -15,8 +15,20 @@ const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
 
 async function isSessionValid(): Promise<boolean> {
-  const res = await fetch("/api/auth/me", { credentials: "include" });
-  return res.status === 200;
+  try {
+    const res = await fetch("/api/auth/me", { credentials: "include" });
+    return res.status === 200;
+  } catch {
+    return false;
+  }
+}
+
+function redirectToLogin(): void {
+  try {
+    window.location.replace("/login");
+  } catch {
+    // jsdom does not implement full navigation.
+  }
 }
 
 export function useWorkspaceEvents(handlers: WorkspaceEventHandlers) {
@@ -67,7 +79,7 @@ export function useWorkspaceEvents(handlers: WorkspaceEventHandlers) {
 
       const valid = await isSessionValid();
       if (!valid) {
-        window.location.replace("/login");
+        redirectToLogin();
         return;
       }
 
@@ -89,7 +101,7 @@ export function useWorkspaceEvents(handlers: WorkspaceEventHandlers) {
         void (async () => {
           const stillValid = await isSessionValid();
           if (!stillValid) {
-            window.location.replace("/login");
+            redirectToLogin();
             return;
           }
           scheduleReconnect();

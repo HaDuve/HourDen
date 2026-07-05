@@ -5,6 +5,7 @@ import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { setupAuthenticatedApiFetch } from "./test/authenticated-api.js";
+import { resetMockEventSources } from "./test/mock-event-source.js";
 import { authenticatedAppRoutes } from "./routes.js";
 
 function renderApp() {
@@ -29,8 +30,10 @@ describe.skipIf(!databaseUrl)("App with live API", () => {
     await pool.query("DELETE FROM clients");
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
+    resetMockEventSources();
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
 
   afterAll(async () => {

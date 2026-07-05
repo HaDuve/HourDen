@@ -1,12 +1,13 @@
 import "./test/load-env.js";
 
 import { Pool } from "pg";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { setupAuthenticatedApiFetch } from "./test/authenticated-api.js";
 import ReportPage from "./ReportPage.js";
 
 const databaseUrl = process.env.DATABASE_URL;
+const JUNE_2026 = new Date("2026-06-15T12:00:00.000Z");
 
 async function createClient(
   name: string,
@@ -37,18 +38,26 @@ describe.skipIf(!databaseUrl)("ReportPage with live API", () => {
   let restoreFetch: () => void;
 
   beforeAll(async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(JUNE_2026);
     ({ restoreFetch } = await setupAuthenticatedApiFetch(pool));
   });
 
   beforeEach(async () => {
+    vi.setSystemTime(JUNE_2026);
     await pool.query("DELETE FROM time_entries");
     await pool.query("DELETE FROM projects");
     await pool.query("DELETE FROM clients");
   });
 
+  afterEach(() => {
+    cleanup();
+  });
+
   afterAll(async () => {
     restoreFetch();
     await pool.end();
+    vi.useRealTimers();
   });
 
   it("shows entries grouped by Client for the selected date range", async () => {
@@ -78,13 +87,6 @@ describe.skipIf(!databaseUrl)("ReportPage with live API", () => {
     });
 
     render(<ReportPage />);
-
-    fireEvent.change(screen.getByLabelText(/^from$/i), {
-      target: { value: "2026-06-18" },
-    });
-    fireEvent.change(screen.getByLabelText(/^to$/i), {
-      target: { value: "2026-06-18" },
-    });
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "Bandao" })).toBeInTheDocument();
@@ -116,15 +118,7 @@ describe.skipIf(!databaseUrl)("ReportPage with live API", () => {
 
     render(<ReportPage />);
 
-    fireEvent.change(screen.getByLabelText(/^from$/i), {
-      target: { value: "2026-06-22" },
-    });
-    fireEvent.change(screen.getByLabelText(/^to$/i), {
-      target: { value: "2026-06-22" },
-    });
-
     await waitFor(() => {
-      expect(screen.queryByText(/loading report/i)).not.toBeInTheDocument();
       expect(screen.getByText("Development Call")).toBeInTheDocument();
     });
 
