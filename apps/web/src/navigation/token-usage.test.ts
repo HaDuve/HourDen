@@ -39,4 +39,9 @@ describe("shell/nav use semantic tokens, not raw color utilities", () => {
     const nav = readSource("./app-navigation.tsx");
     expect(nav).toMatch(/\b(?:bg|border)-(?:background|surface|divider)\b/);
   });
+
+  it("app shell root uses bg-background token", () => {
+    const app = readSource("../App.tsx");
+    expect(app).toMatch(/\bbg-background\b/);
+  });
 });

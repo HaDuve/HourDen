@@ -263,6 +263,21 @@ describe("App", () => {
     expect(within(primaryNav).queryByRole("link", { name: /^clients$/i })).not.toBeInTheDocument();
   });
 
+  it("renders desktop nav chrome with semantic token classes", async () => {
+    mockDesktopViewport();
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    renderApp("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
+    });
+
+    const primaryNav = screen.getByRole("navigation", { name: /primary/i });
+    expect(primaryNav).toHaveClass("bg-surface", "border-divider");
+    expect(primaryNav.closest(".min-h-screen")).toHaveClass("bg-background");
+  });
+
   it("opens the desktop overflow menu with secondary destinations", async () => {
     mockDesktopViewport();
     vi.stubGlobal("fetch", mockAppFetch());
@@ -397,6 +412,7 @@ describe("App", () => {
     expect(within(mobileNav).getByRole("link", { name: /^invoices$/i })).toBeInTheDocument();
     expect(within(mobileNav).getByRole("button", { name: /^more$/i })).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: /primary/i })).not.toBeInTheDocument();
+    expect(mobileNav).toHaveClass("bg-surface", "border-divider");
   });
 
   it("opens the mobile More sheet with secondary destinations", async () => {

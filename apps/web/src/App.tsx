@@ -12,7 +12,7 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-background">
       <AppNavigation isDesktop={isDesktop} onLogout={() => void handleLogout()} />
       <div className={isDesktop ? undefined : "pb-16"}>
         <Outlet />

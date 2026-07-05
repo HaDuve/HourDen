@@ -5,6 +5,9 @@
  * Screens reference these tokens (bg-surface, text-content, border-divider, ...),
  * never raw neutral or slate utilities. A palette change edits values here only.
  * No light theme, no toggle in this round.
+ *
+ * Numeric/time values (timers, durations, amounts): apply font-mono and tabular-nums
+ * on the element that renders the changing digits so layout does not shift on tick.
  */
 @theme {
   /* Base surfaces (darkest -> raised) */
