@@ -69,6 +69,15 @@ describeWithAuthenticatedWorkspace("TrackerPage with live API", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /start timer/i }));
 
+    await waitFor(
+      async () => {
+        const runningRes = await fetch("/api/time-entries/running");
+        const { entry } = (await runningRes.json()) as { entry: unknown | null };
+        expect(entry).not.toBeNull();
+      },
+      { timeout: 5000 },
+    );
+
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /stop timer/i })).toBeInTheDocument();
     });
@@ -92,6 +101,15 @@ describeWithAuthenticatedWorkspace("TrackerPage with live API", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: /start timer/i }));
+
+    await waitFor(
+      async () => {
+        const runningRes = await fetch("/api/time-entries/running");
+        const { entry } = (await runningRes.json()) as { entry: unknown | null };
+        expect(entry).not.toBeNull();
+      },
+      { timeout: 5000 },
+    );
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /stop timer/i })).toBeInTheDocument();
@@ -288,6 +306,15 @@ describeWithAuthenticatedWorkspace("TrackerPage with live API", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: /start timer/i }));
+
+    await waitFor(
+      async () => {
+        const runningRes = await fetch("/api/time-entries/running");
+        const { entry } = (await runningRes.json()) as { entry: unknown | null };
+        expect(entry).not.toBeNull();
+      },
+      { timeout: 5000 },
+    );
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /stop timer/i })).toBeInTheDocument();
