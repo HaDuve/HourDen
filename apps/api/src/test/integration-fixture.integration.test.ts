@@ -1,5 +1,9 @@
 import { Pool } from "pg";
 import { afterEach, describe, expect, it } from "vitest";
+import { createApp } from "../app.js";
+import { bindSessionAuth } from "./auth-helper.js";
+import { runMigrationsForTests } from "./migrate-for-tests.js";
+import { TEST_OPERATOR_EMAIL } from "./operator-credentials.js";
 import {
   withAuthenticatedWorkspace,
   withFreshUserWorkspace,
@@ -7,11 +11,56 @@ import {
 
 const databaseUrl = process.env.DATABASE_URL;
 
+async function operatorSessionCount(pool: Pool): Promise<number> {
+  const result = await pool.query<{ count: string }>(
+    `
+      SELECT COUNT(*)::text AS count
+      FROM sessions
+      WHERE user_id IN (SELECT id FROM users WHERE email = $1)
+    `,
+    [TEST_OPERATOR_EMAIL],
+  );
+  return Number(result.rows[0]!.count);
+}
+
 describe.skipIf(!databaseUrl)("integration fixture", () => {
   const workspaces: Array<{ teardown: () => Promise<void> }> = [];
 
   afterEach(async () => {
     await Promise.all(workspaces.splice(0).map((w) => w.teardown()));
+  });
+
+  it("bindSessionAuth returns the single session it binds", async () => {
+    const pool = new Pool({ connectionString: databaseUrl });
+    try {
+      await runMigrationsForTests(pool);
+      const app = createApp({ pool });
+      const countBefore = await operatorSessionCount(pool);
+
+      const sessionCookie = await bindSessionAuth(app);
+
+      expect(await operatorSessionCount(pool) - countBefore).toBe(1);
+      expect(sessionCookie).toMatch(/^hourden_session=/);
+      expect(await app.request("/api/auth/me")).toMatchObject({ status: 200 });
+    } finally {
+      await pool.end();
+    }
+  });
+
+  it("withAuthenticatedWorkspace exposes the bound session cookie", async () => {    const workspace = await withAuthenticatedWorkspace("api");
+    workspaces.push(workspace);
+
+    const cookieSessionId = workspace.sessionCookie.match(/hourden_session=(.+)/)?.[1];
+    expect(cookieSessionId).toBeTruthy();
+
+    const sessionRow = await workspace.pool.query<{ id: string }>(
+      "SELECT id FROM sessions WHERE id = $1",
+      [cookieSessionId],
+    );
+    expect(sessionRow.rows).toHaveLength(1);
+
+    const res = await workspace.app.request("/api/auth/me");
+    expect(res.status).toBe(200);
   });
 
   it("withAuthenticatedWorkspace(api) exposes session-bound app.request", async () => {

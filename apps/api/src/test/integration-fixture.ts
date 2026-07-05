@@ -8,7 +8,6 @@ import {
 } from "../db/workspaces.js";
 import {
   bindSessionAuth,
-  loginAsOperator,
   withSessionCookie,
 } from "./auth-helper.js";
 import { runMigrationsForTests } from "./migrate-for-tests.js";
@@ -118,8 +117,7 @@ async function createAuthenticatedContext(
   await runMigrationsForTests(pool);
 
   const app = createApp({ pool });
-  const sessionCookie = await loginAsOperator(app);
-  await bindSessionAuth(app);
+  const sessionCookie = await bindSessionAuth(app);
 
   let closed = false;
   let restoreFetch: (() => void) | undefined;

@@ -42,34 +42,10 @@ export function withSessionCookie(
 }
 
 /** Attach session cookie to every app.request call (integration tests). */
-export async function bindSessionAuth(app: Hono): Promise<void> {
+export async function bindSessionAuth(app: Hono): Promise<string> {
   const cookie = await loginAsOperator(app);
   const originalRequest = app.request.bind(app);
   app.request = ((input: RequestInfo | URL, init?: RequestInit) =>
     originalRequest(input, withSessionCookie(init ?? {}, cookie))) as typeof app.request;
-}
-
-/** Attach session cookie to proxied /api fetch calls (web integration tests). */
-export function bindSessionFetch(
-  app: Hono,
-  cookie: string,
-  originalFetch: typeof fetch = globalThis.fetch,
-): (input: RequestInfo | URL, init?: RequestInit) => Promise<Response> {
-  return async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url =
-      typeof input === "string"
-        ? input
-        : input instanceof URL
-          ? input.href
-          : input.url;
-
-    if (url.startsWith("/api/") || url.includes("/api/")) {
-      const path = url.startsWith("/api/")
-        ? url
-        : url.slice(url.indexOf("/api/"));
-      return app.request(path, withSessionCookie(init ?? {}, cookie));
-    }
-
-    return originalFetch(input, init);
-  };
+  return cookie;
 }
