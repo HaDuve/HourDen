@@ -3,17 +3,27 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { getWorkspaceCount, runMigrations, workspaceExists } from "./migrate.js";
 import { MIGRATIONS } from "./migrations.js";
+import {
+  ensureInvoicesWorkspaceInvoiceNumberUniqueIndex,
+  resetWorkspace,
+} from "../test/reset-workspace.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 
+// Serial-only: drops a shared index on the integration database. Vitest runs with
+// fileParallelism: false / maxWorkers: 1; ensureInvoicesWorkspaceInvoiceNumberUniqueIndex
+// restores the index if a prior run failed mid-test.
 describe.skipIf(!databaseUrl)("database migrations", () => {
   const pool = new Pool({ connectionString: databaseUrl });
 
   beforeAll(async () => {
     await runMigrations(pool);
+    await ensureInvoicesWorkspaceInvoiceNumberUniqueIndex(pool);
   });
 
   afterAll(async () => {
+    await ensureInvoicesWorkspaceInvoiceNumberUniqueIndex(pool);
+    await resetWorkspace(pool, DEFAULT_WORKSPACE_ID);
     await pool.end();
   });
 
@@ -85,22 +95,8 @@ describe.skipIf(!databaseUrl)("database migrations", () => {
         `Migration 010 aborted: duplicate invoice_number "${duplicateNumber}" exists within a Workspace. Resolve cross-Client duplicates before migrating.`,
       );
     } finally {
-      if (clientAId || clientBId) {
-        await pool.query(
-          "DELETE FROM invoices WHERE invoice_number = $1",
-          [duplicateNumber],
-        );
-      }
-      if (clientAId) {
-        await pool.query("DELETE FROM clients WHERE id = $1", [clientAId]);
-      }
-      if (clientBId) {
-        await pool.query("DELETE FROM clients WHERE id = $1", [clientBId]);
-      }
-      await pool.query(`
-        CREATE UNIQUE INDEX IF NOT EXISTS invoices_workspace_invoice_number_unique_idx
-          ON invoices (workspace_id, invoice_number)
-      `);
+      await resetWorkspace(pool, DEFAULT_WORKSPACE_ID);
+      await ensureInvoicesWorkspaceInvoiceNumberUniqueIndex(pool);
     }
   });
 });

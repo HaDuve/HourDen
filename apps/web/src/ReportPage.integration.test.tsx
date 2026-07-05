@@ -31,18 +31,14 @@ async function createProject(
   return res.json() as Promise<{ id: string }>;
 }
 
-describeWithAuthenticatedWorkspace("ReportPage with live API", (getWorkspace) => {
+describeWithAuthenticatedWorkspace("ReportPage with live API", () => {
   beforeAll(() => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(JUNE_2026);
   });
 
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.setSystemTime(JUNE_2026);
-    const { pool } = getWorkspace();
-    await pool.query("DELETE FROM time_entries");
-    await pool.query("DELETE FROM projects");
-    await pool.query("DELETE FROM clients");
   });
 
   afterAll(() => {

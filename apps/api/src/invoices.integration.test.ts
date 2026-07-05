@@ -1,17 +1,14 @@
 import JSZip from "jszip";
 import { PDFParse } from "pdf-parse";
-import { Pool } from "pg";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { Pool } from "pg";
+import { expect, it } from "vitest";
 import { DEFAULT_WORKSPACE_ID } from "@hourden/domain";
 import { DEFAULT_INVOICE_OPERATOR } from "@hourden/domain/invoice-pdf";
 import { normalizeInvoicePdfText } from "@hourden/domain/invoice-pdf-snapshot";
 import type { InvoiceIssuanceSnapshot } from "@hourden/domain/invoice-issuance-snapshot";
 import { createApp } from "./app.js";
 import { workspaceRowToInvoiceOperator } from "./db/workspaces.js";
-import { runMigrationsForTests } from "./test/migrate-for-tests.js";
-import { bindSessionAuth } from "./test/auth-helper.js";
-
-const databaseUrl = process.env.DATABASE_URL;
+import { describeWithAuthenticatedWorkspace } from "./test/describe-with-live-api.js";
 
 async function expectedInvoiceOperator(pool: Pool) {
   const row = await pool.query<{
@@ -93,38 +90,17 @@ async function createProject(
   return res.json() as Promise<{ id: string }>;
 }
 
-describe.skipIf(!databaseUrl)("Invoice API", () => {
-  const pool = new Pool({ connectionString: databaseUrl });
-  const app = createApp({ pool });
-
-  beforeAll(async () => {
-    await runMigrationsForTests(pool);
-    await bindSessionAuth(app);
-  });
-
-  beforeEach(async () => {
-    await pool.query("DELETE FROM time_entries");
-    await pool.query("DELETE FROM invoices");
-    await pool.query("DELETE FROM workspace_invoice_numbering");
-    await pool.query("DELETE FROM client_invoice_numbering");
-    await pool.query("DELETE FROM projects");
-    await pool.query("DELETE FROM clients");
-  });
-
-  afterAll(async () => {
-    await pool.end();
-  });
-
+describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
   it("generates an invoice PDF for a Client and Billing Period with grouped totals", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -135,7 +111,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -146,7 +122,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const res = await app.request("/api/invoices", {
+    const res = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -174,15 +150,15 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("rejects issue when Invoice Number is overridden without numberingStrategy", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -193,7 +169,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const first = await app.request("/api/invoices", {
+    const first = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -202,7 +178,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
         to: "2026-06-30",
       }),
     });
-    const second = await app.request("/api/invoices", {
+    const second = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -220,15 +196,15 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("prevents a second Invoice for the same Client and billing month", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -238,7 +214,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
         endedAt: "2026-06-10T11:00:00.000Z",
       }),
     });
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -249,7 +225,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const first = await app.request("/api/invoices", {
+    const first = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -258,7 +234,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
         to: "2026-06-15",
       }),
     });
-    const second = await app.request("/api/invoices", {
+    const second = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -276,16 +252,16 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("marks covered Time Entries as Invoiced and blocks edits", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
     const created = await (
-      await app.request("/api/time-entries", {
+      await getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -297,7 +273,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       })
     ).json();
 
-    await app.request("/api/invoices", {
+    await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -308,11 +284,11 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     });
 
     const listed = await (
-      await app.request("/api/time-entries?date=2026-06-18")
+      await getWorkspace().app.request("/api/time-entries?date=2026-06-18")
     ).json();
     expect(listed.entries[0].invoiced).toBe(true);
 
-    const patch = await app.request(`/api/time-entries/${created.id}`, {
+    const patch = await getWorkspace().app.request(`/api/time-entries/${created.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ description: "Changed" }),
@@ -324,15 +300,15 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("uses the same grouped totals as the Report for the Billing Period", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -342,7 +318,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
         endedAt: "2026-06-18T15:39:00.000Z",
       }),
     });
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -354,9 +330,9 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     });
 
     const report = await (
-      await app.request("/api/reports?from=2026-06-18&to=2026-06-30")
+      await getWorkspace().app.request("/api/reports?from=2026-06-18&to=2026-06-30")
     ).json();
-    const invoice = await app.request("/api/invoices", {
+    const invoice = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -378,15 +354,15 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("stores a verbatim issuance snapshot when issuing an Invoice", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -397,7 +373,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const res = await app.request("/api/invoices", {
+    const res = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -409,7 +385,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
 
     expect(res.status).toBe(201);
 
-    const row = await pool.query<{
+    const row = await getWorkspace().pool.query<{
       snapshot: InvoiceIssuanceSnapshot;
       status: string;
     }>("SELECT snapshot, status FROM invoices LIMIT 1");
@@ -422,7 +398,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
         addressLine1: "Schloßbergstraße 1",
         addressLine2: "82319 Starnberg",
       },
-      operator: await expectedInvoiceOperator(pool),
+      operator: await expectedInvoiceOperator(getWorkspace().pool),
       lines: [
         {
           date: "2026-06-18",
@@ -442,27 +418,27 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     const originalOperatorName = process.env.HOURDEN_OPERATOR_NAME;
     process.env.HOURDEN_OPERATOR_NAME = "Env Operator Name";
 
-    const workspaceBefore = await pool.query<{ sender_name: string | null }>(
+    const workspaceBefore = await getWorkspace().pool.query<{ sender_name: string | null }>(
       "SELECT sender_name FROM workspaces WHERE id = $1",
       [DEFAULT_WORKSPACE_ID],
     );
     const previousSenderName = workspaceBefore.rows[0]!.sender_name;
 
     try {
-      await pool.query(
+      await getWorkspace().pool.query(
         "UPDATE workspaces SET sender_name = $2 WHERE id = $1",
         [DEFAULT_WORKSPACE_ID, "Workspace Sender Name"],
       );
 
-      const bandao = await createClient(app, {
+      const bandao = await createClient(getWorkspace().app, {
         name: "Bandao",
         legalName: "BANDAO Guidance GmbH",
         addressLine1: "Schloßbergstraße 1",
         addressLine2: "82319 Starnberg",
       });
-      const ondojo = await createProject(app, bandao.id, "Ondojo");
+      const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-      await app.request("/api/time-entries", {
+      await getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -473,7 +449,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
         }),
       });
 
-      const res = await app.request("/api/invoices", {
+      const res = await getWorkspace().app.request("/api/invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -485,14 +461,14 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
 
       expect(res.status).toBe(201);
 
-      const row = await pool.query<{ snapshot: InvoiceIssuanceSnapshot }>(
+      const row = await getWorkspace().pool.query<{ snapshot: InvoiceIssuanceSnapshot }>(
         "SELECT snapshot FROM invoices LIMIT 1",
       );
 
       expect(row.rows[0]!.snapshot.operator.name).toBe("Workspace Sender Name");
       expect(row.rows[0]!.snapshot.operator.name).not.toBe("Env Operator Name");
     } finally {
-      await pool.query(
+      await getWorkspace().pool.query(
         "UPDATE workspaces SET sender_name = $2 WHERE id = $1",
         [DEFAULT_WORKSPACE_ID, previousSenderName],
       );
@@ -505,15 +481,15 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("returns ENTRIES_MISSING_DESCRIPTION when stopped Client time in the period has no Description", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -523,7 +499,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const preview = await app.request("/api/invoices/preview", {
+    const preview = await getWorkspace().app.request("/api/invoices/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -541,14 +517,14 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("returns NO_BILLABLE_ENTRIES when there is no invoiceable time for the Client in the period", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
 
-    const preview = await app.request("/api/invoices/preview", {
+    const preview = await getWorkspace().app.request("/api/invoices/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -566,14 +542,14 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("returns ENTRIES_WITHOUT_PROJECT when stopped time in the period has no Project", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -583,7 +559,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const preview = await app.request("/api/invoices/preview", {
+    const preview = await getWorkspace().app.request("/api/invoices/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -601,15 +577,15 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("returns ENTRIES_WITHOUT_PROJECT when both orphan time and missing-description Client time exist", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -619,7 +595,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -629,7 +605,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const preview = await app.request("/api/invoices/preview", {
+    const preview = await getWorkspace().app.request("/api/invoices/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -647,9 +623,9 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("returns MISSING_RECIPIENT when previewing a Client without Recipient fields", async () => {
-    const hannah = await createClient(app, { name: "Hannah", defaultRate: 80 });
+    const hannah = await createClient(getWorkspace().app, { name: "Hannah", defaultRate: 80 });
 
-    const preview = await app.request("/api/invoices/preview", {
+    const preview = await getWorkspace().app.request("/api/invoices/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -667,15 +643,15 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("preview renders a PDF with the next Invoice Number without committing", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -686,7 +662,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const preview = await app.request("/api/invoices/preview", {
+    const preview = await getWorkspace().app.request("/api/invoices/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -700,15 +676,18 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     expect(preview.headers.get("content-type")).toContain("application/pdf");
     expect(preview.headers.get("x-invoice-number")).toBe("BAN2026001");
 
-    const invoices = await pool.query("SELECT id, snapshot FROM invoices");
+    const invoices = await getWorkspace().pool.query(
+      "SELECT id, snapshot FROM invoices WHERE workspace_id = $1",
+      [DEFAULT_WORKSPACE_ID],
+    );
     expect(invoices.rows).toHaveLength(0);
 
     const listed = await (
-      await app.request("/api/time-entries?date=2026-06-18")
+      await getWorkspace().app.request("/api/time-entries?date=2026-06-18")
     ).json();
     expect(listed.entries[0].invoiced).toBe(false);
 
-    const previewAgain = await app.request("/api/invoices/preview", {
+    const previewAgain = await getWorkspace().app.request("/api/invoices/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -721,15 +700,15 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("preview and issue render identical PDF content for the same inputs", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -739,7 +718,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
         endedAt: "2026-06-18T15:39:00.000Z",
       }),
     });
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -756,12 +735,12 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       to: "2026-06-30",
     };
 
-    const preview = await app.request("/api/invoices/preview", {
+    const preview = await getWorkspace().app.request("/api/invoices/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(requestBody),
     });
-    const issued = await app.request("/api/invoices", {
+    const issued = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(requestBody),
@@ -783,15 +762,15 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("reconstructs an issued Invoice PDF from its snapshot after Client Recipient fields change", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -802,7 +781,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const issued = await app.request("/api/invoices", {
+    const issued = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -819,10 +798,10 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       legalName: "BANDAO Guidance GmbH",
     });
 
-    const row = await pool.query<{ id: string }>("SELECT id FROM invoices LIMIT 1");
+    const row = await getWorkspace().pool.query<{ id: string }>("SELECT id FROM invoices LIMIT 1");
     const invoiceId = row.rows[0]!.id;
 
-    const patched = await app.request(`/api/clients/${bandao.id}`, {
+    const patched = await getWorkspace().app.request(`/api/clients/${bandao.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -833,7 +812,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     });
     expect(patched.status).toBe(200);
 
-    const reconstructed = await app.request(`/api/invoices/${invoiceId}/pdf`);
+    const reconstructed = await getWorkspace().app.request(`/api/invoices/${invoiceId}/pdf`);
     expect(reconstructed.status).toBe(200);
     expect(reconstructed.headers.get("content-type")).toContain("application/pdf");
 
@@ -851,22 +830,22 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("reconstructs an issued Invoice PDF from its snapshot after Workspace sender changes", async () => {
-    const workspaceBefore = await pool.query<{ sender_name: string | null }>(
+    const workspaceBefore = await getWorkspace().pool.query<{ sender_name: string | null }>(
       "SELECT sender_name FROM workspaces WHERE id = $1",
       [DEFAULT_WORKSPACE_ID],
     );
     const previousSenderName = workspaceBefore.rows[0]!.sender_name;
     const operatorName = previousSenderName ?? DEFAULT_INVOICE_OPERATOR.name;
 
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -877,7 +856,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const issued = await app.request("/api/invoices", {
+    const issued = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -894,16 +873,16 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       legalName: "BANDAO Guidance GmbH",
     });
 
-    const row = await pool.query<{ id: string }>("SELECT id FROM invoices LIMIT 1");
+    const row = await getWorkspace().pool.query<{ id: string }>("SELECT id FROM invoices LIMIT 1");
     const invoiceId = row.rows[0]!.id;
 
     try {
-      await pool.query(
+      await getWorkspace().pool.query(
         "UPDATE workspaces SET sender_name = $2 WHERE id = $1",
         [DEFAULT_WORKSPACE_ID, "Mutated Operator Name"],
       );
 
-      const reconstructed = await app.request(`/api/invoices/${invoiceId}/pdf`);
+      const reconstructed = await getWorkspace().app.request(`/api/invoices/${invoiceId}/pdf`);
       expect(reconstructed.status).toBe(200);
 
       const reconstructedBody = await reconstructed.arrayBuffer();
@@ -918,7 +897,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       expect(rawReconstructedText).toContain(operatorName);
       expect(rawReconstructedText).not.toContain("Mutated Operator Name");
     } finally {
-      await pool.query(
+      await getWorkspace().pool.query(
         "UPDATE workspaces SET sender_name = $2 WHERE id = $1",
         [DEFAULT_WORKSPACE_ID, previousSenderName],
       );
@@ -926,15 +905,15 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("lists issued Invoices with Recipient, Invoice Number, Billing Period, and total", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -945,7 +924,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    await app.request("/api/invoices", {
+    await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -955,7 +934,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const res = await app.request("/api/invoices");
+    const res = await getWorkspace().app.request("/api/invoices");
     expect(res.status).toBe(200);
 
     const data = (await res.json()) as {
@@ -981,15 +960,15 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("excludes non-issued Invoices from the list and PDF reconstruction", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1000,7 +979,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    await app.request("/api/invoices", {
+    await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1010,30 +989,30 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const row = await pool.query<{ id: string }>("SELECT id FROM invoices LIMIT 1");
+    const row = await getWorkspace().pool.query<{ id: string }>("SELECT id FROM invoices LIMIT 1");
     const invoiceId = row.rows[0]!.id;
 
-    await pool.query("UPDATE invoices SET status = 'voided' WHERE id = $1", [
+    await getWorkspace().pool.query("UPDATE invoices SET status = 'voided' WHERE id = $1", [
       invoiceId,
     ]);
 
-    const list = await app.request("/api/invoices");
+    const list = await getWorkspace().app.request("/api/invoices");
     expect((await list.json()).invoices).toHaveLength(0);
 
-    const pdf = await app.request(`/api/invoices/${invoiceId}/pdf`);
+    const pdf = await getWorkspace().app.request(`/api/invoices/${invoiceId}/pdf`);
     expect(pdf.status).toBe(404);
   });
 
   it("exports issued invoices as Outgoing.zip with recipient/year tree layout", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1044,7 +1023,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    await app.request("/api/invoices", {
+    await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1054,7 +1033,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const res = await app.request("/api/invoices/export.zip");
+    const res = await getWorkspace().app.request("/api/invoices/export.zip");
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("application/zip");
     expect(res.headers.get("content-disposition")).toContain('filename="Outgoing.zip"');
@@ -1075,27 +1054,27 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("filters export.zip by client and year query parameters", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const acme = await createClient(app, {
+    const acme = await createClient(getWorkspace().app, {
       name: "Acme Corp",
       legalName: "Acme Corporation",
       addressLine1: "Main Street 1",
       addressLine2: "10115 Berlin",
     });
-    const bandaoProject = await createProject(app, bandao.id, "Ondojo");
-    const acmeProject = await createProject(app, acme.id, "Website");
+    const bandaoProject = await createProject(getWorkspace().app, bandao.id, "Ondojo");
+    const acmeProject = await createProject(getWorkspace().app, acme.id, "Website");
 
     const createEntry = (
       projectId: string,
       startedAt: string,
       endedAt: string,
     ) =>
-      app.request("/api/time-entries", {
+      getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1122,7 +1101,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       "2026-06-01T11:00:00.000Z",
     );
 
-    await app.request("/api/invoices", {
+    await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1131,7 +1110,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
         to: "2026-05-31",
       }),
     });
-    await app.request("/api/invoices", {
+    await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1140,7 +1119,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
         to: "2026-06-30",
       }),
     });
-    await app.request("/api/invoices", {
+    await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1150,7 +1129,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const clientFiltered = await app.request(
+    const clientFiltered = await getWorkspace().app.request(
       `/api/invoices/export.zip?client=${bandao.id}`,
     );
     const clientZip = await JSZip.loadAsync(await clientFiltered.arrayBuffer());
@@ -1162,7 +1141,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       "BANDAO/2026/BAN2026002_30_06_26_Invoice_Hannes_Duve_BANDAO.pdf",
     ]);
 
-    const yearFiltered = await app.request("/api/invoices/export.zip?year=2026");
+    const yearFiltered = await getWorkspace().app.request("/api/invoices/export.zip?year=2026");
     const yearZip = await JSZip.loadAsync(await yearFiltered.arrayBuffer());
     const yearPaths = Object.keys(yearZip.files).filter(
       (path) => !yearZip.files[path]!.dir,
@@ -1172,7 +1151,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       "ACMECORP/2026/ACM2026001_30_06_26_Invoice_Hannes_Duve_ACMECORP.pdf",
     );
 
-    const bothFiltered = await app.request(
+    const bothFiltered = await getWorkspace().app.request(
       `/api/invoices/export.zip?client=${acme.id}&year=2026`,
     );
     const bothZip = await JSZip.loadAsync(await bothFiltered.arrayBuffer());
@@ -1185,13 +1164,13 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("rejects invalid export.zip query filters with 400", async () => {
-    const invalidYear = await app.request("/api/invoices/export.zip?year=abc");
+    const invalidYear = await getWorkspace().app.request("/api/invoices/export.zip?year=abc");
     expect(invalidYear.status).toBe(400);
     expect(await invalidYear.json()).toEqual({
       error: "year must be a four-digit calendar year",
     });
 
-    const invalidClient = await app.request(
+    const invalidClient = await getWorkspace().app.request(
       "/api/invoices/export.zip?client=not-a-uuid",
     );
     expect(invalidClient.status).toBe(400);
@@ -1201,15 +1180,15 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("excludes voided and missing-snapshot invoices from export.zip", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1220,7 +1199,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    await app.request("/api/invoices", {
+    await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1230,31 +1209,31 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const issuedExport = await app.request("/api/invoices/export.zip");
+    const issuedExport = await getWorkspace().app.request("/api/invoices/export.zip");
     const issuedZip = await JSZip.loadAsync(await issuedExport.arrayBuffer());
     expect(
       Object.keys(issuedZip.files).filter((path) => !issuedZip.files[path]!.dir),
     ).toHaveLength(1);
 
-    const row = await pool.query<{ id: string }>("SELECT id FROM invoices LIMIT 1");
+    const row = await getWorkspace().pool.query<{ id: string }>("SELECT id FROM invoices LIMIT 1");
     const invoiceId = row.rows[0]!.id;
 
-    await pool.query("UPDATE invoices SET status = 'voided' WHERE id = $1", [
+    await getWorkspace().pool.query("UPDATE invoices SET status = 'voided' WHERE id = $1", [
       invoiceId,
     ]);
 
-    const voidedExport = await app.request("/api/invoices/export.zip");
+    const voidedExport = await getWorkspace().app.request("/api/invoices/export.zip");
     const voidedZip = await JSZip.loadAsync(await voidedExport.arrayBuffer());
     expect(
       Object.keys(voidedZip.files).filter((path) => !voidedZip.files[path]!.dir),
     ).toHaveLength(0);
 
-    await pool.query(
+    await getWorkspace().pool.query(
       "UPDATE invoices SET status = 'issued', snapshot = NULL WHERE id = $1",
       [invoiceId],
     );
 
-    const missingSnapshotExport = await app.request("/api/invoices/export.zip");
+    const missingSnapshotExport = await getWorkspace().app.request("/api/invoices/export.zip");
     const missingSnapshotZip = await JSZip.loadAsync(
       await missingSnapshotExport.arrayBuffer(),
     );
@@ -1266,15 +1245,15 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("excludes Invoices with a missing snapshot from the list and PDF reconstruction", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1285,7 +1264,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    await app.request("/api/invoices", {
+    await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1295,28 +1274,28 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const row = await pool.query<{ id: string }>("SELECT id FROM invoices LIMIT 1");
+    const row = await getWorkspace().pool.query<{ id: string }>("SELECT id FROM invoices LIMIT 1");
     const invoiceId = row.rows[0]!.id;
 
-    await pool.query("UPDATE invoices SET snapshot = NULL WHERE id = $1", [invoiceId]);
+    await getWorkspace().pool.query("UPDATE invoices SET snapshot = NULL WHERE id = $1", [invoiceId]);
 
-    const list = await app.request("/api/invoices");
+    const list = await getWorkspace().app.request("/api/invoices");
     expect((await list.json()).invoices).toHaveLength(0);
 
-    const pdf = await app.request(`/api/invoices/${invoiceId}/pdf`);
+    const pdf = await getWorkspace().app.request(`/api/invoices/${invoiceId}/pdf`);
     expect(pdf.status).toBe(404);
   });
 
   it("preview accepts a custom Invoice Number and reports whether it already exists", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1327,7 +1306,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const preview = await app.request("/api/invoices/preview", {
+    const preview = await getWorkspace().app.request("/api/invoices/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1346,7 +1325,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     const text = await pdfText(await preview.arrayBuffer());
     expect(text).toContain("2026010");
 
-    await app.request("/api/invoices", {
+    await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1358,7 +1337,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1369,7 +1348,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const duplicatePreview = await app.request("/api/invoices/preview", {
+    const duplicatePreview = await getWorkspace().app.request("/api/invoices/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1384,16 +1363,16 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("issues with an edited Invoice Number and persists the chosen numbering strategy", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
     const createEntry = (from: string, to: string) =>
-      app.request("/api/time-entries", {
+      getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1408,7 +1387,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     await createEntry("2026-06-01", "2026-06-01");
     await createEntry("2026-07-01", "2026-07-01");
 
-    const may = await app.request("/api/invoices", {
+    const may = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1422,7 +1401,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     expect(may.status).toBe(201);
     expect(may.headers.get("x-invoice-number")).toBe("2026010");
 
-    const june = await app.request("/api/invoices", {
+    const june = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1435,7 +1414,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
 
     await createEntry("2026-08-01", "2026-08-01");
 
-    const august = await app.request("/api/invoices", {
+    const august = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1450,7 +1429,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
 
     await createEntry("2026-09-01", "2026-09-01");
 
-    const september = await app.request("/api/invoices", {
+    const september = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1463,14 +1442,14 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("returns numbering previews for an edited Invoice Number", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
 
-    const res = await app.request(
+    const res = await getWorkspace().app.request(
       `/api/invoices/numbering-preview?clientId=${bandao.id}&invoiceNumber=2026010&year=2026`,
     );
 
@@ -1486,15 +1465,15 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("rejects issue when Invoice Number is overridden without numberingStrategy", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1505,7 +1484,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const res = await app.request("/api/invoices", {
+    const res = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1523,15 +1502,15 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("rejects preview when the Client name yields no valid Invoice Prefix", async () => {
-    const numeric = await createClient(app, {
+    const numeric = await createClient(getWorkspace().app, {
       name: "123",
       legalName: "Numeric Corp",
       addressLine1: "Main Street 1",
       addressLine2: "10115 Berlin",
     });
-    const project = await createProject(app, numeric.id, "Work");
+    const project = await createProject(getWorkspace().app, numeric.id, "Work");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1542,7 +1521,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const preview = await app.request("/api/invoices/preview", {
+    const preview = await getWorkspace().app.request("/api/invoices/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1559,23 +1538,23 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("suggests prefixed Invoice Numbers per Client (Bandao BAN, Hannah HAN)", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const hannah = await createClient(app, {
+    const hannah = await createClient(getWorkspace().app, {
       name: "Hannah",
       legalName: "Hannah Coaching",
       addressLine1: "Main Street 1",
       addressLine2: "10115 Berlin",
     });
-    const bandaoProject = await createProject(app, bandao.id, "Ondojo");
-    const hannahProject = await createProject(app, hannah.id, "Coaching");
+    const bandaoProject = await createProject(getWorkspace().app, bandao.id, "Ondojo");
+    const hannahProject = await createProject(getWorkspace().app, hannah.id, "Coaching");
 
     const createEntry = (projectId: string, from: string, to: string) =>
-      app.request("/api/time-entries", {
+      getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1589,7 +1568,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     await createEntry(bandaoProject.id, "2026-06-01", "2026-06-01");
     await createEntry(hannahProject.id, "2026-06-01", "2026-06-01");
 
-    const bandaoInvoice = await app.request("/api/invoices", {
+    const bandaoInvoice = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1598,7 +1577,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
         to: "2026-06-30",
       }),
     });
-    const hannahInvoice = await app.request("/api/invoices", {
+    const hannahInvoice = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1613,23 +1592,23 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("rejects workspace-wide duplicate Invoice Numbers across Clients", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const hannah = await createClient(app, {
+    const hannah = await createClient(getWorkspace().app, {
       name: "Hannah",
       legalName: "Hannah Coaching",
       addressLine1: "Main Street 1",
       addressLine2: "10115 Berlin",
     });
-    const bandaoProject = await createProject(app, bandao.id, "Ondojo");
-    const hannahProject = await createProject(app, hannah.id, "Coaching");
+    const bandaoProject = await createProject(getWorkspace().app, bandao.id, "Ondojo");
+    const hannahProject = await createProject(getWorkspace().app, hannah.id, "Coaching");
 
     const createEntry = (projectId: string, from: string, to: string) =>
-      app.request("/api/time-entries", {
+      getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1643,7 +1622,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     await createEntry(bandaoProject.id, "2026-06-01", "2026-06-01");
     await createEntry(hannahProject.id, "2026-07-01", "2026-07-01");
 
-    const bandaoIssued = await app.request("/api/invoices", {
+    const bandaoIssued = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1655,7 +1634,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     expect(bandaoIssued.status).toBe(201);
     expect(bandaoIssued.headers.get("x-invoice-number")).toBe("BAN2026001");
 
-    const hannahDuplicate = await app.request("/api/invoices", {
+    const hannahDuplicate = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1674,16 +1653,16 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("increments the per-Client prefixed counter across multiple invoices", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
     const createEntry = (from: string, to: string) =>
-      app.request("/api/time-entries", {
+      getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1697,7 +1676,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     await createEntry("2026-05-01", "2026-05-01");
     await createEntry("2026-06-01", "2026-06-01");
 
-    const may = await app.request("/api/invoices", {
+    const may = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1706,7 +1685,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
         to: "2026-05-31",
       }),
     });
-    const june = await app.request("/api/invoices", {
+    const june = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1721,23 +1700,23 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("uses the workspace-global plain pool when usePrefix is false", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const hannah = await createClient(app, {
+    const hannah = await createClient(getWorkspace().app, {
       name: "Hannah",
       legalName: "Hannah Coaching",
       addressLine1: "Main Street 1",
       addressLine2: "10115 Berlin",
     });
-    const bandaoProject = await createProject(app, bandao.id, "Ondojo");
-    const hannahProject = await createProject(app, hannah.id, "Coaching");
+    const bandaoProject = await createProject(getWorkspace().app, bandao.id, "Ondojo");
+    const hannahProject = await createProject(getWorkspace().app, hannah.id, "Coaching");
 
     const createEntry = (projectId: string, from: string, to: string) =>
-      app.request("/api/time-entries", {
+      getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1751,7 +1730,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     await createEntry(bandaoProject.id, "2026-06-01", "2026-06-01");
     await createEntry(hannahProject.id, "2026-06-01", "2026-06-01");
 
-    const bandaoPrefixed = await app.request("/api/invoices", {
+    const bandaoPrefixed = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1760,7 +1739,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
         to: "2026-06-30",
       }),
     });
-    const hannahPrefixed = await app.request("/api/invoices", {
+    const hannahPrefixed = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1775,7 +1754,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
 
     await createEntry(bandaoProject.id, "2026-07-01", "2026-07-01");
 
-    const bandaoPlainPreview = await app.request("/api/invoices/preview", {
+    const bandaoPlainPreview = await getWorkspace().app.request("/api/invoices/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1790,7 +1769,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       "2026001",
     );
 
-    const bandaoPlain = await app.request("/api/invoices", {
+    const bandaoPlain = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1804,13 +1783,13 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     expect(bandaoPlain.headers.get("x-invoice-number")).toBe("2026001");
 
     const bandaoClient = await (
-      await app.request(`/api/clients/${bandao.id}`)
+      await getWorkspace().app.request(`/api/clients/${bandao.id}`)
     ).json();
     expect(bandaoClient.invoicePrefix).toBe("BAN");
 
     await createEntry(hannahProject.id, "2026-07-01", "2026-07-01");
 
-    const hannahPlainPreview = await app.request("/api/invoices/preview", {
+    const hannahPlainPreview = await getWorkspace().app.request("/api/invoices/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1824,7 +1803,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       "2026002",
     );
 
-    const hannahPlain = await app.request("/api/invoices", {
+    const hannahPlain = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1838,7 +1817,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
 
     await createEntry(hannahProject.id, "2026-08-01", "2026-08-01");
 
-    const hannahPrefixedPreview = await app.request("/api/invoices/preview", {
+    const hannahPrefixedPreview = await getWorkspace().app.request("/api/invoices/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1853,23 +1832,23 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("rejects workspace-wide duplicate plain Invoice Numbers across Clients", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const hannah = await createClient(app, {
+    const hannah = await createClient(getWorkspace().app, {
       name: "Hannah",
       legalName: "Hannah Coaching",
       addressLine1: "Main Street 1",
       addressLine2: "10115 Berlin",
     });
-    const bandaoProject = await createProject(app, bandao.id, "Ondojo");
-    const hannahProject = await createProject(app, hannah.id, "Coaching");
+    const bandaoProject = await createProject(getWorkspace().app, bandao.id, "Ondojo");
+    const hannahProject = await createProject(getWorkspace().app, hannah.id, "Coaching");
 
     const createEntry = (projectId: string, from: string, to: string) =>
-      app.request("/api/time-entries", {
+      getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1883,7 +1862,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     await createEntry(bandaoProject.id, "2026-06-01", "2026-06-01");
     await createEntry(hannahProject.id, "2026-07-01", "2026-07-01");
 
-    const bandaoPlain = await app.request("/api/invoices", {
+    const bandaoPlain = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1896,7 +1875,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     expect(bandaoPlain.status).toBe(201);
     expect(bandaoPlain.headers.get("x-invoice-number")).toBe("2026001");
 
-    const hannahDuplicate = await app.request("/api/invoices", {
+    const hannahDuplicate = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1916,21 +1895,21 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("returns plain numbering previews when usePrefix is false", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const hannah = await createClient(app, {
+    const hannah = await createClient(getWorkspace().app, {
       name: "Hannah",
       legalName: "Hannah Coaching",
       addressLine1: "Main Street 1",
       addressLine2: "10115 Berlin",
     });
-    const bandaoProject = await createProject(app, bandao.id, "Ondojo");
+    const bandaoProject = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1941,7 +1920,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    await app.request("/api/invoices", {
+    await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1952,7 +1931,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const res = await app.request(
+    const res = await getWorkspace().app.request(
       `/api/invoices/numbering-preview?clientId=${hannah.id}&invoiceNumber=2026010&year=2026&usePrefix=false`,
     );
 
@@ -1968,16 +1947,16 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("persists plain numbering strategy to the workspace pool when usePrefix is false", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
     const createEntry = (from: string, to: string) =>
-      app.request("/api/time-entries", {
+      getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1993,7 +1972,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     await createEntry("2026-07-01", "2026-07-01");
     await createEntry("2026-08-01", "2026-08-01");
 
-    const may = await app.request("/api/invoices", {
+    const may = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2008,7 +1987,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     expect(may.status).toBe(201);
     expect(may.headers.get("x-invoice-number")).toBe("2026010");
 
-    const june = await app.request("/api/invoices", {
+    const june = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2022,7 +2001,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
 
     await createEntry("2026-09-01", "2026-09-01");
 
-    const august = await app.request("/api/invoices", {
+    const august = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2038,7 +2017,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
 
     await createEntry("2026-10-01", "2026-10-01");
 
-    const september = await app.request("/api/invoices", {
+    const september = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2052,23 +2031,23 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("does not let a prefixed override on one Client affect another Client's prefixed sequence", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const hannah = await createClient(app, {
+    const hannah = await createClient(getWorkspace().app, {
       name: "Hannah",
       legalName: "Hannah Coaching",
       addressLine1: "Main Street 1",
       addressLine2: "10115 Berlin",
     });
-    const bandaoProject = await createProject(app, bandao.id, "Ondojo");
-    const hannahProject = await createProject(app, hannah.id, "Coaching");
+    const bandaoProject = await createProject(getWorkspace().app, bandao.id, "Ondojo");
+    const hannahProject = await createProject(getWorkspace().app, hannah.id, "Coaching");
 
     const createEntry = (projectId: string, from: string, to: string) =>
-      app.request("/api/time-entries", {
+      getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2082,7 +2061,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     await createEntry(bandaoProject.id, "2026-06-01", "2026-06-01");
     await createEntry(hannahProject.id, "2026-06-01", "2026-06-01");
 
-    const bandaoOverride = await app.request("/api/invoices", {
+    const bandaoOverride = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2098,7 +2077,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
 
     await createEntry(hannahProject.id, "2026-07-01", "2026-07-01");
 
-    const hannahIssue = await app.request("/api/invoices", {
+    const hannahIssue = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2112,23 +2091,23 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("applies a plain override workspace-wide for subsequent plain suggestions", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const hannah = await createClient(app, {
+    const hannah = await createClient(getWorkspace().app, {
       name: "Hannah",
       legalName: "Hannah Coaching",
       addressLine1: "Main Street 1",
       addressLine2: "10115 Berlin",
     });
-    const bandaoProject = await createProject(app, bandao.id, "Ondojo");
-    const hannahProject = await createProject(app, hannah.id, "Coaching");
+    const bandaoProject = await createProject(getWorkspace().app, bandao.id, "Ondojo");
+    const hannahProject = await createProject(getWorkspace().app, hannah.id, "Coaching");
 
     const createEntry = (projectId: string, from: string, to: string) =>
-      app.request("/api/time-entries", {
+      getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2142,7 +2121,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     await createEntry(bandaoProject.id, "2026-06-01", "2026-06-01");
     await createEntry(hannahProject.id, "2026-06-01", "2026-06-01");
 
-    const bandaoOverride = await app.request("/api/invoices", {
+    const bandaoOverride = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2159,7 +2138,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
 
     await createEntry(hannahProject.id, "2026-07-01", "2026-07-01");
 
-    const hannahPreview = await app.request("/api/invoices/preview", {
+    const hannahPreview = await getWorkspace().app.request("/api/invoices/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2173,7 +2152,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       "2026002",
     );
 
-    const hannahIssue = await app.request("/api/invoices", {
+    const hannahIssue = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2187,23 +2166,23 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("applies a plain from_last override workspace-wide for subsequent plain suggestions", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const hannah = await createClient(app, {
+    const hannah = await createClient(getWorkspace().app, {
       name: "Hannah",
       legalName: "Hannah Coaching",
       addressLine1: "Main Street 1",
       addressLine2: "10115 Berlin",
     });
-    const bandaoProject = await createProject(app, bandao.id, "Ondojo");
-    const hannahProject = await createProject(app, hannah.id, "Coaching");
+    const bandaoProject = await createProject(getWorkspace().app, bandao.id, "Ondojo");
+    const hannahProject = await createProject(getWorkspace().app, hannah.id, "Coaching");
 
     const createEntry = (projectId: string, from: string, to: string) =>
-      app.request("/api/time-entries", {
+      getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2217,7 +2196,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     await createEntry(bandaoProject.id, "2026-06-01", "2026-06-01");
     await createEntry(hannahProject.id, "2026-06-01", "2026-06-01");
 
-    const bandaoOverride = await app.request("/api/invoices", {
+    const bandaoOverride = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2234,7 +2213,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
 
     await createEntry(hannahProject.id, "2026-07-01", "2026-07-01");
 
-    const hannahPreview = await app.request("/api/invoices/preview", {
+    const hannahPreview = await getWorkspace().app.request("/api/invoices/preview", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2248,7 +2227,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       "2026011",
     );
 
-    const hannahIssue = await app.request("/api/invoices", {
+    const hannahIssue = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2262,15 +2241,15 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("rejects plain issue when Invoice Number is overridden without numberingStrategy", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2281,7 +2260,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const res = await app.request("/api/invoices", {
+    const res = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2300,15 +2279,15 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
   });
 
   it("persists Invoice Prefix to the Client on issue", async () => {
-    const bandao = await createClient(app, {
+    const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
       addressLine1: "Schloßbergstraße 1",
       addressLine2: "82319 Starnberg",
     });
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2319,7 +2298,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
       }),
     });
 
-    const issued = await app.request("/api/invoices", {
+    const issued = await getWorkspace().app.request("/api/invoices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2333,7 +2312,7 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     expect(issued.headers.get("x-invoice-number")).toBe("BD2026001");
 
     const client = await (
-      await app.request(`/api/clients/${bandao.id}`)
+      await getWorkspace().app.request(`/api/clients/${bandao.id}`)
     ).json();
     expect(client.invoicePrefix).toBe("BD");
   });

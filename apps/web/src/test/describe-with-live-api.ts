@@ -1,11 +1,13 @@
+import { DEFAULT_WORKSPACE_ID } from "@hourden/domain";
 import { cleanup } from "@testing-library/react";
-import { afterAll, afterEach, beforeAll, describe } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe } from "vitest";
 import {
   withAuthenticatedWorkspace,
   withFreshUserWorkspace,
   type FreshUserIntegrationWorkspace,
   type WebIntegrationWorkspace,
 } from "../../../api/src/test/integration-fixture.js";
+import { resetWorkspace } from "../../../api/src/test/reset-workspace.js";
 import type { CreateUserWithWorkspaceInput } from "../../../api/src/db/workspaces.js";
 import { resetMockEventSources } from "./mock-event-source.js";
 
@@ -23,6 +25,10 @@ export function describeWithAuthenticatedWorkspace(
 
     beforeAll(async () => {
       workspace = await withAuthenticatedWorkspace("web", databaseUrl);
+    });
+
+    beforeEach(async () => {
+      await resetWorkspace(workspace.pool, DEFAULT_WORKSPACE_ID);
     });
 
     afterEach(async () => {
@@ -50,6 +56,10 @@ export function describeWithFreshUserWorkspace(
 
     beforeAll(async () => {
       workspace = await withFreshUserWorkspace("web", input, databaseUrl);
+    });
+
+    beforeEach(async () => {
+      await resetWorkspace(workspace.pool, workspace.workspaceId);
     });
 
     afterEach(async () => {

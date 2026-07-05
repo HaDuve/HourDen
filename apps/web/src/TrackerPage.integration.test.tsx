@@ -1,7 +1,7 @@
 import "./test/load-env.js";
 
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { describeWithAuthenticatedWorkspace } from "./test/describe-with-live-api.js";
 import TrackerPage from "./TrackerPage.js";
 import { todayDateInTimeZone } from "./today-date.js";
@@ -25,15 +25,7 @@ function editEntryDialog() {
 }
 
 
-describeWithAuthenticatedWorkspace("TrackerPage with live API", (getWorkspace) => {
-  beforeEach(async () => {
-    const { pool } = getWorkspace();
-    await pool.query("DELETE FROM time_entries");
-    await pool.query("DELETE FROM invoices");
-    await pool.query("DELETE FROM projects");
-    await pool.query("DELETE FROM clients");
-  });
-
+describeWithAuthenticatedWorkspace("TrackerPage with live API", () => {
   it("lists tracker entries and supports start/stop and manual add", async () => {
     const today = await workspaceToday();
 

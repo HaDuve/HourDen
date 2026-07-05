@@ -1,10 +1,6 @@
-import { Pool } from "pg";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { createApp } from "./app.js";
-import { runMigrationsForTests } from "./test/migrate-for-tests.js";
-import { bindSessionAuth } from "./test/auth-helper.js";
-
-const databaseUrl = process.env.DATABASE_URL;
+import { describeWithAuthenticatedWorkspace } from "./test/describe-with-live-api.js";
 
 async function createClient(
   app: ReturnType<typeof createApp>,
@@ -19,30 +15,11 @@ async function createClient(
   return res.json() as Promise<{ id: string; name: string }>;
 }
 
-describe.skipIf(!databaseUrl)("Project API", () => {
-  const pool = new Pool({ connectionString: databaseUrl });
-  const app = createApp({ pool });
-
-  beforeAll(async () => {
-    await runMigrationsForTests(pool);
-    await bindSessionAuth(app);
-  });
-
-  beforeEach(async () => {
-    await pool.query("DELETE FROM time_entries");
-    await pool.query("DELETE FROM invoices");
-    await pool.query("DELETE FROM projects");
-    await pool.query("DELETE FROM clients");
-  });
-
-  afterAll(async () => {
-    await pool.end();
-  });
-
+describeWithAuthenticatedWorkspace("Project API", (getWorkspace) => {
   it("creates a Project with name under a Client", async () => {
-    const client = await createClient(app, "Bandao");
+    const client = await createClient(getWorkspace().app, "Bandao");
 
-    const res = await app.request("/api/projects", {
+    const res = await getWorkspace().app.request("/api/projects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ clientId: client.id, name: "Ondojo" }),
@@ -61,21 +38,21 @@ describe.skipIf(!databaseUrl)("Project API", () => {
   });
 
   it("lists Projects filtered by Client", async () => {
-    const bandao = await createClient(app, "Bandao");
-    const hannah = await createClient(app, "Hannah");
+    const bandao = await createClient(getWorkspace().app, "Bandao");
+    const hannah = await createClient(getWorkspace().app, "Hannah");
 
-    await app.request("/api/projects", {
+    await getWorkspace().app.request("/api/projects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ clientId: bandao.id, name: "Ondojo" }),
     });
-    await app.request("/api/projects", {
+    await getWorkspace().app.request("/api/projects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ clientId: hannah.id, name: "Coaching" }),
     });
 
-    const res = await app.request(`/api/projects?clientId=${bandao.id}`);
+    const res = await getWorkspace().app.request(`/api/projects?clientId=${bandao.id}`);
     expect(res.status).toBe(200);
 
     const { projects } = await res.json();
@@ -87,16 +64,16 @@ describe.skipIf(!databaseUrl)("Project API", () => {
   });
 
   it("updates a Project", async () => {
-    const client = await createClient(app, "Bandao");
+    const client = await createClient(getWorkspace().app, "Bandao");
     const created = await (
-      await app.request("/api/projects", {
+      await getWorkspace().app.request("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId: client.id, name: "Ondojo" }),
       })
     ).json();
 
-    const res = await app.request(`/api/projects/${created.id}`, {
+    const res = await getWorkspace().app.request(`/api/projects/${created.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: "Ondojo v2", color: "#3b82f6" }),
@@ -112,32 +89,32 @@ describe.skipIf(!databaseUrl)("Project API", () => {
   });
 
   it("deletes a Project", async () => {
-    const client = await createClient(app, "Bandao");
+    const client = await createClient(getWorkspace().app, "Bandao");
     const created = await (
-      await app.request("/api/projects", {
+      await getWorkspace().app.request("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId: client.id, name: "Ondojo" }),
       })
     ).json();
 
-    const deleteRes = await app.request(`/api/projects/${created.id}`, {
+    const deleteRes = await getWorkspace().app.request(`/api/projects/${created.id}`, {
       method: "DELETE",
     });
     expect(deleteRes.status).toBe(204);
 
-    const listRes = await app.request(`/api/projects?clientId=${client.id}`);
+    const listRes = await getWorkspace().app.request(`/api/projects?clientId=${client.id}`);
     const { projects } = await listRes.json();
     expect(projects).toHaveLength(0);
   });
 
   it("only returns Projects scoped to the current workspace", async () => {
     const otherWorkspaceId = "b0000000-0000-4000-8000-000000000002";
-    await pool.query(
+    await getWorkspace().pool.query(
       "INSERT INTO workspaces (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
       [otherWorkspaceId, "Other Workspace"],
     );
-    const foreignClient = await pool.query<{ id: string }>(
+    const foreignClient = await getWorkspace().pool.query<{ id: string }>(
       `
         INSERT INTO clients (workspace_id, name, default_rate)
         VALUES ($1, 'Foreign Client', 50)
@@ -145,7 +122,7 @@ describe.skipIf(!databaseUrl)("Project API", () => {
       `,
       [otherWorkspaceId],
     );
-    await pool.query(
+    await getWorkspace().pool.query(
       `
         INSERT INTO projects (workspace_id, client_id, name)
         VALUES ($1, $2, 'Foreign Project')
@@ -153,14 +130,14 @@ describe.skipIf(!databaseUrl)("Project API", () => {
       [otherWorkspaceId, foreignClient.rows[0]!.id],
     );
 
-    const client = await createClient(app, "Bandao");
-    await app.request("/api/projects", {
+    const client = await createClient(getWorkspace().app, "Bandao");
+    await getWorkspace().app.request("/api/projects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ clientId: client.id, name: "Ondojo" }),
     });
 
-    const res = await app.request("/api/projects");
+    const res = await getWorkspace().app.request("/api/projects");
     const { projects } = await res.json();
 
     expect(projects).toHaveLength(1);
@@ -168,14 +145,14 @@ describe.skipIf(!databaseUrl)("Project API", () => {
   });
 
   it("blocks deleting a Client that still has Projects", async () => {
-    const client = await createClient(app, "Bandao");
-    await app.request("/api/projects", {
+    const client = await createClient(getWorkspace().app, "Bandao");
+    await getWorkspace().app.request("/api/projects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ clientId: client.id, name: "Ondojo" }),
     });
 
-    const res = await app.request(`/api/clients/${client.id}`, {
+    const res = await getWorkspace().app.request(`/api/clients/${client.id}`, {
       method: "DELETE",
     });
 
@@ -184,32 +161,32 @@ describe.skipIf(!databaseUrl)("Project API", () => {
       error: "Cannot delete Client with existing Projects",
     });
 
-    const listRes = await app.request("/api/clients");
+    const listRes = await getWorkspace().app.request("/api/clients");
     const { clients } = await listRes.json();
     expect(clients).toHaveLength(1);
   });
 
   it("allows deleting a Client with no Projects", async () => {
-    const client = await createClient(app, "Bandao");
+    const client = await createClient(getWorkspace().app, "Bandao");
 
-    const res = await app.request(`/api/clients/${client.id}`, {
+    const res = await getWorkspace().app.request(`/api/clients/${client.id}`, {
       method: "DELETE",
     });
 
     expect(res.status).toBe(204);
 
-    const listRes = await app.request("/api/clients");
+    const listRes = await getWorkspace().app.request("/api/clients");
     const { clients } = await listRes.json();
     expect(clients).toHaveLength(0);
   });
 
   it("returns 404 when updating a Project from another workspace", async () => {
     const otherWorkspaceId = "b0000000-0000-4000-8000-000000000002";
-    await pool.query(
+    await getWorkspace().pool.query(
       "INSERT INTO workspaces (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
       [otherWorkspaceId, "Other Workspace"],
     );
-    const foreignClient = await pool.query<{ id: string }>(
+    const foreignClient = await getWorkspace().pool.query<{ id: string }>(
       `
         INSERT INTO clients (workspace_id, name, default_rate)
         VALUES ($1, 'Foreign Client', 50)
@@ -217,7 +194,7 @@ describe.skipIf(!databaseUrl)("Project API", () => {
       `,
       [otherWorkspaceId],
     );
-    const foreignProject = await pool.query<{ id: string }>(
+    const foreignProject = await getWorkspace().pool.query<{ id: string }>(
       `
         INSERT INTO projects (workspace_id, client_id, name)
         VALUES ($1, $2, 'Foreign Project')
@@ -226,7 +203,7 @@ describe.skipIf(!databaseUrl)("Project API", () => {
       [otherWorkspaceId, foreignClient.rows[0]!.id],
     );
 
-    const res = await app.request(
+    const res = await getWorkspace().app.request(
       `/api/projects/${foreignProject.rows[0]!.id}`,
       {
         method: "PATCH",
@@ -240,11 +217,11 @@ describe.skipIf(!databaseUrl)("Project API", () => {
 
   it("returns 404 when deleting a Project from another workspace", async () => {
     const otherWorkspaceId = "b0000000-0000-4000-8000-000000000002";
-    await pool.query(
+    await getWorkspace().pool.query(
       "INSERT INTO workspaces (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
       [otherWorkspaceId, "Other Workspace"],
     );
-    const foreignClient = await pool.query<{ id: string }>(
+    const foreignClient = await getWorkspace().pool.query<{ id: string }>(
       `
         INSERT INTO clients (workspace_id, name, default_rate)
         VALUES ($1, 'Foreign Client', 50)
@@ -252,7 +229,7 @@ describe.skipIf(!databaseUrl)("Project API", () => {
       `,
       [otherWorkspaceId],
     );
-    const foreignProject = await pool.query<{ id: string }>(
+    const foreignProject = await getWorkspace().pool.query<{ id: string }>(
       `
         INSERT INTO projects (workspace_id, client_id, name)
         VALUES ($1, $2, 'Foreign Project')
@@ -261,7 +238,7 @@ describe.skipIf(!databaseUrl)("Project API", () => {
       [otherWorkspaceId, foreignClient.rows[0]!.id],
     );
 
-    const res = await app.request(
+    const res = await getWorkspace().app.request(
       `/api/projects/${foreignProject.rows[0]!.id}`,
       {
         method: "DELETE",
