@@ -578,4 +578,24 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ suggestions: [] });
   });
+
+  it("caps suggestion results at 10 distinct descriptions", async () => {
+    for (let index = 0; index < 12; index += 1) {
+      await app.request("/api/time-entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: `Task number ${index}`,
+          startedAt: `2026-01-${String(index + 1).padStart(2, "0")}T10:00:00.000Z`,
+          endedAt: `2026-01-${String(index + 1).padStart(2, "0")}T11:00:00.000Z`,
+        }),
+      });
+    }
+
+    const res = await app.request("/api/time-entries/suggestions?q=Task");
+    expect(res.status).toBe(200);
+
+    const { suggestions } = (await res.json()) as { suggestions: unknown[] };
+    expect(suggestions).toHaveLength(10);
+  });
 });

@@ -170,4 +170,138 @@ describe.skipIf(!databaseUrl)("TrackerPage with live API", () => {
     expect(descriptionInput).toHaveValue("Past planning session");
     expect(screen.getByLabelText(/project \(optional\)/i)).toHaveValue(project.id);
   });
+
+  it("prefills description and project when picking a suggestion on edit entry", async () => {
+    const today = await workspaceToday();
+
+    const clientRes = await fetch("/api/clients", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Edit Autocomplete Client", defaultRate: 80 }),
+    });
+    const client = (await clientRes.json()) as { id: string };
+
+    const projectRes = await fetch("/api/projects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId: client.id, name: "Edit Autocomplete Project" }),
+    });
+    const project = (await projectRes.json()) as { id: string };
+
+    const entryRes = await fetch("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        description: "Original entry",
+        startedAt: `${today}T08:00:00.000Z`,
+        endedAt: `${today}T09:00:00.000Z`,
+      }),
+    });
+    const entry = (await entryRes.json()) as { id: string };
+
+    await fetch("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        description: "Past planning session",
+        startedAt: `${today}T06:00:00.000Z`,
+        endedAt: `${today}T07:00:00.000Z`,
+        projectId: project.id,
+      }),
+    });
+
+    render(<TrackerPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Original entry")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^edit$/i }));
+
+    const descriptionInput = screen.getByLabelText(/^description$/i);
+    fireEvent.change(descriptionInput, { target: { value: "plan" } });
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Past planning session" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("option", { name: "Past planning session" }));
+
+    expect(descriptionInput).toHaveValue("Past planning session");
+    expect(screen.getByLabelText(/project \(optional\)/i)).toHaveValue(project.id);
+
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Past planning session")).toBeInTheDocument();
+    });
+
+    const savedRes = await fetch(`/api/time-entries?date=${today}`);
+    const { entries } = (await savedRes.json()) as {
+      entries: Array<{ id: string; description: string; projectId: string | null }>;
+    };
+    const saved = entries.find((row) => row.id === entry.id);
+    expect(saved?.description).toBe("Past planning session");
+    expect(saved?.projectId).toBe(project.id);
+  });
+
+  it("prefills description and project when picking a suggestion on running timer", async () => {
+    const today = await workspaceToday();
+
+    const clientRes = await fetch("/api/clients", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Running Autocomplete Client", defaultRate: 80 }),
+    });
+    const client = (await clientRes.json()) as { id: string };
+
+    const projectRes = await fetch("/api/projects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId: client.id, name: "Running Autocomplete Project" }),
+    });
+    const project = (await projectRes.json()) as { id: string };
+
+    await fetch("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        description: "Past planning session",
+        startedAt: `${today}T06:00:00.000Z`,
+        endedAt: `${today}T07:00:00.000Z`,
+        projectId: project.id,
+      }),
+    });
+
+    render(<TrackerPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Past planning session")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /start timer/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /stop timer/i })).toBeInTheDocument();
+    });
+
+    const descriptionInput = screen.getByLabelText(/^description$/i);
+    fireEvent.change(descriptionInput, { target: { value: "plan" } });
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Past planning session" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("option", { name: "Past planning session" }));
+
+    expect(descriptionInput).toHaveValue("Past planning session");
+    expect(screen.getByLabelText(/project \(optional\)/i)).toHaveValue(project.id);
+
+    const runningRes = await fetch("/api/time-entries/running");
+    const { entry: running } = (await runningRes.json()) as {
+      entry: { description: string; projectId: string | null };
+    };
+    expect(running.description).toBe("Past planning session");
+    expect(running.projectId).toBe(project.id);
+  });
 });

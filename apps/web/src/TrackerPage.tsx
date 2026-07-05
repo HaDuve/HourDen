@@ -181,7 +181,7 @@ export default function TrackerPage() {
       description: running.description ?? "",
       projectId: running.projectId ?? "",
     });
-  }, [running]);
+  }, [running?.id]);
 
   const patchRunningEntry = async (patch: {
     description?: string;
@@ -189,28 +189,32 @@ export default function TrackerPage() {
   }) => {
     if (!running) return;
 
-    setSaving(true);
     setError(null);
     try {
+      const body: { description?: string | null; projectId?: string | null } = {
+        ...patch,
+      };
+      if (patch.projectId !== undefined && patch.description === undefined) {
+        body.description = runningForm.description.trim() || null;
+      }
+
       const res = await fetch(`/api/time-entries/${running.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patch),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         throw new Error(`Update failed (${res.status})`);
       }
       const updated = (await res.json()) as TimeEntry;
       setRunning(updated);
-      setRunningForm({
-        description: updated.description ?? "",
+      setRunningForm((current) => ({
+        description:
+          patch.description !== undefined ? patch.description : current.description,
         projectId: updated.projectId ?? "",
-      });
-      await load();
+      }));
     } catch (err) {
       setError(t("tracker.saveFailed"));
-    } finally {
-      setSaving(false);
     }
   };
 

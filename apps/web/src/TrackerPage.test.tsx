@@ -168,6 +168,104 @@ describe("TrackerPage", () => {
     });
   });
 
+  it("keeps a typed running-timer description when the project changes", async () => {
+    const runningEntry = {
+      id: "e0000000-0000-4000-8000-000000000099",
+      projectId: null,
+      startedAt: "2026-07-02T08:00:00.000Z",
+      endedAt: null,
+      description: null,
+      tags: [],
+      billable: true,
+      amount: null,
+      billableComplete: false,
+      isRunning: true,
+      durationMinutes: 5,
+      invoiced: false,
+    };
+    const project = {
+      id: "p0000000-0000-4000-8000-000000000001",
+      clientId: "c0000000-0000-4000-8000-000000000001",
+      name: "Acme Project",
+      color: null,
+    };
+
+    const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+      if (url === "/api/auth/me") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ calendarTimezone: "UTC" }),
+        });
+      }
+      if (url === "/api/time-entries?limit=50") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ entries: [runningEntry] }),
+        });
+      }
+      if (url === "/api/time-entries/running") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ entry: runningEntry }),
+        });
+      }
+      if (url === "/api/projects") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ projects: [project] }),
+        });
+      }
+      if (
+        url === `/api/time-entries/${runningEntry.id}` &&
+        init?.method === "PATCH"
+      ) {
+        const body = JSON.parse(init.body as string) as {
+          description?: string | null;
+          projectId?: string | null;
+        };
+        const updated = {
+          ...runningEntry,
+          description: body.description ?? runningEntry.description,
+          projectId: body.projectId ?? runningEntry.projectId,
+        };
+        return Promise.resolve({
+          ok: true,
+          json: async () => updated,
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<TrackerPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /stop timer/i })).toBeInTheDocument();
+    });
+
+    const descriptionInput = screen.getByLabelText(/^description$/i);
+    fireEvent.change(descriptionInput, { target: { value: "In progress work" } });
+
+    fireEvent.change(screen.getByLabelText(/project \(optional\)/i), {
+      target: { value: project.id },
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/time-entries/${runningEntry.id}`,
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({
+            projectId: project.id,
+            description: "In progress work",
+          }),
+        }),
+      );
+    });
+
+    expect(descriptionInput).toHaveValue("In progress work");
+  });
+
   it("deletes the Time Entry chosen when the dialog opened, even if another row Delete is clicked", async () => {
     let listedEntries = [morningEntry, afternoonEntry];
     const fetchMock = vi.fn((url: string, init?: RequestInit) => {
