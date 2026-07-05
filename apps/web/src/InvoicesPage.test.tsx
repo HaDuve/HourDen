@@ -182,6 +182,65 @@ describe("InvoicesPage", () => {
     });
   });
 
+  it("shows a catalog error message when loading clients fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url === "/api/clients") {
+          return Promise.reject("offline");
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      }),
+    );
+
+    render(<InvoicesPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Failed to load clients")).toBeInTheDocument();
+    });
+  });
+
+  it("shows a German catalog error message when loading clients fails", async () => {
+    await i18n.changeLanguage("de");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url === "/api/clients") {
+          return Promise.reject("offline");
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      }),
+    );
+
+    render(<InvoicesPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Kunden konnten nicht geladen werden")).toBeInTheDocument();
+    });
+  });
+
+  it("shows German invoice sender field labels when the active locale is de", async () => {
+    await i18n.changeLanguage("de");
+    vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
+
+    render(<InvoicesPage />);
+
+    await waitFor(() => {
+      const clientSelect = screen.getByLabelText(/^kunde$/i);
+      expect(
+        within(clientSelect).getByRole("option", { name: "Bandao" }),
+      ).toBeInTheDocument();
+      expect(clientSelect).toHaveValue(bandaoClient.id);
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^rechnungsabsender$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^straße$/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/^steuernummer$/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/^bankname$/i)).toBeInTheDocument();
+    });
+  });
+
   it("sets the Billing Period to last month when the last month quick control is clicked", async () => {
     vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
     vi.setSystemTime(new Date(2026, 5, 18));

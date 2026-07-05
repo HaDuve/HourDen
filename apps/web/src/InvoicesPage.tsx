@@ -260,18 +260,18 @@ export default function InvoicesPage() {
       const invoices = await fetchIssuedInvoices();
       setIssuedInvoices(invoices);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load invoices");
+      setError(err instanceof Error ? err.message : t("invoices.loadInvoicesFailed"));
     }
-  }, []);
+  }, [t]);
 
   const loadInvoiceSenderStatus = useCallback(async () => {
     try {
       const status = await fetchInvoiceSenderStatus();
       setInvoiceSenderConfigured(status.configured);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load invoice sender");
+      setError(err instanceof Error ? err.message : t("invoices.loadInvoiceSenderFailed"));
     }
-  }, []);
+  }, [t]);
 
   const loadClients = useCallback(async () => {
     setLoading(true);
@@ -284,11 +284,11 @@ export default function InvoicesPage() {
       }
       await Promise.all([loadIssuedInvoices(), loadInvoiceSenderStatus()]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load clients");
+      setError(err instanceof Error ? err.message : t("invoices.loadClientsFailed"));
     } finally {
       setLoading(false);
     }
-  }, [loadIssuedInvoices, loadInvoiceSenderStatus]);
+  }, [loadIssuedInvoices, loadInvoiceSenderStatus, t]);
 
   useEffect(() => {
     void loadClients();
@@ -340,11 +340,11 @@ export default function InvoicesPage() {
         setNumberingStrategy((current) => current ?? "from_last");
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "Failed to load numbering preview",
+          err instanceof Error ? err.message : t("invoices.loadNumberingPreviewFailed"),
         );
       }
     },
-    [clientId, suggestedInvoiceNumber, to, usePrefix],
+    [clientId, suggestedInvoiceNumber, to, usePrefix, t],
   );
 
   const openSenderEditor = useCallback(async () => {
@@ -357,11 +357,11 @@ export default function InvoicesPage() {
       setSenderForm(invoiceSenderToForm(status.invoiceSender));
     } catch (err) {
       setEditingSender(false);
-      setError(err instanceof Error ? err.message : "Failed to load invoice sender");
+      setError(err instanceof Error ? err.message : t("invoices.loadInvoiceSenderFailed"));
     } finally {
       setLoadingSender(false);
     }
-  }, []);
+  }, [t]);
 
   const requestPreview = useCallback(
     async (options?: {
@@ -370,7 +370,7 @@ export default function InvoicesPage() {
       usePrefix?: boolean;
     }) => {
       if (!clientId) {
-        setError("Select a Client before previewing");
+        setError(t("invoices.selectClientBeforePreview"));
         return;
       }
 
@@ -456,7 +456,7 @@ export default function InvoicesPage() {
         }
       } catch (err) {
         if (requestId === previewRequestIdRef.current) {
-          setError(err instanceof Error ? err.message : "Failed to preview invoice");
+          setError(err instanceof Error ? err.message : t("invoices.previewFailed"));
         }
       } finally {
         if (requestId === previewRequestIdRef.current) {
@@ -474,6 +474,7 @@ export default function InvoicesPage() {
       refreshNumberingPreview,
       invoiceSenderConfigured,
       openSenderEditor,
+      t,
     ],
   );
 
@@ -553,7 +554,7 @@ export default function InvoicesPage() {
 
   async function handleIssue() {
     if (!clientId) {
-      setError("Select a Client before issuing");
+      setError(t("invoices.selectClientBeforeIssue"));
       return;
     }
     if (!invoiceNumber) {
@@ -561,12 +562,12 @@ export default function InvoicesPage() {
       return;
     }
     if (!invoiceSenderConfigured) {
-      setError("Set up your Invoice Sender before issuing");
+      setError(t("invoices.setupInvoiceSenderBeforeIssue"));
       void openSenderEditor();
       return;
     }
     if (invoiceNumberEdited && !numberingStrategy) {
-      setError("Choose how future invoices should be numbered");
+      setError(t("invoices.chooseNumberingStrategy"));
       return;
     }
 
@@ -616,7 +617,7 @@ export default function InvoicesPage() {
       setNumberingStrategy(null);
       await loadIssuedInvoices();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to issue invoice");
+      setError(err instanceof Error ? err.message : t("invoices.issueFailed"));
     } finally {
       setIssuing(false);
     }
@@ -649,7 +650,7 @@ export default function InvoicesPage() {
       const disposition = res.headers.get("Content-Disposition") ?? "";
       downloadAttachmentBlob(blob, disposition);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to export invoices");
+      setError(err instanceof Error ? err.message : t("invoices.exportInvoicesFailed"));
     } finally {
       setExporting(false);
     }
@@ -670,7 +671,7 @@ export default function InvoicesPage() {
       const disposition = res.headers.get("Content-Disposition") ?? "";
       downloadAttachmentBlob(blob, disposition);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to download invoice");
+      setError(err instanceof Error ? err.message : t("invoices.downloadInvoiceFailed"));
     } finally {
       setDownloadingId(null);
     }
@@ -700,7 +701,7 @@ export default function InvoicesPage() {
         });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save invoice sender");
+      setError(err instanceof Error ? err.message : t("invoices.saveInvoiceSenderFailed"));
     } finally {
       setSavingSender(false);
     }
@@ -997,7 +998,7 @@ export default function InvoicesPage() {
             ) : (
               <div className="mt-4 grid gap-3">
                 <label className="grid gap-1 text-sm">
-                  <span>Name</span>
+                  {t("invoices.senderName")}
                   <input
                     required
                     value={senderForm.name}
@@ -1012,7 +1013,7 @@ export default function InvoicesPage() {
                 </label>
 
                 <label className="grid gap-1 text-sm">
-                  <span>Street</span>
+                  {t("invoices.senderStreet")}
                   <input
                     value={senderForm.street}
                     onChange={(e) =>
@@ -1026,7 +1027,7 @@ export default function InvoicesPage() {
                 </label>
 
                 <label className="grid gap-1 text-sm">
-                  <span>City</span>
+                  {t("invoices.senderCity")}
                   <input
                     value={senderForm.city}
                     onChange={(e) =>
@@ -1040,7 +1041,7 @@ export default function InvoicesPage() {
                 </label>
 
                 <label className="grid gap-1 text-sm">
-                  <span>Tax number</span>
+                  {t("invoices.senderTaxNumber")}
                   <input
                     value={senderForm.taxNumber}
                     onChange={(e) =>
@@ -1054,7 +1055,7 @@ export default function InvoicesPage() {
                 </label>
 
                 <label className="grid gap-1 text-sm">
-                  <span>Email</span>
+                  {t("invoices.senderEmail")}
                   <input
                     required
                     type="email"
@@ -1070,7 +1071,7 @@ export default function InvoicesPage() {
                 </label>
 
                 <label className="grid gap-1 text-sm">
-                  <span>Phone</span>
+                  {t("invoices.senderPhone")}
                   <input
                     value={senderForm.phone}
                     onChange={(e) =>
@@ -1086,7 +1087,7 @@ export default function InvoicesPage() {
                 <fieldset className="grid gap-3 rounded-md border border-neutral-200 p-3">
                   <legend className="px-1 text-sm font-medium">{t("invoices.bankDetails")}</legend>
                   <label className="grid gap-1 text-sm">
-                    <span>Bank name</span>
+                    {t("invoices.senderBankName")}
                     <input
                       value={senderForm.bankName}
                       onChange={(e) =>
@@ -1099,7 +1100,7 @@ export default function InvoicesPage() {
                     />
                   </label>
                   <label className="grid gap-1 text-sm">
-                    <span>IBAN</span>
+                    {t("invoices.senderIban")}
                     <input
                       value={senderForm.iban}
                       onChange={(e) =>
@@ -1112,7 +1113,7 @@ export default function InvoicesPage() {
                     />
                   </label>
                   <label className="grid gap-1 text-sm">
-                    <span>BIC</span>
+                    {t("invoices.senderBic")}
                     <input
                       value={senderForm.bic}
                       onChange={(e) =>

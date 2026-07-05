@@ -57,7 +57,7 @@ export default function ReportPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadReport(from, to);

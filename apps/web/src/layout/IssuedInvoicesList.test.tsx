@@ -46,4 +46,25 @@ describe("IssuedInvoicesList", () => {
     expect(screen.getByRole("table")).toBeInTheDocument();
     expect(screen.queryByRole("list")).not.toBeInTheDocument();
   });
+
+  it("renders issued invoice column labels from the message catalog", () => {
+    mockDesktopViewport();
+    render(
+      <IssuedInvoicesList
+        invoices={[issuedInvoice]}
+        downloadingId={null}
+        onDownload={() => undefined}
+        formatBillingPeriod={(start, end) => `${start} – ${end}`}
+        formatAmount={(amount) => `${amount.toFixed(2)} EUR`}
+      />,
+    );
+
+    expect(screen.getByRole("columnheader", { name: /^recipient$/i })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /^invoice number$/i })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /^billing period$/i })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /^total$/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /download invoice BAN2026001/i }),
+    ).toBeInTheDocument();
+  });
 });
