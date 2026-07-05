@@ -484,7 +484,7 @@ export async function updateTimeEntry(
   workspaceId: string,
   entryId: string,
   input: UpdateTimeEntryInput,
-): Promise<TimeEntry | null | "invoiced" | "invalid_project" | "cannot_reopen"> {
+): Promise<TimeEntry | null | "invoiced" | "invalid_project" | "invalid_range" | "cannot_reopen"> {
   const existing = await getTimeEntryRow(pool, workspaceId, entryId);
   if (!existing) return null;
   if (existing.invoice_id) return "invoiced";
@@ -519,6 +519,19 @@ export async function updateTimeEntry(
 
   if (assignments.length === 0) {
     return rowToTimeEntry(existing);
+  }
+
+  const nextStartedAt =
+    input.startedAt !== undefined ? new Date(input.startedAt) : existing.started_at;
+  const nextEndedAt =
+    input.endedAt !== undefined
+      ? input.endedAt
+        ? new Date(input.endedAt)
+        : null
+      : existing.ended_at;
+
+  if (nextEndedAt && nextEndedAt <= nextStartedAt) {
+    return "invalid_range";
   }
 
   assignments.push("updated_at = now()");

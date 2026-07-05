@@ -124,7 +124,13 @@ describe.skipIf(!databaseUrl)("TrackerPage with live API", () => {
       expect(screen.getByText(/incomplete/i)).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /^edit$/i }));
+    const incompleteRow = screen.getByText(/incomplete/i).closest("li");
+    expect(incompleteRow).not.toBeNull();
+    fireEvent.click(
+      within(incompleteRow!).getByRole("button", {
+        name: /no description/i,
+      }),
+    );
     const editDialog = editEntryDialog();
     fireEvent.change(within(editDialog).getByLabelText(/^description$/i), {
       target: { value: "Wrapped up design review" },
@@ -234,7 +240,11 @@ describe.skipIf(!databaseUrl)("TrackerPage with live API", () => {
 
     const originalRow = screen.getByText("Original entry").closest("li");
     expect(originalRow).not.toBeNull();
-    fireEvent.click(within(originalRow!).getByRole("button", { name: /^edit$/i }));
+    fireEvent.click(
+      within(originalRow!).getByRole("button", {
+        name: /original entry/i,
+      }),
+    );
 
     const editDialog = editEntryDialog();
     const descriptionInput = within(editDialog).getByLabelText(/^description$/i);
