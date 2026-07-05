@@ -9,6 +9,8 @@ type DescriptionAutocompleteProps = {
   label: string;
   value: string;
   required?: boolean;
+  hideLabel?: boolean;
+  placeholder?: string;
   onChange: (description: string) => void;
   onSuggestionSelect: (suggestion: DescriptionSuggestion) => void;
   inputClassName?: string;
@@ -31,6 +33,8 @@ export function DescriptionAutocomplete({
   label,
   value,
   required = false,
+  hideLabel = false,
+  placeholder,
   onChange,
   onSuggestionSelect,
   inputClassName = inputClass,
@@ -88,52 +92,70 @@ export function DescriptionAutocomplete({
     setOpen(false);
   };
 
+  const input = (
+    <input
+      required={required}
+      aria-label={hideLabel ? label : undefined}
+      placeholder={hideLabel ? (placeholder ?? label) : placeholder}
+      aria-autocomplete="list"
+      aria-controls={open ? listboxId : undefined}
+      aria-expanded={open}
+      value={value}
+      onChange={(event) => {
+        onChange(event.target.value);
+        if (event.target.value.trim()) {
+          setOpen(true);
+        }
+      }}
+      onFocus={() => {
+        if (suggestions.length > 0) {
+          setOpen(true);
+        }
+      }}
+      className={`w-full ${inputClassName}`}
+    />
+  );
+
+  const suggestionsList =
+    open && suggestions.length > 0 ? (
+      <ul
+        id={listboxId}
+        role="listbox"
+        className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border border-divider bg-surface py-1 shadow-lg"
+      >
+        {suggestions.map((suggestion) => (
+          <li key={suggestion.description} role="presentation">
+            <button
+              type="button"
+              role="option"
+              className="block w-full px-3 py-2 text-left text-sm text-content hover:bg-surface-hover"
+              onMouseDown={(event) => {
+                event.preventDefault();
+              }}
+              onClick={() => handleSelect(suggestion)}
+            >
+              {suggestion.description}
+            </button>
+          </li>
+        ))}
+      </ul>
+    ) : null;
+
+  if (hideLabel) {
+    return (
+      <div ref={containerRef} className="relative">
+        {input}
+        {suggestionsList}
+      </div>
+    );
+  }
+
   return (
     <label className="grid gap-1 text-sm">
       <span>{label}</span>
       <div ref={containerRef} className="relative">
-        <input
-          required={required}
-          aria-autocomplete="list"
-          aria-controls={open ? listboxId : undefined}
-          aria-expanded={open}
-          value={value}
-          onChange={(event) => {
-            onChange(event.target.value);
-            if (event.target.value.trim()) {
-              setOpen(true);
-            }
-          }}
-          onFocus={() => {
-            if (suggestions.length > 0) {
-              setOpen(true);
-            }
-          }}
-          className={`w-full ${inputClassName}`}
-        />
-        {open && suggestions.length > 0 && (
-          <ul
-            id={listboxId}
-            role="listbox"
-            className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border border-divider bg-surface py-1 shadow-lg"
-          >
-            {suggestions.map((suggestion) => (
-              <li key={suggestion.description} role="presentation">
-                <button
-                  type="button"
-                  role="option"
-                  className="block w-full px-3 py-2 text-left text-sm text-content hover:bg-surface-hover"
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                  }}
-                  onClick={() => handleSelect(suggestion)}
-                >
-                  {suggestion.description}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+        {input}
+        {suggestionsList}
       </div>
     </label>
   );

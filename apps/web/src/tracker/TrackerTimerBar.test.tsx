@@ -43,7 +43,11 @@ describe("TrackerTimerBar", () => {
 
     const bar = screen.getByRole("region", { name: /timer bar/i });
     expect(bar.className).toMatch(/sticky/);
+    expect(bar.className).toMatch(/rounded-lg/);
+    expect(bar.className).toMatch(/border/);
     expect(screen.getByLabelText(/^description$/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/^description$/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^description$/i)).not.toBeInTheDocument();
     expect(screen.getByLabelText(/project \(optional\)/i)).toBeInTheDocument();
     expect(screen.getByText("0:00:00")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /start timer/i })).toBeInTheDocument();
