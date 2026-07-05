@@ -67,4 +67,36 @@ describe("IssuedInvoicesList", () => {
       screen.getByRole("button", { name: /download invoice BAN2026001/i }),
     ).toBeInTheDocument();
   });
+
+  it("right-aligns invoice totals with tabular numeric styling on desktop", () => {
+    mockDesktopViewport();
+    render(
+      <IssuedInvoicesList
+        invoices={[issuedInvoice]}
+        downloadingId={null}
+        onDownload={() => undefined}
+        formatBillingPeriod={(start, end) => `${start} – ${end}`}
+        formatAmount={(amount) => `${amount.toFixed(2)} EUR`}
+      />,
+    );
+
+    const totalCell = screen.getByRole("cell", { name: /60\.00 EUR/ });
+    expect(totalCell).toHaveClass("tabular-nums", "font-mono", "text-right");
+  });
+
+  it("right-aligns invoice totals with tabular numeric styling on mobile cards", () => {
+    mockMobileViewport();
+    render(
+      <IssuedInvoicesList
+        invoices={[issuedInvoice]}
+        downloadingId={null}
+        onDownload={() => undefined}
+        formatBillingPeriod={(start, end) => `${start} – ${end}`}
+        formatAmount={(amount) => `${amount.toFixed(2)} EUR`}
+      />,
+    );
+
+    const totalValue = screen.getByText("60.00 EUR");
+    expect(totalValue).toHaveClass("tabular-nums", "font-mono", "text-right");
+  });
 });

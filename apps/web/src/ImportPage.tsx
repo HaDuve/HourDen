@@ -1,5 +1,15 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  errorBannerClass,
+  fieldLabelClass,
+  infoPanelClass,
+  inputClass,
+  metaTextClass,
+  pageTitleClass,
+  pageSubtitleClass,
+  primaryButtonClass,
+} from "./layout/ui-classes.js";
 
 type ImportSummary = {
   imported: number;
@@ -54,7 +64,7 @@ export default function ImportPage() {
       }
 
       setSummary(totals);
-    } catch (err) {
+    } catch {
       setError(t("import.failed"));
     } finally {
       setImporting(false);
@@ -62,12 +72,12 @@ export default function ImportPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-8 py-8">
-      <h1 className="mb-2 text-2xl font-semibold text-slate-900">{t("import.title")}</h1>
-      <p className="mb-6 text-sm text-neutral-600">{t("import.subtitle")}</p>
+    <main className="mx-auto max-w-3xl bg-background px-8 py-8">
+      <h1 className={`mb-2 ${pageTitleClass}`}>{t("import.title")}</h1>
+      <p className={`mb-6 ${pageSubtitleClass}`}>{t("import.subtitle")}</p>
 
       <div className="mb-6 space-y-4">
-        <label className="flex flex-col gap-2 text-sm text-neutral-700">
+        <label className={`flex flex-col gap-2 ${fieldLabelClass}`}>
           {t("import.fileLabel")}
           <input
             type="file"
@@ -79,12 +89,12 @@ export default function ImportPage() {
               setSummary(null);
               setError(null);
             }}
-            className="rounded-md border border-neutral-300 px-3 py-2"
+            className={inputClass}
           />
         </label>
 
         {selectedFiles.length > 0 ? (
-          <ul className="text-sm text-neutral-600">
+          <ul className={metaTextClass}>
             {selectedFiles.map((file) => (
               <li key={file.name}>{file.name}</li>
             ))}
@@ -95,20 +105,20 @@ export default function ImportPage() {
           type="button"
           onClick={() => void handleImport()}
           disabled={importing || selectedFiles.length === 0}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+          className={primaryButtonClass}
         >
           {importing ? t("import.importing") : t("import.importAction")}
         </button>
       </div>
 
       {error ? (
-        <p className="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p className={`mb-4 ${errorBannerClass}`} role="alert">
           {error}
         </p>
       ) : null}
 
       {summary ? (
-        <div className="rounded-md border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-800">
+        <div className={infoPanelClass}>
           <p>{t("import.importedCount", { count: summary.imported })}</p>
           {summary.duplicates > 0 ? (
             <p>{t("import.skippedDuplicates", { count: summary.duplicates })}</p>

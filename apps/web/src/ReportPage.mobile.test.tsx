@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import ReportPage from "./ReportPage.js";
 import { mockMobileViewport } from "./test/viewport.js";
 
@@ -51,5 +51,22 @@ describe("ReportPage mobile layout", () => {
     expect(screen.getByTestId("report-line-card")).toBeInTheDocument();
     expect(screen.getByText("Date")).toBeInTheDocument();
     expect(screen.getByText("Description")).toBeInTheDocument();
+  });
+
+  it("renders duration and amount with tabular numeric styling on mobile cards", async () => {
+    mockMobileViewport();
+    vi.stubGlobal("fetch", reportWithLinesFetchMock());
+
+    render(<ReportPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Consulting")).toBeInTheDocument();
+    });
+
+    const card = screen.getByTestId("report-line-card");
+    const durationValue = within(card).getByText("1:00");
+    const amountValue = within(card).getByText(/€60\.00/);
+    expect(durationValue).toHaveClass("tabular-nums", "font-mono", "text-right");
+    expect(amountValue).toHaveClass("tabular-nums", "font-mono", "text-right");
   });
 });

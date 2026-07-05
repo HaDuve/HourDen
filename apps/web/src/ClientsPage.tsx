@@ -7,6 +7,20 @@ import {
   mobileActionButtonClass,
   mobilePrimaryButtonClass,
 } from "./layout/tap-targets.js";
+import {
+  destructiveButtonClass,
+  destructiveOutlineButtonClass,
+  emptyStateClass,
+  errorBannerClass,
+  fieldLabelClass,
+  inputClass,
+  listPanelClass,
+  metaTextClass,
+  numericMetaValueClass,
+  pageSubtitleClass,
+  pageTitleLargeClass,
+  secondaryButtonClass,
+} from "./layout/ui-classes.js";
 import { useIsMobile } from "./layout/use-is-mobile.js";
 import { useDeleteDialog } from "./useDeleteDialog.js";
 import { useLocaleFormat } from "./locale/use-locale-format.js";
@@ -167,33 +181,33 @@ export default function ClientsPage() {
     <PageMain variant="flex">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">{t("clients.title")}</h1>
-          <p className="text-neutral-600">{t("clients.subtitle")}</p>
+          <h1 className={pageTitleLargeClass}>{t("clients.title")}</h1>
+          <p className={pageSubtitleClass}>{t("clients.subtitle")}</p>
         </div>
         <button
           type="button"
           onClick={openCreate}
-          className={`${primaryButtonClass} bg-slate-900 text-white hover:bg-slate-800`}
+          className={primaryButtonClass}
         >
           {t("clients.newClient")}
         </button>
       </header>
 
       {error && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p className={errorBannerClass}>
           {error}
         </p>
       )}
 
       {loading ? (
-        <p className="text-neutral-500">{t("clients.loading")}</p>
+        <p className={metaTextClass}>{t("clients.loading")}</p>
       ) : clients.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-neutral-300 bg-white px-4 py-8 text-center text-neutral-500">
+        <p className={emptyStateClass}>
           {t("clients.empty")}
         </p>
       ) : (
         <ul
-          className={`divide-y divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white${
+          className={`${listPanelClass}${
             isDeleteDialogOpen ? " pointer-events-none" : ""
           }`}
         >
@@ -210,19 +224,19 @@ export default function ClientsPage() {
               {isMobile ? (
                 <dl className="grid gap-1 text-sm">
                   <div className="flex justify-between gap-3">
-                    <dt className="text-neutral-500">{t("clients.name")}</dt>
+                    <dt className="text-muted">{t("clients.name")}</dt>
                     <dd className="text-right font-medium">{client.name}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <dt className="text-neutral-500">{t("clients.defaultRate")}</dt>
-                    <dd className="text-right text-neutral-600">
+                    <dt className="text-muted">{t("clients.defaultRate")}</dt>
+                    <dd className={numericMetaValueClass}>
                       {formatHourlyRate(client.defaultRate)}
                     </dd>
                   </div>
                   {client.legalName && (
                     <div className="flex justify-between gap-3">
-                      <dt className="text-neutral-500">{t("clients.recipient")}</dt>
-                      <dd className="text-right text-xs text-neutral-500">
+                      <dt className="text-muted">{t("clients.recipient")}</dt>
+                      <dd className="text-right text-xs text-muted">
                         {client.legalName}
                       </dd>
                     </div>
@@ -231,11 +245,11 @@ export default function ClientsPage() {
               ) : (
                 <div>
                   <p className="font-medium">{client.name}</p>
-                  <p className="text-sm text-neutral-600">
+                  <p className={`text-sm ${numericMetaValueClass}`}>
                     {formatHourlyRate(client.defaultRate)}
                   </p>
                   {client.legalName && (
-                    <p className="mt-1 text-xs text-neutral-500">
+                    <p className="mt-1 text-xs text-muted">
                       {t("clients.recipientPrefix", { name: client.legalName })}
                     </p>
                   )}
@@ -245,7 +259,7 @@ export default function ClientsPage() {
                 <button
                   type="button"
                   onClick={() => openEdit(client)}
-                  className={`${actionButtonClass} border-neutral-300 hover:bg-neutral-50${
+                  className={`${actionButtonClass}${
                     isMobile ? " flex-1" : ""
                   }`}
                 >
@@ -254,8 +268,8 @@ export default function ClientsPage() {
                 <button
                   type="button"
                   onClick={() => openDeleteDialog(client)}
-                  className={`${actionButtonClass} border-red-200 text-red-700 hover:bg-red-50${
-                    isMobile ? " flex-1" : ""
+                  className={`${destructiveOutlineButtonClass}${
+                    isMobile ? " min-h-11 flex-1 px-4 text-sm" : " px-3 py-1.5 text-sm"
                   }`}
                 >
                   {t("common.delete")}
@@ -276,7 +290,7 @@ export default function ClientsPage() {
             </h2>
 
             <div className="mt-4 grid gap-3">
-              <label className="grid gap-1 text-sm">
+              <label className={`grid gap-1 ${fieldLabelClass}`}>
                 <span>{t("clients.name")}</span>
                 <input
                   required
@@ -284,11 +298,11 @@ export default function ClientsPage() {
                   onChange={(e) =>
                     setForm((current) => ({ ...current, name: e.target.value }))
                   }
-                  className="rounded-md border border-neutral-300 px-3 py-2"
+                  className={inputClass}
                 />
               </label>
 
-              <label className="grid gap-1 text-sm">
+              <label className={`grid gap-1 ${fieldLabelClass}`}>
                 <span>{t("clients.defaultRate")}</span>
                 <input
                   required
@@ -302,15 +316,15 @@ export default function ClientsPage() {
                       defaultRate: e.target.value,
                     }))
                   }
-                  className="rounded-md border border-neutral-300 px-3 py-2"
+                  className={inputClass}
                 />
               </label>
 
-              <fieldset className="grid gap-3 rounded-md border border-neutral-200 p-3">
-                <legend className="px-1 text-sm font-medium">
+              <fieldset className="grid gap-3 rounded-md border border-divider p-3">
+                <legend className={`px-1 ${fieldLabelClass}`}>
                   {t("clients.recipientOptional")}
                 </legend>
-                <label className="grid gap-1 text-sm">
+                <label className={`grid gap-1 ${fieldLabelClass}`}>
                   <span>{t("clients.legalName")}</span>
                   <input
                     value={form.legalName}
@@ -320,10 +334,10 @@ export default function ClientsPage() {
                         legalName: e.target.value,
                       }))
                     }
-                    className="rounded-md border border-neutral-300 px-3 py-2"
+                    className={inputClass}
                   />
                 </label>
-                <label className="grid gap-1 text-sm">
+                <label className={`grid gap-1 ${fieldLabelClass}`}>
                   <span>{t("clients.addressLine1")}</span>
                   <input
                     value={form.addressLine1}
@@ -333,10 +347,10 @@ export default function ClientsPage() {
                         addressLine1: e.target.value,
                       }))
                     }
-                    className="rounded-md border border-neutral-300 px-3 py-2"
+                    className={inputClass}
                   />
                 </label>
-                <label className="grid gap-1 text-sm">
+                <label className={`grid gap-1 ${fieldLabelClass}`}>
                   <span>{t("clients.addressLine2")}</span>
                   <input
                     value={form.addressLine2}
@@ -346,7 +360,7 @@ export default function ClientsPage() {
                         addressLine2: e.target.value,
                       }))
                     }
-                    className="rounded-md border border-neutral-300 px-3 py-2"
+                    className={inputClass}
                   />
                 </label>
               </fieldset>
@@ -356,14 +370,14 @@ export default function ClientsPage() {
               <button
                 type="button"
                 onClick={closeForm}
-                className="rounded-md border border-neutral-300 px-4 py-2 text-sm"
+                className={secondaryButtonClass}
               >
                 {t("common.cancel")}
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                className={primaryButtonClass}
               >
                 {saving ? t("common.saving") : t("common.save")}
               </button>
@@ -381,14 +395,14 @@ export default function ClientsPage() {
           <h2 id="delete-client-title" className="text-lg font-semibold">
             {t("clients.deleteTitle")}
           </h2>
-          <p className="mt-2 text-sm text-neutral-600">
+          <p className={`mt-2 ${metaTextClass}`}>
             {t("clients.deleteBody", { name: pendingDelete.name })}
           </p>
           <div className="mt-6 flex justify-end gap-2">
             <button
               type="button"
               onClick={closeDeleteDialog}
-              className={`${actionButtonClass} border-neutral-300`}
+              className={actionButtonClass}
             >
               {t("common.cancel")}
             </button>
@@ -396,7 +410,7 @@ export default function ClientsPage() {
               type="button"
               onClick={() => void confirmDelete()}
               disabled={saving}
-              className={`${actionButtonClass} bg-red-600 font-medium text-white disabled:opacity-60`}
+              className={destructiveButtonClass}
             >
               {saving ? t("common.deleting") : t("common.confirmDelete")}
             </button>

@@ -2,13 +2,22 @@ import type { Client } from "@hourden/domain";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import {
+  cardClass,
+  emptyStateClass,
+  errorBannerClass,
+  fieldLabelClass,
+  inputClass,
+  metaTextClass,
+  primaryButtonClass,
+  selectClass,
+} from "../layout/ui-classes.js";
+import { DEFAULT_PROJECT_COLOR } from "../project-default-color.js";
 
 type ProjectFormData = {
   name: string;
   color: string;
 };
-
-const DEFAULT_PROJECT_COLOR = "#3b82f6";
 
 const emptyForm: ProjectFormData = {
   name: "",
@@ -109,16 +118,16 @@ export default function ProjectStepPage() {
   }
 
   if (loading) {
-    return <p className="text-neutral-500">{t("onboarding.loading")}</p>;
+    return <p className={metaTextClass}>{t("onboarding.loading")}</p>;
   }
 
   if (clients.length === 0) {
     return (
-      <section className="rounded-xl border border-dashed border-neutral-300 bg-white p-6 text-center">
-        <p className="text-neutral-600">{t("onboarding.createClientFirst")}</p>
+      <section className={`${emptyStateClass} p-6`}>
+        <p className={metaTextClass}>{t("onboarding.createClientFirst")}</p>
         <Link
           to="/onboarding/client"
-          className="mt-4 inline-block rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+          className={`mt-4 inline-block ${primaryButtonClass}`}
         >
           {t("onboarding.addFirstClient")}
         </Link>
@@ -127,24 +136,24 @@ export default function ProjectStepPage() {
   }
 
   return (
-    <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold">{t("onboarding.addFirstProject")}</h2>
-      <p className="mt-1 text-sm text-neutral-600">{t("onboarding.addFirstProjectHint")}</p>
+    <section className={`${cardClass} p-6 shadow-sm`}>
+      <h2 className="text-lg font-semibold text-content">{t("onboarding.addFirstProject")}</h2>
+      <p className={`mt-1 ${metaTextClass}`}>{t("onboarding.addFirstProjectHint")}</p>
 
       {error ? (
-        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p className={`mt-4 ${errorBannerClass}`}>
           {error}
         </p>
       ) : null}
 
       <form onSubmit={handleSubmit} className="mt-4 grid gap-3">
-        <label className="grid gap-1 text-sm">
+        <label className={`grid gap-1 ${fieldLabelClass}`}>
           <span>{t("onboarding.selectClient")}</span>
           <select
             required
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
-            className="rounded-md border border-neutral-300 px-3 py-2"
+            className={selectClass}
           >
             {clients.map((client) => (
               <option key={client.id} value={client.id}>
@@ -154,7 +163,7 @@ export default function ProjectStepPage() {
           </select>
         </label>
 
-        <label className="grid gap-1 text-sm">
+        <label className={`grid gap-1 ${fieldLabelClass}`}>
           <span>{t("clients.name")}</span>
           <input
             required
@@ -162,11 +171,11 @@ export default function ProjectStepPage() {
             onChange={(e) =>
               setForm((current) => ({ ...current, name: e.target.value }))
             }
-            className="rounded-md border border-neutral-300 px-3 py-2"
+            className={inputClass}
           />
         </label>
 
-        <label className="grid gap-1 text-sm">
+        <label className={`grid gap-1 ${fieldLabelClass}`}>
           <span>{t("projects.colorOptional")}</span>
           <input
             type="color"
@@ -174,7 +183,7 @@ export default function ProjectStepPage() {
             onChange={(e) =>
               setForm((current) => ({ ...current, color: e.target.value }))
             }
-            className="h-10 w-20 rounded-md border border-neutral-300"
+            className="h-10 w-20 rounded-md border border-input"
           />
         </label>
 
@@ -182,7 +191,7 @@ export default function ProjectStepPage() {
           <button
             type="submit"
             disabled={saving || !clientId}
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+            className={primaryButtonClass}
           >
             {saving ? t("common.saving") : t("onboarding.continue")}
           </button>

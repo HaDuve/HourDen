@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import i18n from "./i18n/i18n.js";
 import ReportPage from "./ReportPage.js";
+import { mockDesktopViewport } from "./test/viewport.js";
 
 function reportFetchMock() {
   return vi.fn().mockImplementation((url: string) => {
@@ -107,5 +108,51 @@ describe("ReportPage", () => {
       expect(screen.getAllByText(/1\.234,56/).length).toBeGreaterThan(0);
       expect(screen.getByText("15.06.2026")).toBeInTheDocument();
     });
+  });
+
+  it("renders line duration and amount with tabular numeric styling on desktop", async () => {
+    mockDesktopViewport();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.startsWith("/api/reports?")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              from: "2026-06-01",
+              to: "2026-06-30",
+              clients: [
+                {
+                  clientId: "c1",
+                  clientName: "Acme",
+                  totalDurationMinutes: 90,
+                  totalAmount: 150,
+                  lines: [
+                    {
+                      date: "2026-06-15",
+                      description: "Work",
+                      durationMinutes: 90,
+                      amount: 150,
+                    },
+                  ],
+                },
+              ],
+            }),
+          });
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      }),
+    );
+
+    render(<ReportPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Work")).toBeInTheDocument();
+    });
+
+    const line = screen.getByText("Work").closest("li");
+    expect(line).not.toBeNull();
+    const amountNode = within(line as HTMLElement).getByText(/€150\.00/);
+    expect(amountNode).toHaveClass("tabular-nums", "font-mono");
   });
 });

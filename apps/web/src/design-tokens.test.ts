@@ -13,4 +13,9 @@ describe("design token foundation (index.css)", () => {
     expect(css).toMatch(/font-mono/);
     expect(css).toMatch(/tabular-nums/);
   });
+
+  it("sets color-scheme dark for native form controls", () => {
+    const css = readIndexCss();
+    expect(css).toMatch(/color-scheme:\s*dark/);
+  });
 });

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { metaTextClass, secondaryButtonClass } from "../layout/ui-classes.js";
 import { fetchOnboardingStatus, type OnboardingStatus } from "./onboarding-api.js";
 
 type GuardState =
@@ -40,7 +41,7 @@ export default function OnboardingGuard() {
 
   if (state.status === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-neutral-600">
+      <div className={`flex min-h-screen items-center justify-center ${metaTextClass}`}>
         {t("common.loading")}
       </div>
     );
@@ -48,12 +49,12 @@ export default function OnboardingGuard() {
 
   if (state.status === "error") {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 p-8 text-center text-sm text-neutral-600">
+      <div className={`flex min-h-screen flex-col items-center justify-center gap-3 p-8 text-center ${metaTextClass}`}>
         <p>{t("guard.loadFailed")}</p>
         <button
           type="button"
           onClick={() => void load()}
-          className="rounded-md border border-neutral-300 px-4 py-2 hover:bg-neutral-50"
+          className={secondaryButtonClass}
         >
           {t("common.retry")}
         </button>

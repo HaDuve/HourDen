@@ -7,7 +7,21 @@ import { ResponsiveOverlay } from "./layout/ResponsiveOverlay.js";
 import {
   mobileActionButtonClass,
   mobilePrimaryButtonClass,
+  mobileSecondaryButtonClass,
 } from "./layout/tap-targets.js";
+import {
+  accentInputClass,
+  destructiveButtonClass,
+  destructiveOutlineButtonClass,
+  emptyStateClass,
+  errorBannerClass,
+  inputClass,
+  listPanelClass,
+  metaTextClass,
+  pageSubtitleClass,
+  pageTitleLargeClass,
+  selectClass,
+} from "./layout/ui-classes.js";
 import { useIsMobile } from "./layout/use-is-mobile.js";
 import { useLocaleFormat } from "./locale/use-locale-format.js";
 import {
@@ -362,6 +376,7 @@ export default function TrackerPage() {
   const isMobile = useIsMobile();
   const actionButtonClass = mobileActionButtonClass(isMobile);
   const primaryButtonClass = mobilePrimaryButtonClass(isMobile);
+  const secondaryButtonClass = mobileSecondaryButtonClass(isMobile);
   const weekGroups =
     calendarTimezone && today
       ? groupTrackerEntriesByWeek(entries, {
@@ -375,14 +390,14 @@ export default function TrackerPage() {
     <PageMain variant="flex">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">{t("tracker.title")}</h1>
-          <p className="text-neutral-600">{t("tracker.subtitle")}</p>
+          <h1 className={pageTitleLargeClass}>{t("tracker.title")}</h1>
+          <p className={pageSubtitleClass}>{t("tracker.subtitle")}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setShowManualForm(true)}
-            className={`${primaryButtonClass} border border-neutral-300 hover:bg-neutral-50`}
+            className={secondaryButtonClass}
           >
             {t("tracker.addManualEntry")}
           </button>
@@ -391,7 +406,7 @@ export default function TrackerPage() {
               type="button"
               onClick={() => void stopTimer()}
               disabled={saving}
-              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+              className={destructiveButtonClass}
             >
               {t("tracker.stopTimer")}
             </button>
@@ -400,7 +415,7 @@ export default function TrackerPage() {
               type="button"
               onClick={() => void startTimer()}
               disabled={saving}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+              className={primaryButtonClass}
             >
               {t("tracker.startTimer")}
             </button>
@@ -409,13 +424,13 @@ export default function TrackerPage() {
       </header>
 
       {running && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <div className="rounded-lg border border-accent-border bg-accent-muted px-4 py-3 text-sm text-content">
           <p className="mb-3">
             {t("tracker.timerRunning", {
               duration: formatDurationMinutes(running.durationMinutes),
             })}
           </p>
-          <div className="grid gap-3 text-neutral-900">
+          <div className="grid gap-3 text-content">
             <DescriptionAutocomplete
               label={t("tracker.description")}
               value={runningForm.description}
@@ -432,9 +447,9 @@ export default function TrackerPage() {
                   projectId: suggestion.projectId,
                 });
               }}
-              inputClassName="rounded-md border border-emerald-300 bg-white px-3 py-2"
+              inputClassName={accentInputClass}
             />
-            <label className="grid gap-1 text-sm">
+            <label className="grid gap-1 text-sm text-content">
               <span>{t("tracker.projectOptional")}</span>
               <select
                 value={runningForm.projectId}
@@ -443,7 +458,7 @@ export default function TrackerPage() {
                   setRunningForm((current) => ({ ...current, projectId }));
                   void patchRunningEntry({ projectId: projectId || null });
                 }}
-                className="rounded-md border border-emerald-300 bg-white px-3 py-2"
+                className={accentInputClass}
               >
                 <option value="">{t("tracker.noProject")}</option>
                 {projects.map((project) => (
@@ -458,15 +473,15 @@ export default function TrackerPage() {
       )}
 
       {error && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p className={errorBannerClass}>
           {error}
         </p>
       )}
 
       {loading ? (
-        <p className="text-neutral-500">{t("tracker.loading")}</p>
+        <p className={metaTextClass}>{t("tracker.loading")}</p>
       ) : entries.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-neutral-300 bg-white px-4 py-8 text-center text-neutral-500">
+        <p className={emptyStateClass}>
           {t("tracker.empty")}
         </p>
       ) : (
@@ -476,8 +491,8 @@ export default function TrackerPage() {
           {weekGroups.map((week) => (
             <section key={week.weekStart}>
               <div className="mb-2 flex items-baseline justify-between gap-4 px-1">
-                <h2 className="text-sm font-semibold text-neutral-900">{week.weekLabel}</h2>
-                <p className="text-sm text-neutral-500">
+                <h2 className="text-sm font-semibold text-content">{week.weekLabel}</h2>
+                <p className={metaTextClass}>
                   {t("tracker.weekTotal")}: {formatDurationMinutes(week.totalDurationMinutes)}
                 </p>
               </div>
@@ -485,14 +500,14 @@ export default function TrackerPage() {
               <div className="space-y-4">
                 {week.days.map((day) => (
                   <div key={day.date}>
-                    <div className="mb-1 flex items-baseline justify-between gap-4 border-b border-neutral-200 px-4 py-2">
-                      <h3 className="text-sm font-medium text-neutral-700">{day.dayLabel}</h3>
-                      <p className="text-sm text-neutral-500">
+                    <div className="mb-1 flex items-baseline justify-between gap-4 border-b border-divider px-4 py-2">
+                      <h3 className="text-sm font-medium text-content">{day.dayLabel}</h3>
+                      <p className={metaTextClass}>
                         {t("tracker.dayTotal")}: {formatDurationMinutes(day.totalDurationMinutes)}
                       </p>
                     </div>
 
-                    <ul className="divide-y divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white">
+                    <ul className={listPanelClass}>
                       {day.entries.map((entry) => (
                         <li
                           key={entry.id}
@@ -501,12 +516,12 @@ export default function TrackerPage() {
                           <div>
                             <p className="font-medium">
                               {entry.description?.trim() || (
-                                <span className="text-neutral-400 italic">
+                                <span className="text-muted italic">
                                   {t("tracker.noDescription")}
                                 </span>
                               )}
                             </p>
-                            <p className="mt-1 text-sm text-neutral-600">
+                            <p className={`mt-1 ${metaTextClass}`}>
                               {formatDurationMinutes(entry.durationMinutes)}
                               {entry.isRunning && ` · ${t("tracker.running")}`}
                               {entry.amount !== null && ` · ${formatCurrency(entry.amount)}`}
@@ -520,14 +535,14 @@ export default function TrackerPage() {
                               <button
                                 type="button"
                                 onClick={() => openEdit(entry)}
-                                className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
+                                className={actionButtonClass}
                               >
                                 {t("common.edit")}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => openDeleteDialog(entry)}
-                                className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
+                                className={`${destructiveOutlineButtonClass} px-3 py-1.5 text-sm`}
                               >
                                 {t("common.delete")}
                               </button>
@@ -545,7 +560,7 @@ export default function TrackerPage() {
       )}
 
       <div className="flex items-center justify-end gap-2 pt-2">
-        <label className="flex items-center gap-2 text-sm text-neutral-600">
+        <label className={`flex items-center gap-2 ${metaTextClass}`}>
           <span>{t("tracker.showEntries")}</span>
           <select
             aria-label={t("tracker.showEntries")}
@@ -553,7 +568,7 @@ export default function TrackerPage() {
             onChange={(event) =>
               handleLimitChange(Number(event.target.value) as TrackerEntryLimit)
             }
-            className="rounded-md border border-neutral-300 px-2 py-1.5"
+            className={`${selectClass} px-2 py-1.5`}
           >
             {TRACKER_ENTRY_LIMITS.map((limit) => (
               <option key={limit} value={limit}>
@@ -589,7 +604,7 @@ export default function TrackerPage() {
                 }
               />
 
-              <label className="grid gap-1 text-sm">
+              <label className="grid gap-1 text-sm text-content">
                 <span>{t("tracker.start")}</span>
                 <input
                   required
@@ -601,11 +616,11 @@ export default function TrackerPage() {
                       startedAt: e.target.value,
                     }))
                   }
-                  className="rounded-md border border-neutral-300 px-3 py-2"
+                  className={inputClass}
                 />
               </label>
 
-              <label className="grid gap-1 text-sm">
+              <label className="grid gap-1 text-sm text-content">
                 <span>{t("tracker.end")}</span>
                 <input
                   required
@@ -617,11 +632,11 @@ export default function TrackerPage() {
                       endedAt: e.target.value,
                     }))
                   }
-                  className="rounded-md border border-neutral-300 px-3 py-2"
+                  className={inputClass}
                 />
               </label>
 
-              <label className="grid gap-1 text-sm">
+              <label className="grid gap-1 text-sm text-content">
                 <span>{t("tracker.projectOptional")}</span>
                 <select
                   value={manualForm.projectId}
@@ -631,7 +646,7 @@ export default function TrackerPage() {
                       projectId: e.target.value,
                     }))
                   }
-                  className="rounded-md border border-neutral-300 px-3 py-2"
+                  className={selectClass}
                 >
                   <option value="">{t("tracker.noProject")}</option>
                   {projects.map((project) => (
@@ -650,14 +665,14 @@ export default function TrackerPage() {
                   setShowManualForm(false);
                   setManualForm(emptyManualForm());
                 }}
-                className="rounded-md border border-neutral-300 px-4 py-2 text-sm"
+                className={secondaryButtonClass}
               >
                 {t("common.cancel")}
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                className={primaryButtonClass}
               >
                 {saving ? t("common.saving") : t("common.save")}
               </button>
@@ -691,7 +706,7 @@ export default function TrackerPage() {
                 }
               />
 
-              <label className="grid gap-1 text-sm">
+              <label className="grid gap-1 text-sm text-content">
                 <span>{t("tracker.projectOptional")}</span>
                 <select
                   value={editForm.projectId}
@@ -701,7 +716,7 @@ export default function TrackerPage() {
                       projectId: e.target.value,
                     }))
                   }
-                  className="rounded-md border border-neutral-300 px-3 py-2"
+                  className={selectClass}
                 >
                   <option value="">{t("tracker.noProject")}</option>
                   {projects.map((project) => (
@@ -717,14 +732,14 @@ export default function TrackerPage() {
               <button
                 type="button"
                 onClick={() => setEditing(null)}
-                className="rounded-md border border-neutral-300 px-4 py-2 text-sm"
+                className={secondaryButtonClass}
               >
                 {t("common.cancel")}
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                className={primaryButtonClass}
               >
                 {saving ? t("common.saving") : t("common.save")}
               </button>
@@ -742,14 +757,14 @@ export default function TrackerPage() {
           <h2 id="delete-entry-title" className="text-lg font-semibold">
             {t("tracker.deleteEntryTitle")}
           </h2>
-          <p className="mt-2 text-sm text-neutral-600">
+          <p className={`mt-2 ${metaTextClass}`}>
             {t("tracker.deleteEntryBody")}
           </p>
           <div className="mt-6 flex justify-end gap-2">
             <button
               type="button"
               onClick={closeDeleteDialog}
-              className={`${actionButtonClass} border-neutral-300`}
+              className={actionButtonClass}
             >
               {t("common.cancel")}
             </button>
@@ -757,7 +772,7 @@ export default function TrackerPage() {
               type="button"
               onClick={() => void confirmDelete()}
               disabled={saving}
-              className={`${actionButtonClass} bg-red-600 font-medium text-white disabled:opacity-60`}
+              className={destructiveButtonClass}
             >
               {saving ? t("common.deleting") : t("common.confirmDelete")}
             </button>

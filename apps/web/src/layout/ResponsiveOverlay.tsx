@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { cardClass } from "./ui-classes.js";
 import { useIsMobile } from "./use-is-mobile.js";
 
 type ResponsiveOverlayProps = {
@@ -26,8 +27,8 @@ export function ResponsiveOverlay({
       data-presentation={presentation}
       className={
         isMobile
-          ? "fixed inset-0 z-40 flex items-end bg-black/40"
-          : "fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4"
+          ? "fixed inset-0 z-40 flex items-end bg-background/80"
+          : "fixed inset-0 z-40 flex items-center justify-center bg-background/70 p-4"
       }
       onClick={(event) => {
         if (onBackdropClick && event.target === event.currentTarget) {
@@ -38,8 +39,8 @@ export function ResponsiveOverlay({
       <div
         className={
           isMobile
-            ? "max-h-[90vh] w-full overflow-y-auto rounded-t-xl border border-neutral-200 bg-white p-4 shadow-lg"
-            : "w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-6 shadow-lg"
+            ? `max-h-[90vh] w-full overflow-y-auto rounded-t-xl p-4 shadow-lg ${cardClass}`
+            : `w-full max-w-lg rounded-xl p-6 shadow-lg ${cardClass}`
         }
         onClick={(event) => event.stopPropagation()}
       >
