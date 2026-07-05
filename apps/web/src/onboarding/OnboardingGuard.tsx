@@ -66,7 +66,7 @@ export default function OnboardingGuard() {
   }
 
   if (!state.onboarding.needsOnboarding && onOnboardingPath) {
-    return <Navigate to="/today" replace />;
+    return <Navigate to="/tracker" replace />;
   }
 
   return <Outlet />;

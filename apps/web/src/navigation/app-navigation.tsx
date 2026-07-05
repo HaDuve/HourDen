@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { navLinkClass } from "./nav-link-class.js";
-import { TodayNavLink } from "./today-nav-link.js";
+import { TrackerNavLink } from "./tracker-nav-link.js";
 
 const secondaryDestinations = [
   { to: "clients", label: "Clients" },
@@ -49,7 +49,7 @@ function DesktopNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
     <nav aria-label="Primary navigation" className="border-b border-neutral-200 bg-white">
       <div className="mx-auto flex max-w-3xl items-center gap-1 px-8 py-3">
         <div className="flex flex-1 gap-1">
-          <TodayNavLink />
+          <TrackerNavLink />
           <NavLink to="invoices" className={navLinkClass}>
             Invoices
           </NavLink>
@@ -114,7 +114,7 @@ function MobileNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
       >
         <div className="mx-auto flex max-w-3xl items-stretch justify-around px-2 py-2">
           <div className="flex flex-1 justify-center">
-            <TodayNavLink />
+            <TrackerNavLink />
           </div>
           <div className="flex flex-1 justify-center">
             <NavLink to="invoices" className={navLinkClass}>

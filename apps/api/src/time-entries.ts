@@ -10,6 +10,7 @@ import {
   createManualEntry,
   deleteTimeEntry,
   getRunningTimer,
+  listTrackerTimeEntries,
   listTimeEntriesForDate,
   startTimer,
   stopTimer,
@@ -38,11 +39,28 @@ export function createTimeEntriesRouter(pool: Pool) {
 
   router.get("/", async (c) => {
     const date = c.req.query("date");
-    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      return c.json({ error: "date query parameter is required (YYYY-MM-DD)" }, 400);
+    const limitParam = c.req.query("limit");
+
+    if (date && limitParam) {
+      return c.json({ error: "Use either date or limit, not both" }, 400);
     }
 
     const workspaceId = getCurrentWorkspaceId();
+
+    if (limitParam) {
+      const limit = Number(limitParam);
+      if (![50, 100, 200].includes(limit)) {
+        return c.json({ error: "limit must be 50, 100, or 200" }, 400);
+      }
+
+      const entries = await listTrackerTimeEntries(pool, workspaceId, limit);
+      return c.json({ entries });
+    }
+
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return c.json({ error: "date or limit query parameter is required" }, 400);
+    }
+
     const timeZone = await getWorkspaceCalendarTimezone(pool, workspaceId);
     const entries = await listTimeEntriesForDate(pool, workspaceId, date, timeZone);
     return c.json({ entries });

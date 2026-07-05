@@ -1,5 +1,10 @@
+import {
+  formatTrackerTotal,
+  groupTrackerEntriesByWeek,
+  type TimeEntry,
+} from "@hourden/domain";
+import type { Project } from "@hourden/domain";
 import { useTranslation } from "react-i18next";
-import type { Project, TimeEntry } from "@hourden/domain";
 import { useCallback, useEffect, useState } from "react";
 import { PageMain } from "./layout/PageMain.js";
 import { ResponsiveOverlay } from "./layout/ResponsiveOverlay.js";
@@ -8,6 +13,12 @@ import {
   mobilePrimaryButtonClass,
 } from "./layout/tap-targets.js";
 import { useIsMobile } from "./layout/use-is-mobile.js";
+import {
+  readStoredTrackerEntryLimit,
+  TRACKER_ENTRY_LIMITS,
+  storeTrackerEntryLimit,
+  type TrackerEntryLimit,
+} from "./tracker-entry-limit.js";
 import { todayDateInTimeZone } from "./today-date.js";
 import { useDeleteDialog } from "./useDeleteDialog.js";
 
@@ -46,8 +57,8 @@ function emptyManualForm(): ManualFormData {
   };
 }
 
-async function fetchEntries(date: string): Promise<TimeEntry[]> {
-  const res = await fetch(`/api/time-entries?date=${encodeURIComponent(date)}`);
+async function fetchTrackerEntries(limit: TrackerEntryLimit): Promise<TimeEntry[]> {
+  const res = await fetch(`/api/time-entries?limit=${limit}`);
   if (!res.ok) {
     throw new Error(`Failed to load entries (${res.status})`);
   }
@@ -82,12 +93,15 @@ async function fetchProjects(): Promise<Project[]> {
   return data.projects;
 }
 
-export default function TodayPage() {
+export default function TrackerPage() {
   const { t } = useTranslation();
   const [calendarTimezone, setCalendarTimezone] = useState<string | null>(null);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [running, setRunning] = useState<TimeEntry | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [entryLimit, setEntryLimit] = useState<TrackerEntryLimit>(
+    readStoredTrackerEntryLimit(),
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showManualForm, setShowManualForm] = useState(false);
@@ -106,7 +120,7 @@ export default function TodayPage() {
     projectId: "",
   });
 
-  const date =
+  const today =
     calendarTimezone === null ? null : todayDateInTimeZone(calendarTimezone);
 
   useEffect(() => {
@@ -135,9 +149,8 @@ export default function TodayPage() {
     setLoading(true);
     setError(null);
     try {
-      const today = todayDateInTimeZone(calendarTimezone);
       const [loadedEntries, loadedRunning, loadedProjects] = await Promise.all([
-        fetchEntries(today),
+        fetchTrackerEntries(entryLimit),
         fetchRunningTimer(),
         fetchProjects(),
       ]);
@@ -145,17 +158,22 @@ export default function TodayPage() {
       setRunning(loadedRunning);
       setProjects(loadedProjects);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load today");
+      setError(err instanceof Error ? err.message : "Failed to load tracker entries");
     } finally {
       setLoading(false);
     }
-  }, [calendarTimezone]);
+  }, [calendarTimezone, entryLimit]);
 
   useEffect(() => {
     if (calendarTimezone) {
       void load();
     }
   }, [calendarTimezone, load]);
+
+  const handleLimitChange = (nextLimit: TrackerEntryLimit) => {
+    setEntryLimit(nextLimit);
+    storeTrackerEntryLimit(nextLimit);
+  };
 
   const startTimer = async () => {
     setSaving(true);
@@ -294,15 +312,20 @@ export default function TodayPage() {
   const isMobile = useIsMobile();
   const actionButtonClass = mobileActionButtonClass(isMobile);
   const primaryButtonClass = mobilePrimaryButtonClass(isMobile);
+  const weekGroups =
+    calendarTimezone && today
+      ? groupTrackerEntriesByWeek(entries, {
+          timeZone: calendarTimezone,
+          today,
+        })
+      : [];
 
   return (
     <PageMain variant="flex">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">{t("today.title")}</h1>
-          <p className="text-neutral-600">
-            {date} — track time with a running timer or manual entries.
-          </p>
+          <h1 className="text-3xl font-semibold tracking-tight">{t("tracker.title")}</h1>
+          <p className="text-neutral-600">{t("tracker.subtitle")}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -353,54 +376,98 @@ export default function TodayPage() {
         <p className="text-neutral-500">Loading entries…</p>
       ) : entries.length === 0 ? (
         <p className="rounded-lg border border-dashed border-neutral-300 bg-white px-4 py-8 text-center text-neutral-500">
-          No time logged today yet. Start a timer or add a manual entry.
+          {t("tracker.empty")}
         </p>
       ) : (
-        <ul
-          className={`divide-y divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white${
-            isDeleteDialogOpen ? " pointer-events-none" : ""
-          }`}
+        <div
+          className={`space-y-6${isDeleteDialogOpen ? " pointer-events-none" : ""}`}
         >
-          {entries.map((entry) => (
-            <li
-              key={entry.id}
-              className="flex items-start justify-between gap-4 px-4 py-4"
-            >
-              <div>
-                <p className="font-medium">
-                  {entry.description?.trim() || (
-                    <span className="text-neutral-400 italic">No description</span>
-                  )}
-                </p>
-                <p className="mt-1 text-sm text-neutral-600">
-                  {formatDuration(entry.durationMinutes)}
-                  {entry.isRunning && " · running"}
-                  {entry.amount !== null && ` · ${entry.amount} €`}
-                  {!entry.billableComplete && !entry.isRunning && " · incomplete"}
+          {weekGroups.map((week) => (
+            <section key={week.weekStart}>
+              <div className="mb-2 flex items-baseline justify-between gap-4 px-1">
+                <h2 className="text-sm font-semibold text-neutral-900">{week.weekLabel}</h2>
+                <p className="text-sm text-neutral-500">
+                  {t("tracker.weekTotal")}: {formatTrackerTotal(week.totalDurationMinutes)}
                 </p>
               </div>
-              {!entry.invoiced && !entry.isRunning && (
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openEdit(entry)}
-                    className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openDeleteDialog(entry)}
-                    className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
-                  >
-                    Delete
-                  </button>
-                </div>
-              )}
-            </li>
+
+              <div className="space-y-4">
+                {week.days.map((day) => (
+                  <div key={day.date}>
+                    <div className="mb-1 flex items-baseline justify-between gap-4 border-b border-neutral-200 px-4 py-2">
+                      <h3 className="text-sm font-medium text-neutral-700">{day.dayLabel}</h3>
+                      <p className="text-sm text-neutral-500">
+                        {t("tracker.dayTotal")}: {formatTrackerTotal(day.totalDurationMinutes)}
+                      </p>
+                    </div>
+
+                    <ul className="divide-y divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white">
+                      {day.entries.map((entry) => (
+                        <li
+                          key={entry.id}
+                          className="flex items-start justify-between gap-4 px-4 py-4"
+                        >
+                          <div>
+                            <p className="font-medium">
+                              {entry.description?.trim() || (
+                                <span className="text-neutral-400 italic">No description</span>
+                              )}
+                            </p>
+                            <p className="mt-1 text-sm text-neutral-600">
+                              {formatDuration(entry.durationMinutes)}
+                              {entry.isRunning && " · running"}
+                              {entry.amount !== null && ` · ${entry.amount} €`}
+                              {!entry.billableComplete && !entry.isRunning && " · incomplete"}
+                            </p>
+                          </div>
+                          {!entry.invoiced && !entry.isRunning && (
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => openEdit(entry)}
+                                className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openDeleteDialog(entry)}
+                                className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </section>
           ))}
-        </ul>
+        </div>
       )}
+
+      <div className="flex items-center justify-end gap-2 pt-2">
+        <label className="flex items-center gap-2 text-sm text-neutral-600">
+          <span>{t("tracker.showEntries")}</span>
+          <select
+            aria-label={t("tracker.showEntries")}
+            value={entryLimit}
+            onChange={(event) =>
+              handleLimitChange(Number(event.target.value) as TrackerEntryLimit)
+            }
+            className="rounded-md border border-neutral-300 px-2 py-1.5"
+          >
+            {TRACKER_ENTRY_LIMITS.map((limit) => (
+              <option key={limit} value={limit}>
+                {limit}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
       {showManualForm && (
         <ResponsiveOverlay ariaLabel="Manual entry">

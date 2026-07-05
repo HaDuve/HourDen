@@ -117,13 +117,13 @@ function mockAppFetch() {
 }
 
 describe("App", () => {
-  it("renders the Today page by default", async () => {
+  it("renders the Tracker page by default", async () => {
     vi.stubGlobal("fetch", mockAppFetch());
 
     renderApp("/");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
     });
   });
 
@@ -133,7 +133,7 @@ describe("App", () => {
     const app = renderAppWithMemoryRouter("/");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("link", { name: /^invoices$/i }));
@@ -154,29 +154,40 @@ describe("App", () => {
     });
   });
 
-  it("redirects unknown paths to Today", async () => {
+  it("redirects legacy /today to /tracker", async () => {
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    const app = renderAppWithMemoryRouter("/today");
+
+    await waitFor(() => {
+      expect(app.pathname).toBe("/tracker");
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
+    });
+  });
+
+  it("redirects unknown paths to Tracker", async () => {
     vi.stubGlobal("fetch", mockAppFetch());
 
     const app = renderAppWithMemoryRouter("/unknown-page");
 
     await waitFor(() => {
       expect(app.pathname).toBe("/");
-      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
     });
   });
 
-  it("shows Today and Invoices as primary links on desktop", async () => {
+  it("shows Tracker and Invoices as primary links on desktop", async () => {
     mockDesktopViewport();
     vi.stubGlobal("fetch", mockAppFetch());
 
     renderApp("/");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
     });
 
     const primaryNav = screen.getByRole("navigation", { name: /primary/i });
-    expect(within(primaryNav).getByRole("link", { name: /^today$/i })).toBeInTheDocument();
+    expect(within(primaryNav).getByRole("link", { name: /^tracker$/i })).toBeInTheDocument();
     expect(within(primaryNav).getByRole("link", { name: /^invoices$/i })).toBeInTheDocument();
     expect(within(primaryNav).queryByRole("link", { name: /^clients$/i })).not.toBeInTheDocument();
   });
@@ -188,7 +199,7 @@ describe("App", () => {
     renderApp("/");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^more$/i }));
@@ -208,13 +219,13 @@ describe("App", () => {
     renderApp("/");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^more$/i }));
     expect(screen.getByRole("menu")).toBeInTheDocument();
 
-    fireEvent.mouseDown(screen.getByRole("heading", { name: /today/i }));
+    fireEvent.mouseDown(screen.getByRole("heading", { name: /tracker/i }));
 
     await waitFor(() => {
       expect(screen.queryByRole("menu")).not.toBeInTheDocument();
@@ -228,7 +239,7 @@ describe("App", () => {
     renderApp("/");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^more$/i }));
@@ -251,7 +262,7 @@ describe("App", () => {
 
     const primaryNav = screen.getByRole("navigation", { name: /primary/i });
     expect(within(primaryNav).getByRole("link", { name: /^invoices$/i })).toHaveAttribute("aria-current", "page");
-    expect(within(primaryNav).getByRole("link", { name: /^today$/i })).not.toHaveAttribute("aria-current", "page");
+    expect(within(primaryNav).getByRole("link", { name: /^tracker$/i })).not.toHaveAttribute("aria-current", "page");
   });
 
   it("logs out from the desktop overflow menu", async () => {
@@ -267,7 +278,7 @@ describe("App", () => {
     renderApp("/");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^more$/i }));
@@ -288,7 +299,7 @@ describe("App", () => {
     const app = renderAppWithMemoryRouter("/");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^more$/i }));
@@ -300,18 +311,18 @@ describe("App", () => {
     });
   });
 
-  it("shows a mobile bottom tab bar with Today, Invoices, and More", async () => {
+  it("shows a mobile bottom tab bar with Tracker, Invoices, and More", async () => {
     mockMobileViewport();
     vi.stubGlobal("fetch", mockAppFetch());
 
     renderApp("/");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
     });
 
     const mobileNav = screen.getByRole("navigation", { name: /mobile/i });
-    expect(within(mobileNav).getByRole("link", { name: /^today$/i })).toBeInTheDocument();
+    expect(within(mobileNav).getByRole("link", { name: /^tracker$/i })).toBeInTheDocument();
     expect(within(mobileNav).getByRole("link", { name: /^invoices$/i })).toBeInTheDocument();
     expect(within(mobileNav).getByRole("button", { name: /^more$/i })).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: /primary/i })).not.toBeInTheDocument();
@@ -324,7 +335,7 @@ describe("App", () => {
     renderApp("/");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^more$/i }));
@@ -344,7 +355,7 @@ describe("App", () => {
     renderApp("/");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
     });
 
     const moreButton = screen.getByRole("button", { name: /^more$/i });
@@ -362,7 +373,7 @@ describe("App", () => {
     const app = renderAppWithMemoryRouter("/");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^more$/i }));
@@ -374,13 +385,13 @@ describe("App", () => {
     });
   });
 
-  it("supports browser back after navigating away from Today", async () => {
+  it("supports browser back after navigating away from Tracker", async () => {
     vi.stubGlobal("fetch", mockAppFetch());
 
     const app = renderAppWithMemoryRouter("/");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("link", { name: /^invoices$/i }));
@@ -396,7 +407,7 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(app.pathname).toBe("/");
-      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
     });
   });
 });

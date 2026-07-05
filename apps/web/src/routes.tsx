@@ -12,11 +12,12 @@ import OnboardingLayout from "./onboarding/OnboardingLayout.js";
 import ProjectStepPage from "./onboarding/ProjectStepPage.js";
 import ProjectsPage from "./ProjectsPage.js";
 import ReportPage from "./ReportPage.js";
-import TodayPage from "./TodayPage.js";
+import TrackerPage from "./TrackerPage.js";
 
 export const appLayoutChildren: RouteObject[] = [
-  { index: true, element: <TodayPage /> },
-  { path: "today", element: <TodayPage /> },
+  { index: true, element: <TrackerPage /> },
+  { path: "tracker", element: <TrackerPage /> },
+  { path: "today", element: <Navigate to="/tracker" replace /> },
   { path: "clients", element: <ClientsPage /> },
   { path: "projects", element: <ProjectsPage /> },
   { path: "report", element: <ReportPage /> },

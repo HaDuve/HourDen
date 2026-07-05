@@ -26,6 +26,6 @@ describe("OnboardingGuard", () => {
       expect(screen.getByRole("button", { name: /^retry$/i })).toBeInTheDocument();
     });
 
-    expect(screen.queryByRole("heading", { name: /today/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /tracker/i })).not.toBeInTheDocument();
   });
 });
