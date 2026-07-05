@@ -25,6 +25,7 @@ export type {
   StopTimerInput,
   CreateManualEntryInput,
   UpdateTimeEntryInput,
+  DescriptionSuggestion,
 } from "./time-entry.js";
 export type {
   ReportLineInput,

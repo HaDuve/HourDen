@@ -10,6 +10,7 @@ import {
   createManualEntry,
   deleteTimeEntry,
   getRunningTimer,
+  listDescriptionSuggestions,
   listTrackerTimeEntries,
   listTimeEntriesForDate,
   startTimer,
@@ -35,6 +36,16 @@ export function createTimeEntriesRouter(pool: Pool) {
   router.get("/running", async (c) => {
     const entry = await getRunningTimer(pool, getCurrentWorkspaceId());
     return c.json({ entry });
+  });
+
+  router.get("/suggestions", async (c) => {
+    const query = c.req.query("q") ?? "";
+    const suggestions = await listDescriptionSuggestions(
+      pool,
+      getCurrentWorkspaceId(),
+      query,
+    );
+    return c.json({ suggestions });
   });
 
   router.get("/", async (c) => {

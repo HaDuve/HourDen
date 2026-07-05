@@ -18,6 +18,7 @@ import {
 } from "./tracker-entry-limit.js";
 import { todayDateInTimeZone } from "./today-date.js";
 import { useDeleteDialog } from "./useDeleteDialog.js";
+import { DescriptionAutocomplete } from "./DescriptionAutocomplete.js";
 
 type ManualFormData = {
   description: string;
@@ -27,6 +28,11 @@ type ManualFormData = {
 };
 
 type EditFormData = {
+  description: string;
+  projectId: string;
+};
+
+type RunningFormData = {
   description: string;
   projectId: string;
 };
@@ -110,6 +116,10 @@ export default function TrackerPage() {
     description: "",
     projectId: "",
   });
+  const [runningForm, setRunningForm] = useState<RunningFormData>({
+    description: "",
+    projectId: "",
+  });
 
   const today =
     calendarTimezone === null ? null : todayDateInTimeZone(calendarTimezone);
@@ -161,6 +171,53 @@ export default function TrackerPage() {
     }
   }, [calendarTimezone, load]);
 
+  useEffect(() => {
+    if (!running) {
+      setRunningForm({ description: "", projectId: "" });
+      return;
+    }
+
+    setRunningForm({
+      description: running.description ?? "",
+      projectId: running.projectId ?? "",
+    });
+  }, [running?.id]);
+
+  const patchRunningEntry = async (patch: {
+    description?: string;
+    projectId?: string | null;
+  }) => {
+    if (!running) return;
+
+    setError(null);
+    try {
+      const body: { description?: string | null; projectId?: string | null } = {
+        ...patch,
+      };
+      if (patch.projectId !== undefined && patch.description === undefined) {
+        body.description = runningForm.description.trim() || null;
+      }
+
+      const res = await fetch(`/api/time-entries/${running.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        throw new Error(`Update failed (${res.status})`);
+      }
+      const updated = (await res.json()) as TimeEntry;
+      setRunning(updated);
+      setRunningForm((current) => ({
+        description:
+          patch.description !== undefined ? patch.description : current.description,
+        projectId: updated.projectId ?? "",
+      }));
+    } catch (err) {
+      setError(t("tracker.saveFailed"));
+    }
+  };
+
   const handleLimitChange = (nextLimit: TrackerEntryLimit) => {
     setEntryLimit(nextLimit);
     storeTrackerEntryLimit(nextLimit);
@@ -195,7 +252,9 @@ export default function TrackerPage() {
       const res = await fetch(`/api/time-entries/${running.id}/stop`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          description: runningForm.description.trim() || undefined,
+        }),
       });
       if (!res.ok) {
         throw new Error(`Stop failed (${res.status})`);
@@ -351,14 +410,50 @@ export default function TrackerPage() {
 
       {running && (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-          {t("tracker.timerRunning", {
-            duration: formatDurationMinutes(running.durationMinutes),
-          })}
-          {running.description ? (
-            ` · ${running.description}`
-          ) : (
-            <span className="ml-2 text-emerald-700">{t("tracker.addDescriptionWhenDone")}</span>
-          )}
+          <p className="mb-3">
+            {t("tracker.timerRunning", {
+              duration: formatDurationMinutes(running.durationMinutes),
+            })}
+          </p>
+          <div className="grid gap-3 text-neutral-900">
+            <DescriptionAutocomplete
+              label={t("tracker.description")}
+              value={runningForm.description}
+              onChange={(description) =>
+                setRunningForm((current) => ({ ...current, description }))
+              }
+              onSuggestionSelect={(suggestion) => {
+                setRunningForm({
+                  description: suggestion.description,
+                  projectId: suggestion.projectId ?? "",
+                });
+                void patchRunningEntry({
+                  description: suggestion.description,
+                  projectId: suggestion.projectId,
+                });
+              }}
+              inputClassName="rounded-md border border-emerald-300 bg-white px-3 py-2"
+            />
+            <label className="grid gap-1 text-sm">
+              <span>{t("tracker.projectOptional")}</span>
+              <select
+                value={runningForm.projectId}
+                onChange={(event) => {
+                  const projectId = event.target.value;
+                  setRunningForm((current) => ({ ...current, projectId }));
+                  void patchRunningEntry({ projectId: projectId || null });
+                }}
+                className="rounded-md border border-emerald-300 bg-white px-3 py-2"
+              >
+                <option value="">{t("tracker.noProject")}</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         </div>
       )}
 
@@ -475,20 +570,24 @@ export default function TrackerPage() {
             <h2 className="text-lg font-semibold">{t("tracker.manualEntry")}</h2>
 
             <div className="mt-4 grid gap-3">
-              <label className="grid gap-1 text-sm">
-                <span>{t("tracker.description")}</span>
-                <input
-                  required
-                  value={manualForm.description}
-                  onChange={(e) =>
-                    setManualForm((current) => ({
-                      ...current,
-                      description: e.target.value,
-                    }))
-                  }
-                  className="rounded-md border border-neutral-300 px-3 py-2"
-                />
-              </label>
+              <DescriptionAutocomplete
+                label={t("tracker.description")}
+                value={manualForm.description}
+                required
+                onChange={(description) =>
+                  setManualForm((current) => ({
+                    ...current,
+                    description,
+                  }))
+                }
+                onSuggestionSelect={(suggestion) =>
+                  setManualForm((current) => ({
+                    ...current,
+                    description: suggestion.description,
+                    projectId: suggestion.projectId ?? "",
+                  }))
+                }
+              />
 
               <label className="grid gap-1 text-sm">
                 <span>{t("tracker.start")}</span>
@@ -573,20 +672,24 @@ export default function TrackerPage() {
             <h2 className="text-lg font-semibold">{t("tracker.editEntry")}</h2>
 
             <div className="mt-4 grid gap-3">
-              <label className="grid gap-1 text-sm">
-                <span>{t("tracker.description")}</span>
-                <input
-                  required
-                  value={editForm.description}
-                  onChange={(e) =>
-                    setEditForm((current) => ({
-                      ...current,
-                      description: e.target.value,
-                    }))
-                  }
-                  className="rounded-md border border-neutral-300 px-3 py-2"
-                />
-              </label>
+              <DescriptionAutocomplete
+                label={t("tracker.description")}
+                value={editForm.description}
+                required
+                onChange={(description) =>
+                  setEditForm((current) => ({
+                    ...current,
+                    description,
+                  }))
+                }
+                onSuggestionSelect={(suggestion) =>
+                  setEditForm((current) => ({
+                    ...current,
+                    description: suggestion.description,
+                    projectId: suggestion.projectId ?? "",
+                  }))
+                }
+              />
 
               <label className="grid gap-1 text-sm">
                 <span>{t("tracker.projectOptional")}</span>

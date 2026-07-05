@@ -1,5 +1,6 @@
 import type {
   CreateManualEntryInput,
+  DescriptionSuggestion,
   StartTimerInput,
   StopTimerInput,
   TimeEntry,
@@ -432,6 +433,50 @@ export async function listTimeEntriesForDate(
   );
 
   return result.rows.map((row) => rowToTimeEntry(row));
+}
+
+const DESCRIPTION_SUGGESTION_LIMIT = 10;
+
+export async function listDescriptionSuggestions(
+  pool: Pool,
+  workspaceId: string,
+  query: string,
+): Promise<DescriptionSuggestion[]> {
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) {
+    return [];
+  }
+
+  const result = await pool.query<{ description: string; project_id: string | null }>(
+    `
+      WITH ranked AS (
+        SELECT
+          trim(description) AS description,
+          project_id,
+          started_at,
+          ROW_NUMBER() OVER (
+            PARTITION BY LOWER(trim(description))
+            ORDER BY started_at DESC
+          ) AS rn
+        FROM time_entries
+        WHERE workspace_id = $1
+          AND description IS NOT NULL
+          AND trim(description) <> ''
+          AND trim(description) ILIKE '%' || $2 || '%'
+      )
+      SELECT description, project_id
+      FROM ranked
+      WHERE rn = 1
+      ORDER BY started_at DESC
+      LIMIT $3
+    `,
+    [workspaceId, trimmedQuery, DESCRIPTION_SUGGESTION_LIMIT],
+  );
+
+  return result.rows.map((row) => ({
+    description: row.description,
+    projectId: row.project_id,
+  }));
 }
 
 export async function updateTimeEntry(
