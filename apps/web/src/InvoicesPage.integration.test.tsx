@@ -1,5 +1,6 @@
 import "./test/load-env.js";
 
+import { DEFAULT_WORKSPACE_ID } from "@hourden/domain";
 import { fireEvent, render, screen, waitFor, within, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
@@ -55,17 +56,9 @@ async function waitForClientReady(clientName: string, clientId: string) {
 describeWithAuthenticatedWorkspace(
   "InvoicesPage with live API",
   (getWorkspace) => {
-    beforeEach(async () => {
+    beforeEach(() => {
       URL.createObjectURL = vi.fn(() => "blob:test") as typeof URL.createObjectURL;
       URL.revokeObjectURL = vi.fn() as typeof URL.revokeObjectURL;
-
-      const { pool } = getWorkspace();
-      await pool.query("DELETE FROM time_entries");
-      await pool.query("DELETE FROM invoices");
-      await pool.query("DELETE FROM workspace_invoice_numbering");
-      await pool.query("DELETE FROM client_invoice_numbering");
-      await pool.query("DELETE FROM projects");
-      await pool.query("DELETE FROM clients");
     });
 
     it("previews then issues an invoice without marking entries Invoiced until issue", async () => {
@@ -126,7 +119,9 @@ describeWithAuthenticatedWorkspace(
       ).json();
       expect(afterIssue.entries[0].invoiced).toBe(true);
 
-      const invoices = await pool.query("SELECT id FROM invoices");
+      const invoices = await pool.query("SELECT id FROM invoices WHERE workspace_id = $1", [
+        DEFAULT_WORKSPACE_ID,
+      ]);
       expect(invoices.rows).toHaveLength(1);
 
       await waitFor(() => {

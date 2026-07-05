@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "./app.js";
 import { createUserWithWorkspace } from "./db/workspaces.js";
 import { runMigrationsForTests } from "./test/migrate-for-tests.js";
+import { deleteFreshUserArtifacts } from "./test/integration-fixture.js";
 import { loginAsOperator, withSessionCookie } from "./test/auth-helper.js";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -24,23 +25,7 @@ describe.skipIf(!databaseUrl)("workspace invoice sender settings", () => {
   });
 
   beforeEach(async () => {
-    await pool.query("DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE email = $1)", [
-      QA_EMAIL,
-    ]);
-    await pool.query("DELETE FROM workspace_memberships WHERE user_id IN (SELECT id FROM users WHERE email = $1)", [
-      QA_EMAIL,
-    ]);
-    await pool.query("DELETE FROM time_entries WHERE workspace_id IN (SELECT id FROM workspaces WHERE name = $1)", [
-      QA_WORKSPACE,
-    ]);
-    await pool.query("DELETE FROM invoices WHERE workspace_id IN (SELECT id FROM workspaces WHERE name = $1)", [
-      QA_WORKSPACE,
-    ]);
-    await pool.query("DELETE FROM clients WHERE workspace_id IN (SELECT id FROM workspaces WHERE name = $1)", [
-      QA_WORKSPACE,
-    ]);
-    await pool.query("DELETE FROM workspaces WHERE name = $1", [QA_WORKSPACE]);
-    await pool.query("DELETE FROM users WHERE email = $1", [QA_EMAIL]);
+    await deleteFreshUserArtifacts(pool, QA_EMAIL, QA_WORKSPACE);
 
     const created = await createUserWithWorkspace(pool, {
       email: QA_EMAIL,

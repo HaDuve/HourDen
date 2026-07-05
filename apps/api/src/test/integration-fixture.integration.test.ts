@@ -1,5 +1,6 @@
+import { DEFAULT_WORKSPACE_ID } from "@hourden/domain";
 import { Pool } from "pg";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../app.js";
 import { bindSessionAuth } from "./auth-helper.js";
 import { runMigrationsForTests } from "./migrate-for-tests.js";
@@ -8,6 +9,7 @@ import {
   withAuthenticatedWorkspace,
   withFreshUserWorkspace,
 } from "./integration-fixture.js";
+import { resetWorkspace } from "./reset-workspace.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -23,11 +25,35 @@ async function operatorSessionCount(pool: Pool): Promise<number> {
   return Number(result.rows[0]!.count);
 }
 
+async function operatorClientCount(pool: Pool): Promise<number> {
+  const result = await pool.query<{ count: string }>(
+    "SELECT COUNT(*)::text AS count FROM clients WHERE workspace_id = $1",
+    [DEFAULT_WORKSPACE_ID],
+  );
+  return Number(result.rows[0]!.count);
+}
+
 describe.skipIf(!databaseUrl)("integration fixture", () => {
   const workspaces: Array<{ teardown: () => Promise<void> }> = [];
+  let cleanupPool: Pool;
+
+  beforeAll(async () => {
+    cleanupPool = new Pool({ connectionString: databaseUrl });
+    await runMigrationsForTests(cleanupPool);
+  });
+
+  beforeEach(async () => {
+    await resetWorkspace(cleanupPool, DEFAULT_WORKSPACE_ID);
+  });
 
   afterEach(async () => {
     await Promise.all(workspaces.splice(0).map((w) => w.teardown()));
+  });
+
+  afterAll(async () => {
+    await resetWorkspace(cleanupPool, DEFAULT_WORKSPACE_ID);
+    expect(await operatorClientCount(cleanupPool)).toBe(0);
+    await cleanupPool.end();
   });
 
   it("bindSessionAuth returns the single session it binds", async () => {
@@ -47,7 +73,8 @@ describe.skipIf(!databaseUrl)("integration fixture", () => {
     }
   });
 
-  it("withAuthenticatedWorkspace exposes the bound session cookie", async () => {    const workspace = await withAuthenticatedWorkspace("api");
+  it("withAuthenticatedWorkspace exposes the bound session cookie", async () => {
+    const workspace = await withAuthenticatedWorkspace("api");
     workspaces.push(workspace);
 
     const cookieSessionId = workspace.sessionCookie.match(/hourden_session=(.+)/)?.[1];

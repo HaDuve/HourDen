@@ -1,7 +1,7 @@
 import "./test/load-env.js";
 
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { describeWithAuthenticatedWorkspace } from "./test/describe-with-live-api.js";
 import TrackerPage from "./TrackerPage.js";
 import { todayDateInTimeZone } from "./today-date.js";
@@ -25,15 +25,7 @@ function editEntryDialog() {
 }
 
 
-describeWithAuthenticatedWorkspace("TrackerPage with live API", (getWorkspace) => {
-  beforeEach(async () => {
-    const { pool } = getWorkspace();
-    await pool.query("DELETE FROM time_entries");
-    await pool.query("DELETE FROM invoices");
-    await pool.query("DELETE FROM projects");
-    await pool.query("DELETE FROM clients");
-  });
-
+describeWithAuthenticatedWorkspace("TrackerPage with live API", () => {
   it("lists tracker entries and supports start/stop and manual add", async () => {
     const today = await workspaceToday();
 
@@ -77,6 +69,15 @@ describeWithAuthenticatedWorkspace("TrackerPage with live API", (getWorkspace) =
 
     fireEvent.click(screen.getByRole("button", { name: /start timer/i }));
 
+    await waitFor(
+      async () => {
+        const runningRes = await fetch("/api/time-entries/running");
+        const { entry } = (await runningRes.json()) as { entry: unknown | null };
+        expect(entry).not.toBeNull();
+      },
+      { timeout: 5000 },
+    );
+
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /stop timer/i })).toBeInTheDocument();
     });
@@ -100,6 +101,15 @@ describeWithAuthenticatedWorkspace("TrackerPage with live API", (getWorkspace) =
     });
 
     fireEvent.click(screen.getByRole("button", { name: /start timer/i }));
+
+    await waitFor(
+      async () => {
+        const runningRes = await fetch("/api/time-entries/running");
+        const { entry } = (await runningRes.json()) as { entry: unknown | null };
+        expect(entry).not.toBeNull();
+      },
+      { timeout: 5000 },
+    );
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /stop timer/i })).toBeInTheDocument();
@@ -296,6 +306,15 @@ describeWithAuthenticatedWorkspace("TrackerPage with live API", (getWorkspace) =
     });
 
     fireEvent.click(screen.getByRole("button", { name: /start timer/i }));
+
+    await waitFor(
+      async () => {
+        const runningRes = await fetch("/api/time-entries/running");
+        const { entry } = (await runningRes.json()) as { entry: unknown | null };
+        expect(entry).not.toBeNull();
+      },
+      { timeout: 5000 },
+    );
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /stop timer/i })).toBeInTheDocument();

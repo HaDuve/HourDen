@@ -11,6 +11,7 @@ import {
   withSessionCookie,
 } from "./auth-helper.js";
 import { runMigrationsForTests } from "./migrate-for-tests.js";
+import { resetWorkspace } from "./reset-workspace.js";
 
 export type IntegrationSurface = "api" | "web";
 
@@ -194,18 +195,14 @@ export async function deleteFreshUserArtifacts(
     "DELETE FROM workspace_memberships WHERE user_id IN (SELECT id FROM users WHERE email = $1)",
     [email],
   );
-  await pool.query(
-    "DELETE FROM time_entries WHERE workspace_id IN (SELECT id FROM workspaces WHERE name = $1)",
+  const workspaceRow = await pool.query<{ id: string }>(
+    "SELECT id FROM workspaces WHERE name = $1",
     [workspaceName],
   );
-  await pool.query(
-    "DELETE FROM projects WHERE workspace_id IN (SELECT id FROM workspaces WHERE name = $1)",
-    [workspaceName],
-  );
-  await pool.query(
-    "DELETE FROM clients WHERE workspace_id IN (SELECT id FROM workspaces WHERE name = $1)",
-    [workspaceName],
-  );
+  const workspaceId = workspaceRow.rows[0]?.id;
+  if (workspaceId) {
+    await resetWorkspace(pool, workspaceId);
+  }
   await pool.query("DELETE FROM workspaces WHERE name = $1", [workspaceName]);
   await pool.query("DELETE FROM users WHERE email = $1", [email]);
 }

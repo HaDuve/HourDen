@@ -1,18 +1,11 @@
 import "./test/load-env.js";
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { describeWithAuthenticatedWorkspace } from "./test/describe-with-live-api.js";
 import ProjectsPage from "./ProjectsPage.js";
 
-describeWithAuthenticatedWorkspace("ProjectsPage with live API", (getWorkspace) => {
-  beforeEach(async () => {
-    const { pool } = getWorkspace();
-    await pool.query("DELETE FROM time_entries");
-    await pool.query("DELETE FROM projects");
-    await pool.query("DELETE FROM clients");
-  });
-
+describeWithAuthenticatedWorkspace("ProjectsPage with live API", () => {
   it("creates and lists a Project under a Client end-to-end", async () => {
     const clientRes = await fetch("/api/clients", {
       method: "POST",

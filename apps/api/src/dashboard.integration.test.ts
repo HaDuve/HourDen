@@ -1,10 +1,6 @@
-import { Pool } from "pg";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { createApp } from "./app.js";
-import { runMigrationsForTests } from "./test/migrate-for-tests.js";
-import { bindSessionAuth } from "./test/auth-helper.js";
-
-const databaseUrl = process.env.DATABASE_URL;
+import { describeWithAuthenticatedWorkspace } from "./test/describe-with-live-api.js";
 
 async function createClient(
   app: ReturnType<typeof createApp>,
@@ -32,33 +28,14 @@ async function createProject(
   return res.json() as Promise<{ id: string; clientId: string; name: string }>;
 }
 
-describe.skipIf(!databaseUrl)("Dashboard API", () => {
-  const pool = new Pool({ connectionString: databaseUrl });
-  const app = createApp({ pool });
-
-  beforeAll(async () => {
-    await runMigrationsForTests(pool);
-    await bindSessionAuth(app);
-  });
-
-  beforeEach(async () => {
-    await pool.query("DELETE FROM time_entries");
-    await pool.query("DELETE FROM invoices");
-    await pool.query("DELETE FROM projects");
-    await pool.query("DELETE FROM clients");
-  });
-
-  afterAll(async () => {
-    await pool.end();
-  });
-
+describeWithAuthenticatedWorkspace("Dashboard API", (getWorkspace) => {
   it("returns totals, top project/client, and daily buckets for a date range", async () => {
-    const bandao = await createClient(app, "Bandao", 60);
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
-    const otherClient = await createClient(app, "Acme", 120);
-    const otherProject = await createProject(app, otherClient.id, "Website");
+    const bandao = await createClient(getWorkspace().app, "Bandao", 60);
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
+    const otherClient = await createClient(getWorkspace().app, "Acme", 120);
+    const otherProject = await createProject(getWorkspace().app, otherClient.id, "Website");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -69,7 +46,7 @@ describe.skipIf(!databaseUrl)("Dashboard API", () => {
       }),
     });
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -80,7 +57,7 @@ describe.skipIf(!databaseUrl)("Dashboard API", () => {
       }),
     });
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -91,7 +68,7 @@ describe.skipIf(!databaseUrl)("Dashboard API", () => {
       }),
     });
 
-    const res = await app.request(
+    const res = await getWorkspace().app.request(
       "/api/dashboard?from=2026-06-18&to=2026-06-19",
     );
 
@@ -136,7 +113,7 @@ describe.skipIf(!databaseUrl)("Dashboard API", () => {
   });
 
   it("returns 400 when the date range is invalid", async () => {
-    const res = await app.request("/api/dashboard?from=2026-06-30&to=2026-06-01");
+    const res = await getWorkspace().app.request("/api/dashboard?from=2026-06-30&to=2026-06-01");
 
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -144,7 +121,7 @@ describe.skipIf(!databaseUrl)("Dashboard API", () => {
   });
 
   it("includes an unassigned client bucket for entries without a project", async () => {
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -154,7 +131,7 @@ describe.skipIf(!databaseUrl)("Dashboard API", () => {
       }),
     });
 
-    const res = await app.request(
+    const res = await getWorkspace().app.request(
       "/api/dashboard?from=2026-06-20&to=2026-06-20",
     );
 
@@ -175,7 +152,7 @@ describe.skipIf(!databaseUrl)("Dashboard API", () => {
   });
 
   it("returns zero totals when there is no tracked time in the range", async () => {
-    const res = await app.request(
+    const res = await getWorkspace().app.request(
       "/api/dashboard?from=2026-06-01&to=2026-06-30",
     );
 

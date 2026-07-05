@@ -1,7 +1,7 @@
 import "./test/load-env.js";
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { describeWithAuthenticatedWorkspace } from "./test/describe-with-live-api.js";
 import ClientsPage from "./ClientsPage.js";
@@ -14,14 +14,7 @@ function renderClientsPage() {
   );
 }
 
-describeWithAuthenticatedWorkspace("ClientsPage with live API", (getWorkspace) => {
-  beforeEach(async () => {
-    const { pool } = getWorkspace();
-    await pool.query("DELETE FROM time_entries");
-    await pool.query("DELETE FROM projects");
-    await pool.query("DELETE FROM clients");
-  });
-
+describeWithAuthenticatedWorkspace("ClientsPage with live API", () => {
   it("creates and lists a Client end-to-end", async () => {
     renderClientsPage();
 

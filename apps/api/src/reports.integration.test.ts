@@ -1,11 +1,7 @@
 import { DEFAULT_WORKSPACE_ID } from "@hourden/domain";
-import { Pool } from "pg";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { createApp } from "./app.js";
-import { runMigrationsForTests } from "./test/migrate-for-tests.js";
-import { bindSessionAuth } from "./test/auth-helper.js";
-
-const databaseUrl = process.env.DATABASE_URL;
+import { describeWithAuthenticatedWorkspace } from "./test/describe-with-live-api.js";
 
 async function createClient(
   app: ReturnType<typeof createApp>,
@@ -33,31 +29,12 @@ async function createProject(
   return res.json() as Promise<{ id: string; clientId: string; name: string }>;
 }
 
-describe.skipIf(!databaseUrl)("Report API", () => {
-  const pool = new Pool({ connectionString: databaseUrl });
-  const app = createApp({ pool });
-
-  beforeAll(async () => {
-    await runMigrationsForTests(pool);
-    await bindSessionAuth(app);
-  });
-
-  beforeEach(async () => {
-    await pool.query("DELETE FROM time_entries");
-    await pool.query("DELETE FROM invoices");
-    await pool.query("DELETE FROM projects");
-    await pool.query("DELETE FROM clients");
-  });
-
-  afterAll(async () => {
-    await pool.end();
-  });
-
+describeWithAuthenticatedWorkspace("Report API", (getWorkspace) => {
   it("returns Time Entries grouped by Client for a date range", async () => {
-    const bandao = await createClient(app, "Bandao", 60);
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const bandao = await createClient(getWorkspace().app, "Bandao", 60);
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -68,7 +45,7 @@ describe.skipIf(!databaseUrl)("Report API", () => {
       }),
     });
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -79,7 +56,7 @@ describe.skipIf(!databaseUrl)("Report API", () => {
       }),
     });
 
-    const res = await app.request(
+    const res = await getWorkspace().app.request(
       "/api/reports?from=2026-06-18&to=2026-06-18",
     );
 
@@ -103,10 +80,10 @@ describe.skipIf(!databaseUrl)("Report API", () => {
   });
 
   it("exports a Clockify-compatible CSV for a date range", async () => {
-    const bandao = await createClient(app, "Bandao", 60);
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const bandao = await createClient(getWorkspace().app, "Bandao", 60);
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -118,7 +95,7 @@ describe.skipIf(!databaseUrl)("Report API", () => {
       }),
     });
 
-    const res = await app.request(
+    const res = await getWorkspace().app.request(
       "/api/reports/export?from=2026-06-22&to=2026-06-22",
     );
 
@@ -136,24 +113,24 @@ describe.skipIf(!databaseUrl)("Report API", () => {
   });
 
   it("excludes incomplete stopped entries without a Description", async () => {
-    const bandao = await createClient(app, "Bandao", 60);
-    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const bandao = await createClient(getWorkspace().app, "Bandao", 60);
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
     const timer = await (
-      await app.request("/api/time-entries/timer", {
+      await getWorkspace().app.request("/api/time-entries/timer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ projectId: ondojo.id }),
       })
     ).json();
 
-    await app.request(`/api/time-entries/${timer.id}/stop`, {
+    await getWorkspace().app.request(`/api/time-entries/${timer.id}/stop`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
     });
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -164,7 +141,7 @@ describe.skipIf(!databaseUrl)("Report API", () => {
       }),
     });
 
-    const res = await app.request(
+    const res = await getWorkspace().app.request(
       "/api/reports?from=2026-06-18&to=2026-06-18",
     );
 
@@ -188,21 +165,21 @@ describe.skipIf(!databaseUrl)("Report API", () => {
   });
 
   it("filters and groups by the workspace calendar timezone", async () => {
-    const workspaceBefore = await pool.query<{ calendar_timezone: string | null }>(
+    const workspaceBefore = await getWorkspace().pool.query<{ calendar_timezone: string | null }>(
       "SELECT calendar_timezone FROM workspaces WHERE id = $1",
       [DEFAULT_WORKSPACE_ID],
     );
     const previousTz = workspaceBefore.rows[0]!.calendar_timezone;
 
     try {
-      await pool.query(
+      await getWorkspace().pool.query(
         "UPDATE workspaces SET calendar_timezone = $2 WHERE id = $1",
         [DEFAULT_WORKSPACE_ID, "Europe/Berlin"],
       );
-      const bandao = await createClient(app, "Bandao", 60);
-      const ondojo = await createProject(app, bandao.id, "Ondojo");
+      const bandao = await createClient(getWorkspace().app, "Bandao", 60);
+      const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-      await app.request("/api/time-entries", {
+      await getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -213,24 +190,24 @@ describe.skipIf(!databaseUrl)("Report API", () => {
         }),
       });
 
-      const juneReport = await app.request(
+      const juneReport = await getWorkspace().app.request(
         "/api/reports?from=2026-06-01&to=2026-06-01",
       );
-      const mayReport = await app.request(
+      const mayReport = await getWorkspace().app.request(
         "/api/reports?from=2026-05-31&to=2026-05-31",
       );
 
       expect((await juneReport.json()).clients).toHaveLength(1);
       expect((await mayReport.json()).clients).toEqual([]);
 
-      const exportRes = await app.request(
+      const exportRes = await getWorkspace().app.request(
         "/api/reports/export?from=2026-06-01&to=2026-06-01",
       );
       const csv = await exportRes.text();
       expect(csv).toContain('"01/06/2026"');
       expect(csv).toContain('"Late night work"');
     } finally {
-      await pool.query(
+      await getWorkspace().pool.query(
         "UPDATE workspaces SET calendar_timezone = $2 WHERE id = $1",
         [DEFAULT_WORKSPACE_ID, previousTz],
       );

@@ -1,7 +1,7 @@
 import "./load-env.js";
 
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeAll, beforeEach, expect, it, vi } from "vitest";
+import { beforeAll, expect, it, vi } from "vitest";
 import InvoicesPage from "../InvoicesPage.js";
 import { describeWithAuthenticatedWorkspace } from "./describe-with-live-api.js";
 
@@ -18,20 +18,10 @@ async function waitForClientReady(clientName: string, clientId: string) {
 
 describeWithAuthenticatedWorkspace(
   "authenticated fetch proxy in jsdom",
-  (getWorkspace) => {
+  () => {
     beforeAll(() => {
       URL.createObjectURL = vi.fn(() => "blob:test") as typeof URL.createObjectURL;
       URL.revokeObjectURL = vi.fn() as typeof URL.revokeObjectURL;
-    });
-
-    beforeEach(async () => {
-      const { pool } = getWorkspace();
-      await pool.query("DELETE FROM time_entries");
-      await pool.query("DELETE FROM invoices");
-      await pool.query("DELETE FROM workspace_invoice_numbering");
-      await pool.query("DELETE FROM client_invoice_numbering");
-      await pool.query("DELETE FROM projects");
-      await pool.query("DELETE FROM clients");
     });
 
     it("reads preview errors and PDF blobs through proxied fetch", async () => {

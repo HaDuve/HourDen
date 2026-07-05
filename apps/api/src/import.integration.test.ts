@@ -1,44 +1,21 @@
+import { DEFAULT_WORKSPACE_ID } from "@hourden/domain";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Pool } from "pg";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "./app.js";
-import { runMigrationsForTests } from "./test/migrate-for-tests.js";
-import { bindSessionAuth } from "./test/auth-helper.js";
-
-const databaseUrl = process.env.DATABASE_URL;
+import { expect, it } from "vitest";
+import { describeWithAuthenticatedWorkspace } from "./test/describe-with-live-api.js";
 
 async function readFixture(name: string): Promise<string> {
   const here = dirname(fileURLToPath(import.meta.url));
   return readFile(join(here, "../../../packages/domain/test/fixtures", name), "utf8");
 }
 
-describe.skipIf(!databaseUrl)("Clockify import API", () => {
-  const pool = new Pool({ connectionString: databaseUrl });
-  const app = createApp({ pool });
-
-  beforeAll(async () => {
-    await runMigrationsForTests(pool);
-    await bindSessionAuth(app);
-  });
-
-  beforeEach(async () => {
-    await pool.query("DELETE FROM time_entries");
-    await pool.query("DELETE FROM invoices");
-    await pool.query("DELETE FROM projects");
-    await pool.query("DELETE FROM clients");
-  });
-
-  afterAll(async () => {
-    await pool.end();
-  });
-
+describeWithAuthenticatedWorkspace("Clockify import API", (getWorkspace) => {
   async function importCsv(csv: string) {
     const form = new FormData();
     form.append("file", new File([csv], "clockify.csv", { type: "text/csv" }));
 
-    return app.request("/api/import/clockify", {
+    return getWorkspace().app.request("/api/import/clockify", {
       method: "POST",
       body: form,
     });
@@ -56,7 +33,7 @@ describe.skipIf(!databaseUrl)("Clockify import API", () => {
       duplicates: 0,
     });
 
-    const { clients } = await (await app.request("/api/clients")).json();
+    const { clients } = await (await getWorkspace().app.request("/api/clients")).json();
     expect(clients.map((client: { name: string }) => client.name).sort()).toEqual([
       "Bandao",
       "Hannah",
@@ -65,14 +42,14 @@ describe.skipIf(!databaseUrl)("Clockify import API", () => {
     const hannah = clients.find((client: { name: string }) => client.name === "Hannah");
     expect(hannah.defaultRate).toBe(30);
 
-    const { projects } = await (await app.request("/api/projects")).json();
+    const { projects } = await (await getWorkspace().app.request("/api/projects")).json();
     expect(projects.map((project: { name: string }) => project.name).sort()).toEqual([
       "Coaching",
       "Ondojo",
     ]);
 
     const entries = await (
-      await app.request("/api/time-entries?date=2026-06-22")
+      await getWorkspace().app.request("/api/time-entries?date=2026-06-22")
     ).json();
     expect(entries.entries).toHaveLength(1);
     expect(entries.entries[0]).toMatchObject({
@@ -97,7 +74,10 @@ describe.skipIf(!databaseUrl)("Clockify import API", () => {
       skippedEmptyClient: 0,
     });
 
-    const count = await pool.query("SELECT count(*)::int AS count FROM time_entries");
+    const count = await getWorkspace().pool.query(
+      "SELECT count(*)::int AS count FROM time_entries WHERE workspace_id = $1",
+      [DEFAULT_WORKSPACE_ID],
+    );
     expect(count.rows[0]?.count).toBe(3);
   });
 

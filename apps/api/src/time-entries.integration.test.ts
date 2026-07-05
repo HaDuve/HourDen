@@ -1,12 +1,9 @@
 import { DEFAULT_WORKSPACE_ID } from "@hourden/domain";
-import { Pool } from "pg";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { createApp } from "./app.js";
-import { runMigrationsForTests } from "./test/migrate-for-tests.js";
-import { bindSessionAuth, loginAsOperator, withSessionCookie } from "./test/auth-helper.js";
+import { withSessionCookie } from "./test/auth-helper.js";
+import { describeWithAuthenticatedWorkspace } from "./test/describe-with-live-api.js";
 import { readNextSseEvent } from "./test/sse-helper.js";
-
-const databaseUrl = process.env.DATABASE_URL;
 
 async function createClient(
   app: ReturnType<typeof createApp>,
@@ -34,30 +31,9 @@ async function createProject(
   return res.json() as Promise<{ id: string; clientId: string; name: string }>;
 }
 
-describe.skipIf(!databaseUrl)("Time Entry API", () => {
-  const pool = new Pool({ connectionString: databaseUrl });
-  const app = createApp({ pool });
-  let sessionCookie: string;
-
-  beforeAll(async () => {
-    await runMigrationsForTests(pool);
-    await bindSessionAuth(app);
-    sessionCookie = await loginAsOperator(app);
-  });
-
-  beforeEach(async () => {
-    await pool.query("DELETE FROM time_entries");
-    await pool.query("DELETE FROM invoices");
-    await pool.query("DELETE FROM projects");
-    await pool.query("DELETE FROM clients");
-  });
-
-  afterAll(async () => {
-    await pool.end();
-  });
-
+describeWithAuthenticatedWorkspace("Time Entry API", (getWorkspace) => {
   it("starts a Running Timer with no end time", async () => {
-    const res = await app.request("/api/time-entries/timer", {
+    const res = await getWorkspace().app.request("/api/time-entries/timer", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
@@ -79,9 +55,9 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
   });
 
   it("publishes timer-changed when a Running Timer is started", async () => {
-    const streamRes = await app.request(
+    const streamRes = await getWorkspace().app.request(
       "/api/events",
-      withSessionCookie({}, sessionCookie),
+      withSessionCookie({}, getWorkspace().sessionCookie),
     );
     expect(streamRes.status).toBe(200);
 
@@ -90,7 +66,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
       throw new Error("Expected SSE response body");
     }
 
-    const startRes = await app.request("/api/time-entries/timer", {
+    const startRes = await getWorkspace().app.request("/api/time-entries/timer", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ description: "Remote start" }),
@@ -105,14 +81,14 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
 
   it("stops the current Running Timer when starting another (one-active invariant)", async () => {
     const first = await (
-      await app.request("/api/time-entries/timer", {
+      await getWorkspace().app.request("/api/time-entries/timer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ description: "First task" }),
       })
     ).json();
 
-    const secondRes = await app.request("/api/time-entries/timer", {
+    const secondRes = await getWorkspace().app.request("/api/time-entries/timer", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ description: "Second task" }),
@@ -121,13 +97,13 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
     const second = await secondRes.json();
     expect(second.isRunning).toBe(true);
 
-    const runningRes = await app.request("/api/time-entries/running");
+    const runningRes = await getWorkspace().app.request("/api/time-entries/running");
     const { entry: running } = await runningRes.json();
     expect(running.id).toBe(second.id);
 
     const today = first.startedAt.slice(0, 10);
     const { entries } = await (
-      await app.request(`/api/time-entries?date=${today}`)
+      await getWorkspace().app.request(`/api/time-entries?date=${today}`)
     ).json();
     const stoppedFirst = entries.find((e: { id: string }) => e.id === first.id);
     expect(stoppedFirst.isRunning).toBe(false);
@@ -136,7 +112,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
 
   it("allows a bare timer start without Project or Description", async () => {
     const started = await (
-      await app.request("/api/time-entries/timer", {
+      await getWorkspace().app.request("/api/time-entries/timer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
@@ -147,12 +123,12 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
     expect(started.description).toBeNull();
 
     const labeled = await (
-      await app.request(`/api/time-entries/${started.id}`, {
+      await getWorkspace().app.request(`/api/time-entries/${started.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           description: "Labeled after start",
-          projectId: (await createProject(app, (await createClient(app, "Bandao")).id, "Ondojo")).id,
+          projectId: (await createProject(getWorkspace().app, (await createClient(getWorkspace().app, "Bandao")).id, "Ondojo")).id,
         }),
       })
     ).json();
@@ -163,7 +139,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
 
   it("requires a Description before a stopped entry is billable-complete", async () => {
     const started = await (
-      await app.request("/api/time-entries/timer", {
+      await getWorkspace().app.request("/api/time-entries/timer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
@@ -171,7 +147,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
     ).json();
 
     const stopped = await (
-      await app.request(`/api/time-entries/${started.id}/stop`, {
+      await getWorkspace().app.request(`/api/time-entries/${started.id}/stop`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
@@ -182,7 +158,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
     expect(stopped.billableComplete).toBe(false);
 
     const completed = await (
-      await app.request(`/api/time-entries/${started.id}`, {
+      await getWorkspace().app.request(`/api/time-entries/${started.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ description: "Development work" }),
@@ -194,11 +170,11 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
 
   it("rejects a Project from another workspace", async () => {
     const otherWorkspaceId = "b0000000-0000-4000-8000-000000000002";
-    await pool.query(
+    await getWorkspace().pool.query(
       "INSERT INTO workspaces (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
       [otherWorkspaceId, "Other Workspace"],
     );
-    const foreignClient = await pool.query<{ id: string }>(
+    const foreignClient = await getWorkspace().pool.query<{ id: string }>(
       `
         INSERT INTO clients (workspace_id, name, default_rate)
         VALUES ($1, 'Foreign Client', 50)
@@ -206,7 +182,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
       `,
       [otherWorkspaceId],
     );
-    const foreignProject = await pool.query<{ id: string }>(
+    const foreignProject = await getWorkspace().pool.query<{ id: string }>(
       `
         INSERT INTO projects (workspace_id, client_id, name)
         VALUES ($1, $2, 'Foreign Project')
@@ -216,14 +192,14 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
     );
     const foreignProjectId = foreignProject.rows[0]!.id;
 
-    const timerRes = await app.request("/api/time-entries/timer", {
+    const timerRes = await getWorkspace().app.request("/api/time-entries/timer", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ projectId: foreignProjectId }),
     });
     expect(timerRes.status).toBe(404);
 
-    const manualRes = await app.request("/api/time-entries", {
+    const manualRes = await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -236,7 +212,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
     expect(manualRes.status).toBe(404);
 
     const local = await (
-      await app.request("/api/time-entries", {
+      await getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -247,7 +223,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
       })
     ).json();
 
-    const patchRes = await app.request(`/api/time-entries/${local.id}`, {
+    const patchRes = await getWorkspace().app.request(`/api/time-entries/${local.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ projectId: foreignProjectId }),
@@ -257,7 +233,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
 
   it("includes an overnight running timer on today's list", async () => {
     const { DEFAULT_WORKSPACE_ID } = await import("@hourden/domain");
-    await pool.query(
+    await getWorkspace().pool.query(
       `
         INSERT INTO time_entries (workspace_id, started_at, description)
         VALUES ($1, $2, 'Overnight work')
@@ -265,7 +241,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
       [DEFAULT_WORKSPACE_ID, "2026-07-01T22:00:00.000Z"],
     );
 
-    const listRes = await app.request("/api/time-entries?date=2026-07-02");
+    const listRes = await getWorkspace().app.request("/api/time-entries?date=2026-07-02");
     expect(listRes.status).toBe(200);
     const { entries } = await listRes.json();
 
@@ -278,7 +254,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
 
   it("rejects reopening a stopped entry as running", async () => {
     const created = await (
-      await app.request("/api/time-entries", {
+      await getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -289,7 +265,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
       })
     ).json();
 
-    const res = await app.request(`/api/time-entries/${created.id}`, {
+    const res = await getWorkspace().app.request(`/api/time-entries/${created.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ endedAt: null }),
@@ -303,7 +279,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
 
   it("rejects PATCH when endedAt is not after startedAt", async () => {
     const created = await (
-      await app.request("/api/time-entries", {
+      await getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -314,7 +290,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
       })
     ).json();
 
-    const res = await app.request(`/api/time-entries/${created.id}`, {
+    const res = await getWorkspace().app.request(`/api/time-entries/${created.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -329,13 +305,13 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
   });
 
   it("computes amount from the Client rate for a completed entry", async () => {
-    const client = await createClient(app, "Bandao", 60);
-    const project = await createProject(app, client.id, "Ondojo");
+    const client = await createClient(getWorkspace().app, "Bandao", 60);
+    const project = await createProject(getWorkspace().app, client.id, "Ondojo");
 
     const startedAt = "2026-07-02T09:00:00.000Z";
     const endedAt = "2026-07-02T10:30:00.000Z";
 
-    const res = await app.request("/api/time-entries", {
+    const res = await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -357,7 +333,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
     const startedAt = "2026-07-02T14:00:00.000Z";
     const endedAt = "2026-07-02T15:00:00.000Z";
 
-    const res = await app.request("/api/time-entries", {
+    const res = await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -382,7 +358,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
 
   it("allows editing and deleting non-invoiced entries", async () => {
     const created = await (
-      await app.request("/api/time-entries", {
+      await getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -394,7 +370,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
     ).json();
 
     const updated = await (
-      await app.request(`/api/time-entries/${created.id}`, {
+      await getWorkspace().app.request(`/api/time-entries/${created.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ description: "Updated entry" }),
@@ -402,20 +378,20 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
     ).json();
     expect(updated.description).toBe("Updated entry");
 
-    const deleteRes = await app.request(`/api/time-entries/${created.id}`, {
+    const deleteRes = await getWorkspace().app.request(`/api/time-entries/${created.id}`, {
       method: "DELETE",
     });
     expect(deleteRes.status).toBe(204);
 
-    const listRes = await app.request("/api/time-entries?date=2026-07-02");
+    const listRes = await getWorkspace().app.request("/api/time-entries?date=2026-07-02");
     const { entries } = await listRes.json();
     expect(entries.find((e: { id: string }) => e.id === created.id)).toBeUndefined();
   });
 
   it("blocks editing and deleting invoiced entries", async () => {
-    const client = await createClient(app, "Bandao", 60);
+    const client = await createClient(getWorkspace().app, "Bandao", 60);
     const created = await (
-      await app.request("/api/time-entries", {
+      await getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -426,7 +402,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
       })
     ).json();
 
-    const invoice = await pool.query<{ id: string }>(
+    const invoice = await getWorkspace().pool.query<{ id: string }>(
       `
         INSERT INTO invoices (
           workspace_id,
@@ -445,19 +421,19 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
       [DEFAULT_WORKSPACE_ID, client.id],
     );
 
-    await pool.query("UPDATE time_entries SET invoice_id = $1 WHERE id = $2", [
+    await getWorkspace().pool.query("UPDATE time_entries SET invoice_id = $1 WHERE id = $2", [
       invoice.rows[0]!.id,
       created.id,
     ]);
 
-    const patchRes = await app.request(`/api/time-entries/${created.id}`, {
+    const patchRes = await getWorkspace().app.request(`/api/time-entries/${created.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ description: "Changed" }),
     });
     expect(patchRes.status).toBe(409);
 
-    const deleteRes = await app.request(`/api/time-entries/${created.id}`, {
+    const deleteRes = await getWorkspace().app.request(`/api/time-entries/${created.id}`, {
       method: "DELETE",
     });
     expect(deleteRes.status).toBe(409);
@@ -465,7 +441,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
 
   it("lists tracker entries up to the requested limit, most recent first", async () => {
     for (let day = 1; day <= 3; day += 1) {
-      await app.request("/api/time-entries", {
+      await getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -476,7 +452,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
       });
     }
 
-    const listRes = await app.request("/api/time-entries?limit=50");
+    const listRes = await getWorkspace().app.request("/api/time-entries?limit=50");
     expect(listRes.status).toBe(200);
     const { entries } = await listRes.json();
 
@@ -489,7 +465,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
   });
 
   it("rejects tracker list limits outside 50, 100, and 200", async () => {
-    const listRes = await app.request("/api/time-entries?limit=2");
+    const listRes = await getWorkspace().app.request("/api/time-entries?limit=2");
     expect(listRes.status).toBe(400);
     const body = await listRes.json();
     expect(body.error).toMatch(/limit must be 50, 100, or 200/);
@@ -497,7 +473,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
 
   it("lists entries for a calendar date including a running timer", async () => {
     const running = await (
-      await app.request("/api/time-entries/timer", {
+      await getWorkspace().app.request("/api/time-entries/timer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ description: "Afternoon timer" }),
@@ -506,7 +482,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
 
     const date = running.startedAt.slice(0, 10);
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -516,7 +492,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
       }),
     });
 
-    const listRes = await app.request(`/api/time-entries?date=${date}`);
+    const listRes = await getWorkspace().app.request(`/api/time-entries?date=${date}`);
     expect(listRes.status).toBe(200);
     const { entries } = await listRes.json();
 
@@ -528,22 +504,22 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
   });
 
   it("lists entries for a date using the workspace calendar timezone", async () => {
-    const workspaceBefore = await pool.query<{ calendar_timezone: string | null }>(
+    const workspaceBefore = await getWorkspace().pool.query<{ calendar_timezone: string | null }>(
       "SELECT calendar_timezone FROM workspaces WHERE id = $1",
       [DEFAULT_WORKSPACE_ID],
     );
     const previousTz = workspaceBefore.rows[0]!.calendar_timezone;
 
     try {
-      await pool.query(
+      await getWorkspace().pool.query(
         "UPDATE workspaces SET calendar_timezone = $2 WHERE id = $1",
         [DEFAULT_WORKSPACE_ID, "Europe/Berlin"],
       );
 
-      const bandao = await createClient(app, "Bandao", 60);
-      const ondojo = await createProject(app, bandao.id, "Ondojo");
+      const bandao = await createClient(getWorkspace().app, "Bandao", 60);
+      const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
 
-      await app.request("/api/time-entries", {
+      await getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -554,13 +530,13 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
         }),
       });
 
-      const juneList = await app.request("/api/time-entries?date=2026-06-01");
-      const mayList = await app.request("/api/time-entries?date=2026-05-31");
+      const juneList = await getWorkspace().app.request("/api/time-entries?date=2026-06-01");
+      const mayList = await getWorkspace().app.request("/api/time-entries?date=2026-05-31");
 
       expect((await juneList.json()).entries).toHaveLength(1);
       expect((await mayList.json()).entries).toEqual([]);
     } finally {
-      await pool.query(
+      await getWorkspace().pool.query(
         "UPDATE workspaces SET calendar_timezone = $2 WHERE id = $1",
         [DEFAULT_WORKSPACE_ID, previousTz],
       );
@@ -568,11 +544,11 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
   });
 
   it("returns distinct past descriptions matching q with the most recent projectId", async () => {
-    const client = await createClient(app, "Suggest Client");
-    const projectA = await createProject(app, client.id, "Project A");
-    const projectB = await createProject(app, client.id, "Project B");
+    const client = await createClient(getWorkspace().app, "Suggest Client");
+    const projectA = await createProject(getWorkspace().app, client.id, "Project A");
+    const projectB = await createProject(getWorkspace().app, client.id, "Project B");
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -583,7 +559,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
       }),
     });
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -594,7 +570,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
       }),
     });
 
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -605,7 +581,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
       }),
     });
 
-    const res = await app.request("/api/time-entries/suggestions?q=review");
+    const res = await getWorkspace().app.request("/api/time-entries/suggestions?q=review");
     expect(res.status).toBe(200);
 
     const { suggestions } = (await res.json()) as {
@@ -619,7 +595,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
   });
 
   it("returns no suggestions when q is empty", async () => {
-    await app.request("/api/time-entries", {
+    await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -629,14 +605,14 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
       }),
     });
 
-    const res = await app.request("/api/time-entries/suggestions?q=");
+    const res = await getWorkspace().app.request("/api/time-entries/suggestions?q=");
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ suggestions: [] });
   });
 
   it("caps suggestion results at 10 distinct descriptions", async () => {
     for (let index = 0; index < 12; index += 1) {
-      await app.request("/api/time-entries", {
+      await getWorkspace().app.request("/api/time-entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -647,7 +623,7 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
       });
     }
 
-    const res = await app.request("/api/time-entries/suggestions?q=Task");
+    const res = await getWorkspace().app.request("/api/time-entries/suggestions?q=Task");
     expect(res.status).toBe(200);
 
     const { suggestions } = (await res.json()) as { suggestions: unknown[] };
