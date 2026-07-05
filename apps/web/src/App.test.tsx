@@ -154,6 +154,17 @@ describe("App", () => {
     });
   });
 
+  it("redirects legacy /today to /tracker", async () => {
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    const app = renderAppWithMemoryRouter("/today");
+
+    await waitFor(() => {
+      expect(app.pathname).toBe("/tracker");
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
+    });
+  });
+
   it("redirects unknown paths to Tracker", async () => {
     vi.stubGlobal("fetch", mockAppFetch());
 

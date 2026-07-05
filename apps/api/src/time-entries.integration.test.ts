@@ -421,18 +421,26 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
       });
     }
 
-    const listRes = await app.request("/api/time-entries?limit=2");
+    const listRes = await app.request("/api/time-entries?limit=50");
     expect(listRes.status).toBe(200);
     const { entries } = await listRes.json();
 
-    expect(entries).toHaveLength(2);
+    expect(entries).toHaveLength(3);
     expect(entries.map((e: { description: string | null }) => e.description)).toEqual([
       "Work day 3",
       "Work day 2",
+      "Work day 1",
     ]);
   });
 
-  it("lists today's entries for the today view", async () => {
+  it("rejects tracker list limits outside 50, 100, and 200", async () => {
+    const listRes = await app.request("/api/time-entries?limit=2");
+    expect(listRes.status).toBe(400);
+    const body = await listRes.json();
+    expect(body.error).toMatch(/limit must be 50, 100, or 200/);
+  });
+
+  it("lists entries for a calendar date including a running timer", async () => {
     const running = await (
       await app.request("/api/time-entries/timer", {
         method: "POST",

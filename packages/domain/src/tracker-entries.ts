@@ -56,11 +56,10 @@ function mondayOfWeek(dateKey: string): string {
   return formatDateKey(date);
 }
 
-function formatDayLabel(dateKey: string, timeZone: string): string {
+function formatDayLabel(dateKey: string): string {
   const date = parseDateKey(dateKey);
   const weekday = WEEKDAY_FORMATTER.format(date);
   const monthDay = MONTH_DAY_FORMATTER.format(date);
-  void timeZone;
   return `${weekday}, ${monthDay}`;
 }
 
@@ -114,7 +113,7 @@ export function groupTrackerEntriesByWeek<T extends TrackerEntryInput>(
         .sort(([a], [b]) => b.localeCompare(a))
         .map(([date, dayEntries]) => ({
           date,
-          dayLabel: formatDayLabel(date, options.timeZone),
+          dayLabel: formatDayLabel(date),
           totalDurationMinutes: dayEntries.reduce(
             (sum, entry) => sum + entry.durationMinutes,
             0,
