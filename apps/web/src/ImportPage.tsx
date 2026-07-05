@@ -55,7 +55,7 @@ export default function ImportPage() {
 
       setSummary(totals);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("import.failed"));
+      setError(t("import.failed"));
     } finally {
       setImporting(false);
     }

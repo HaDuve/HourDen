@@ -23,7 +23,7 @@ export default function LoginPage() {
 
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        setError(body?.error ?? t("login.failed"));
+        setError(t("login.failed"));
         return;
       }
 

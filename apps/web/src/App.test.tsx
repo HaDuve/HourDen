@@ -110,6 +110,12 @@ function mockAppFetch() {
         json: async () => ({ from: "2026-07-01", to: "2026-07-31", clients: [] }),
       });
     }
+    if (url === "/api/auth/locale") {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ locale: "de" }),
+      });
+    }
     if (url.includes("/api/clients")) {
       return Promise.resolve({
         ok: true,
@@ -215,7 +221,30 @@ describe("App", () => {
 
     const menu = screen.getByRole("menu");
     expect(within(menu).getByRole("menuitem", { name: /^kunden$/i })).toBeInTheDocument();
-    expect(within(menu).getByRole("radiogroup", { name: /sprache/i })).toBeInTheDocument();
+    expect(within(menu).getByRole("group", { name: /sprache/i })).toBeInTheDocument();
+  });
+
+  it("switches to German from the desktop overflow menu", async () => {
+    mockDesktopViewport();
+    const fetchMock = mockAppFetch();
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderApp("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^more$/i }));
+    fireEvent.click(screen.getByRole("radio", { name: /^deutsch$/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/auth/locale",
+        expect.objectContaining({ method: "PATCH" }),
+      );
+      expect(screen.getByRole("link", { name: /^rechnungen$/i })).toBeInTheDocument();
+    });
   });
 
   it("shows Tracker and Invoices as primary links on desktop", async () => {

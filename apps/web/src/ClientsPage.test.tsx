@@ -1,11 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import i18n from "./i18n/i18n.js";
 import ClientsPage from "./ClientsPage.js";
 import { mockDesktopViewport } from "./test/viewport.js";
 
 describe("ClientsPage", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     mockDesktopViewport();
+    await i18n.changeLanguage("en");
   });
   const bandaoClient = {
     id: "c0000000-0000-4000-8000-000000000001",
@@ -66,6 +68,26 @@ describe("ClientsPage", () => {
       expect(screen.getByText("Bandao")).toBeInTheDocument();
       expect(screen.getByText("€60.00/h")).toBeInTheDocument();
     });
+  });
+
+  it("shows a German catalog error when loading clients fails", async () => {
+    await i18n.changeLanguage("de");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+      }),
+    );
+
+    render(<ClientsPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Kunden konnten nicht geladen werden"),
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/Failed to load clients/i)).not.toBeInTheDocument();
   });
 
   it("creates a Client through the form", async () => {
@@ -368,9 +390,7 @@ describe("ClientsPage", () => {
     fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/cannot delete client with existing projects/i),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Failed to delete client")).toBeInTheDocument();
     });
   });
 });

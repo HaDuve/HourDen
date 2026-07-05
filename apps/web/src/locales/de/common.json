@@ -2,7 +2,8 @@
   "language": {
     "label": "Sprache",
     "en": "English",
-    "de": "Deutsch"
+    "de": "Deutsch",
+    "updateFailed": "Spracheinstellung konnte nicht gespeichert werden"
   },
   "nav": {
     "primary": "Hauptnavigation",

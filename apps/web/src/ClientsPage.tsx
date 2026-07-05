@@ -69,7 +69,7 @@ export default function ClientsPage() {
     try {
       setClients(await fetchClients());
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("clients.loadFailed"));
+      setError(t("clients.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -128,7 +128,7 @@ export default function ClientsPage() {
       closeForm();
       await loadClients();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("clients.saveFailed"));
+      setError(t("clients.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -153,7 +153,7 @@ export default function ClientsPage() {
       closeDeleteDialog();
       await loadClients();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("clients.deleteFailed"));
+      setError(t("clients.deleteFailed"));
     } finally {
       setSaving(false);
     }

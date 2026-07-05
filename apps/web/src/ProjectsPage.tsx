@@ -72,7 +72,7 @@ export default function ProjectsPage() {
     try {
       setClients(await fetchClients());
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("projects.loadClientsFailed"));
+      setError(t("projects.loadClientsFailed"));
     } finally {
       setLoadingClients(false);
     }
@@ -89,7 +89,7 @@ export default function ProjectsPage() {
     try {
       setProjects(await fetchProjects(clientId));
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("projects.loadFailed"));
+      setError(t("projects.loadFailed"));
     } finally {
       setLoadingProjects(false);
     }
@@ -157,7 +157,7 @@ export default function ProjectsPage() {
       closeForm();
       await loadProjects(selectedClientId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("projects.saveFailed"));
+      setError(t("projects.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -179,7 +179,7 @@ export default function ProjectsPage() {
       closeDeleteDialog();
       await loadProjects(selectedClientId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("projects.deleteFailed"));
+      setError(t("projects.deleteFailed"));
     } finally {
       setSaving(false);
     }

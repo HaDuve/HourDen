@@ -45,7 +45,7 @@ export default function ReportPage() {
       const report = await fetchReport(rangeFrom, rangeTo);
       setClients(report.clients);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("report.loadFailed"));
+      setError(t("report.loadFailed"));
       setClients([]);
     } finally {
       setLoading(false);
@@ -78,7 +78,7 @@ export default function ReportPage() {
       link.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("report.exportFailed"));
+      setError(t("report.exportFailed"));
     } finally {
       setExporting(false);
     }

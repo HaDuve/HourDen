@@ -24,7 +24,7 @@ describe("LanguageSwitcher", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("radiogroup", { name: /language/i })).toBeInTheDocument();
+      expect(screen.getByRole("group", { name: /language/i })).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("radio", { name: /^deutsch$/i }));
@@ -42,5 +42,30 @@ describe("LanguageSwitcher", () => {
       expect(localStorage.getItem("hourden.locale")).toBe("de");
       expect(i18n.language).toBe("de");
     });
+  });
+
+  it("shows a catalog error when saving the locale fails", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <LocaleProvider userLocale="en">
+        <LanguageSwitcher />
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("group", { name: /language/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("radio", { name: /^deutsch$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/could not save language preference/i)).toBeInTheDocument();
+    });
+    expect(i18n.language).toBe("en");
   });
 });

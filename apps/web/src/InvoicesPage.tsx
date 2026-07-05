@@ -256,7 +256,7 @@ export default function InvoicesPage() {
       const invoices = await fetchIssuedInvoices();
       setIssuedInvoices(invoices);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("invoices.loadInvoicesFailed"));
+      setError(t("invoices.loadInvoicesFailed"));
     }
   }, [t]);
 
@@ -265,7 +265,7 @@ export default function InvoicesPage() {
       const status = await fetchInvoiceSenderStatus();
       setInvoiceSenderConfigured(status.configured);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("invoices.loadInvoiceSenderFailed"));
+      setError(t("invoices.loadInvoiceSenderFailed"));
     }
   }, [t]);
 
@@ -280,7 +280,7 @@ export default function InvoicesPage() {
       }
       await Promise.all([loadIssuedInvoices(), loadInvoiceSenderStatus()]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("invoices.loadClientsFailed"));
+      setError(t("invoices.loadClientsFailed"));
     } finally {
       setLoading(false);
     }
@@ -334,10 +334,8 @@ export default function InvoicesPage() {
         );
         setNumberingPreview(preview);
         setNumberingStrategy((current) => current ?? "from_last");
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : t("invoices.loadNumberingPreviewFailed"),
-        );
+      } catch {
+        setError(t("invoices.loadNumberingPreviewFailed"));
       }
     },
     [clientId, suggestedInvoiceNumber, to, usePrefix, t],
@@ -353,7 +351,7 @@ export default function InvoicesPage() {
       setSenderForm(invoiceSenderToForm(status.invoiceSender));
     } catch (err) {
       setEditingSender(false);
-      setError(err instanceof Error ? err.message : t("invoices.loadInvoiceSenderFailed"));
+      setError(t("invoices.loadInvoiceSenderFailed"));
     } finally {
       setLoadingSender(false);
     }
@@ -452,7 +450,7 @@ export default function InvoicesPage() {
         }
       } catch (err) {
         if (requestId === previewRequestIdRef.current) {
-          setError(err instanceof Error ? err.message : t("invoices.previewFailed"));
+          setError(t("invoices.previewFailed"));
         }
       } finally {
         if (requestId === previewRequestIdRef.current) {
@@ -613,7 +611,7 @@ export default function InvoicesPage() {
       setNumberingStrategy(null);
       await loadIssuedInvoices();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("invoices.issueFailed"));
+      setError(t("invoices.issueFailed"));
     } finally {
       setIssuing(false);
     }
@@ -646,7 +644,7 @@ export default function InvoicesPage() {
       const disposition = res.headers.get("Content-Disposition") ?? "";
       downloadAttachmentBlob(blob, disposition);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("invoices.exportInvoicesFailed"));
+      setError(t("invoices.exportInvoicesFailed"));
     } finally {
       setExporting(false);
     }
@@ -667,7 +665,7 @@ export default function InvoicesPage() {
       const disposition = res.headers.get("Content-Disposition") ?? "";
       downloadAttachmentBlob(blob, disposition);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("invoices.downloadInvoiceFailed"));
+      setError(t("invoices.downloadInvoiceFailed"));
     } finally {
       setDownloadingId(null);
     }
@@ -697,7 +695,7 @@ export default function InvoicesPage() {
         });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("invoices.saveInvoiceSenderFailed"));
+      setError(t("invoices.saveInvoiceSenderFailed"));
     } finally {
       setSavingSender(false);
     }

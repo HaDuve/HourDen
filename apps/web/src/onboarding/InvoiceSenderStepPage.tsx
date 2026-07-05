@@ -57,9 +57,7 @@ export default function InvoiceSenderStepPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : t("onboarding.loadInvoiceSenderFailed"),
-          );
+          setError(t("onboarding.loadInvoiceSenderFailed"));
         }
       } finally {
         if (!cancelled) {
@@ -96,9 +94,7 @@ export default function InvoiceSenderStepPage() {
 
       await completeOnboarding();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : t("onboarding.saveInvoiceSenderFailed"),
-      );
+      setError(t("onboarding.saveInvoiceSenderFailed"));
     } finally {
       setSaving(false);
     }

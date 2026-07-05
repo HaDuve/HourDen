@@ -55,7 +55,7 @@ export default function ClientStepPage() {
       const client = (await res.json()) as { id: string };
       navigate(`/onboarding/project?clientId=${encodeURIComponent(client.id)}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("onboarding.saveClientFailed"));
+      setError(t("onboarding.saveClientFailed"));
     } finally {
       setSaving(false);
     }

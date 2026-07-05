@@ -124,7 +124,7 @@ export default function TrackerPage() {
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : t("tracker.loadFailed"));
+          setError(t("tracker.loadFailed"));
           setLoading(false);
         }
       });
@@ -149,7 +149,7 @@ export default function TrackerPage() {
       setRunning(loadedRunning);
       setProjects(loadedProjects);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("tracker.loadFailed"));
+      setError(t("tracker.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -180,7 +180,7 @@ export default function TrackerPage() {
       }
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("tracker.startFailed"));
+      setError(t("tracker.startFailed"));
     } finally {
       setSaving(false);
     }
@@ -202,7 +202,7 @@ export default function TrackerPage() {
       }
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("tracker.stopFailed"));
+      setError(t("tracker.stopFailed"));
     } finally {
       setSaving(false);
     }
@@ -234,7 +234,7 @@ export default function TrackerPage() {
       setManualForm(emptyManualForm());
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("tracker.saveFailed"));
+      setError(t("tracker.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -272,7 +272,7 @@ export default function TrackerPage() {
       setEditing(null);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("tracker.saveFailed"));
+      setError(t("tracker.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -294,7 +294,7 @@ export default function TrackerPage() {
       closeDeleteDialog();
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("tracker.deleteFailed"));
+      setError(t("tracker.deleteFailed"));
     } finally {
       setSaving(false);
     }

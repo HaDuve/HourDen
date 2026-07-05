@@ -55,7 +55,7 @@ export default function ProjectStepPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : t("onboarding.loadClientsFailed"));
+          setError(t("onboarding.loadClientsFailed"));
         }
       } finally {
         if (!cancelled) {
@@ -102,7 +102,7 @@ export default function ProjectStepPage() {
 
       navigate("/onboarding/invoice-sender");
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("onboarding.saveProjectFailed"));
+      setError(t("onboarding.saveProjectFailed"));
     } finally {
       setSaving(false);
     }
