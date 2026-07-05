@@ -1,4 +1,4 @@
-import { groupTrackerEntriesByWeek, type Client, type Project, type TimeEntry } from "@hourden/domain";
+import { groupTrackerEntriesByWeek, type Client, type Project, type TimeEntry, type UpdateTimeEntryInput } from "@hourden/domain";
 import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageMain } from "./layout/PageMain.js";
@@ -10,14 +10,12 @@ import {
 } from "./layout/tap-targets.js";
 import {
   destructiveButtonClass,
-  destructiveOutlineButtonClass,
   emptyStateClass,
   errorBannerClass,
   inputClass,
   listPanelClass,
   metaTextClass,
   numericMetaValueClass,
-  numericValueClass,
   pageSubtitleClass,
   pageTitleLargeClass,
   selectClass,
@@ -30,7 +28,16 @@ import {
   storeTrackerEntryLimit,
   type TrackerEntryLimit,
 } from "./tracker-entry-limit.js";
+import { formatEntryDateTime } from "./tracker/formatEntryDateTime.js";
 import { groupProjectsByClient } from "./tracker/groupProjectsByClient.js";
+import { localDatetimeValue } from "./tracker/localDatetimeValue.js";
+import {
+  TrackerEntryEditForm,
+  entryToEditForm,
+  toEditPatch,
+  type TrackerEntryEditFormData,
+} from "./tracker/TrackerEntryEditForm.js";
+import { TrackerEntryRow } from "./tracker/TrackerEntryRow.js";
 import { TrackerTimerBar } from "./tracker/TrackerTimerBar.js";
 import { useLiveCounter } from "./tracker/useLiveCounter.js";
 import { todayDateInTimeZone } from "./today-date.js";
@@ -45,20 +52,21 @@ type ManualFormData = {
   projectId: string;
 };
 
-type EditFormData = {
-  description: string;
-  projectId: string;
-};
+type EditFormData = TrackerEntryEditFormData;
+
+function durationFromEditForm(form: EditFormData): number {
+  const start = new Date(form.startedAt).getTime();
+  const end = new Date(form.endedAt).getTime();
+  if (end <= start) {
+    return 0;
+  }
+  return Math.round((end - start) / 60_000);
+}
 
 type BarFormData = {
   description: string;
   projectId: string;
 };
-
-function localDatetimeValue(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
 
 function emptyManualForm(): ManualFormData {
   const now = new Date();
@@ -143,6 +151,8 @@ export default function TrackerPage() {
   const [editForm, setEditForm] = useState<EditFormData>({
     description: "",
     projectId: "",
+    startedAt: "",
+    endedAt: "",
   });
   const [barForm, setBarForm] = useState<BarFormData>({
     description: "",
@@ -153,6 +163,10 @@ export default function TrackerPage() {
   const projectGroups = useMemo(
     () => groupProjectsByClient(projects, clients),
     [projects, clients],
+  );
+  const projectNameById = useMemo(
+    () => new Map(projects.map((project) => [project.id, project.name])),
+    [projects],
   );
 
   const today =
@@ -246,6 +260,24 @@ export default function TrackerPage() {
       projectId: running.projectId ?? "",
     });
   }, [running?.id]);
+
+  const patchEntry = async (entryId: string, patch: UpdateTimeEntryInput) => {
+    setError(null);
+    const res = await fetch(`/api/time-entries/${entryId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      const message = body?.error ?? t("tracker.saveFailed");
+      setError(message);
+      throw new Error(message);
+    }
+    const updated = (await res.json()) as TimeEntry;
+    setEntries((current) => current.map((entry) => (entry.id === updated.id ? updated : entry)));
+    return updated;
+  };
 
   const patchRunningEntry = async (patch: {
     description?: string;
@@ -366,12 +398,9 @@ export default function TrackerPage() {
     }
   };
 
-  const openEdit = (entry: TimeEntry) => {
+  const openMobileEdit = (entry: TimeEntry) => {
     setEditing(entry);
-    setEditForm({
-      description: entry.description ?? "",
-      projectId: entry.projectId ?? "",
-    });
+    setEditForm(entryToEditForm(entry));
   };
 
   const saveEdit = async (event: React.FormEvent) => {
@@ -381,24 +410,10 @@ export default function TrackerPage() {
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/time-entries/${editing.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          description: editForm.description.trim(),
-          projectId: editForm.projectId || null,
-        }),
-      });
-
-      if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(body?.error ?? `Save failed (${res.status})`);
-      }
-
+      await patchEntry(editing.id, toEditPatch(editForm, editing));
       setEditing(null);
-      await load();
     } catch {
-      setError(t("tracker.saveFailed"));
+      // Error banner already set by patchEntry.
     } finally {
       setSaving(false);
     }
@@ -518,58 +533,26 @@ export default function TrackerPage() {
 
                     <ul className={listPanelClass}>
                       {day.entries.map((entry) => (
-                        <li
+                        <TrackerEntryRow
                           key={entry.id}
-                          className="flex items-start justify-between gap-4 px-4 py-4"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium text-content">
-                              {entry.description?.trim() || (
-                                <span className="text-muted italic">
-                                  {t("tracker.noDescription")}
-                                </span>
-                              )}
-                            </p>
-                            {(entry.amount !== null ||
-                              (!entry.billableComplete && !entry.isRunning)) && (
-                              <p className={`mt-1 ${metaTextClass}`}>
-                                {entry.amount !== null && formatCurrency(entry.amount)}
-                                {!entry.billableComplete &&
-                                  !entry.isRunning &&
-                                  `${entry.amount !== null ? " · " : ""}${t("tracker.incomplete")}`}
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="flex shrink-0 items-start gap-3">
-                            <p className={`${numericValueClass} text-sm`}>
-                              {formatDurationMinutes(entry.durationMinutes)}
-                              {entry.isRunning && (
-                                <span className={`block ${metaTextClass}`}>
-                                  {t("tracker.running")}
-                                </span>
-                              )}
-                            </p>
-                            {!entry.invoiced && !entry.isRunning && (
-                              <div className="flex gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => openEdit(entry)}
-                                  className={actionButtonClass}
-                                >
-                                  {t("common.edit")}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => openDeleteDialog(entry)}
-                                  className={`${destructiveOutlineButtonClass} px-3 py-1.5 text-sm`}
-                                >
-                                  {t("common.delete")}
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </li>
+                          entry={entry}
+                          projectName={
+                            entry.projectId
+                              ? (projectNameById.get(entry.projectId) ?? null)
+                              : null
+                          }
+                          projectGroups={projectGroups}
+                          isMobile={isMobile}
+                          formatDurationMinutes={formatDurationMinutes}
+                          formatCurrency={formatCurrency}
+                          formatDateTime={(iso) => formatEntryDateTime(iso, locale)}
+                          saving={saving}
+                          onPatch={async (patch) => {
+                            await patchEntry(entry.id, patch);
+                          }}
+                          onDelete={() => openDeleteDialog(entry)}
+                          onMobileEdit={() => openMobileEdit(entry)}
+                        />
                       ))}
                     </ul>
                   </div>
@@ -702,70 +685,18 @@ export default function TrackerPage() {
         </ResponsiveOverlay>
       )}
 
-      {editing && (
+      {editing && isMobile && (
         <ResponsiveOverlay ariaLabel={t("tracker.editEntry")}>
-          <form onSubmit={saveEdit} className="w-full">
-            <h2 className="text-lg font-semibold text-content">{t("tracker.editEntry")}</h2>
-
-            <div className="mt-4 grid gap-3">
-              <DescriptionAutocomplete
-                label={t("tracker.description")}
-                value={editForm.description}
-                required
-                onChange={(description) =>
-                  setEditForm((current) => ({
-                    ...current,
-                    description,
-                  }))
-                }
-                onSuggestionSelect={(suggestion) =>
-                  setEditForm((current) => ({
-                    ...current,
-                    description: suggestion.description,
-                    projectId: suggestion.projectId ?? "",
-                  }))
-                }
-              />
-
-              <label className="grid gap-1 text-sm text-content">
-                <span>{t("tracker.projectOptional")}</span>
-                <select
-                  value={editForm.projectId}
-                  onChange={(e) =>
-                    setEditForm((current) => ({
-                      ...current,
-                      projectId: e.target.value,
-                    }))
-                  }
-                  className={selectClass}
-                >
-                  <option value="">{t("tracker.noProject")}</option>
-                  {projects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setEditing(null)}
-                className={secondaryButtonClass}
-              >
-                {t("common.cancel")}
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className={primaryButtonClass}
-              >
-                {saving ? t("common.saving") : t("common.save")}
-              </button>
-            </div>
-          </form>
+          <TrackerEntryEditForm
+            form={editForm}
+            durationMinutes={durationFromEditForm(editForm)}
+            projectGroups={projectGroups}
+            saving={saving}
+            formatDurationMinutes={formatDurationMinutes}
+            onChange={setEditForm}
+            onSubmit={saveEdit}
+            onCancel={() => setEditing(null)}
+          />
         </ResponsiveOverlay>
       )}
 

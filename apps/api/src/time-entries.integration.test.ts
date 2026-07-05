@@ -301,6 +301,33 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
     });
   });
 
+  it("rejects PATCH when endedAt is not after startedAt", async () => {
+    const created = await (
+      await app.request("/api/time-entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startedAt: "2026-07-02T10:00:00.000Z",
+          endedAt: "2026-07-02T11:00:00.000Z",
+          description: "Completed work",
+        }),
+      })
+    ).json();
+
+    const res = await app.request(`/api/time-entries/${created.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        endedAt: "2026-07-02T09:00:00.000Z",
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "endedAt must be after startedAt",
+    });
+  });
+
   it("computes amount from the Client rate for a completed entry", async () => {
     const client = await createClient(app, "Bandao", 60);
     const project = await createProject(app, client.id, "Ondojo");

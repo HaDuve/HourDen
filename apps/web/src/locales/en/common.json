@@ -162,6 +162,7 @@
     "description": "Description",
     "start": "Start",
     "end": "End",
+    "duration": "Duration",
     "projectOptional": "Project (optional)",
     "noProject": "No project",
     "deleteEntryTitle": "Delete entry?",

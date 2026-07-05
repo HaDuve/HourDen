@@ -1,8 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import i18n from "./i18n/i18n.js";
 import TrackerPage from "./TrackerPage.js";
+import { createMatchMedia } from "./test/match-media.js";
 import { MockEventSource, resetMockEventSources } from "./test/mock-event-source.js";
+import { localDatetimeValue } from "./tracker/localDatetimeValue.js";
 
 vi.mock("./today-date.js", () => ({
   todayDateInTimeZone: () => "2026-07-02",
@@ -92,6 +94,12 @@ function createFetchMock(
     }
     if (init?.method === "DELETE") {
       return Promise.resolve({ ok: true, status: 204 });
+    }
+    if (init?.method === "PATCH") {
+      return Promise.resolve({
+        ok: true,
+        json: async () => morningEntry,
+      });
     }
     return Promise.reject(new Error(`Unexpected fetch: ${url}`));
   });
@@ -426,6 +434,238 @@ describe("TrackerPage", () => {
         `/api/time-entries/${afternoonEntry.id}`,
         expect.objectContaining({ method: "DELETE" }),
       );
+    });
+  });
+
+  it("patches description inline on desktop without an Edit button", async () => {
+    window.matchMedia = createMatchMedia(true) as typeof window.matchMedia;
+    const fetchMock = createFetchMock([morningEntry]);
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (
+        url === `/api/time-entries/${morningEntry.id}` &&
+        init?.method === "PATCH"
+      ) {
+        const body = JSON.parse(init.body as string) as { description?: string };
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            ...morningEntry,
+            description: body.description ?? morningEntry.description,
+          }),
+        });
+      }
+      return createFetchMock([morningEntry])(url, init);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<TrackerPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Morning work")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^edit$/i })).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /morning work/i }));
+    const input = screen.getByDisplayValue("Morning work");
+    fireEvent.change(input, { target: { value: "Revised work" } });
+    fireEvent.blur(input);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/time-entries/${morningEntry.id}`,
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ description: "Revised work" }),
+        }),
+      );
+      expect(screen.getByText("Revised work")).toBeInTheDocument();
+    });
+  });
+
+  it("re-buckets an entry when its start date moves to another day", async () => {
+    window.matchMedia = createMatchMedia(true) as typeof window.matchMedia;
+    const fetchMock = createFetchMock([morningEntry, lastWeekEntry]);
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (
+        url === `/api/time-entries/${morningEntry.id}` &&
+        init?.method === "PATCH"
+      ) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            ...morningEntry,
+            startedAt: "2026-06-25T08:00:00.000Z",
+            endedAt: "2026-06-25T09:00:00.000Z",
+          }),
+        });
+      }
+      return createFetchMock([morningEntry, lastWeekEntry])(url, init);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<TrackerPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Thu, Jul 2")).toBeInTheDocument();
+    });
+
+    const morningRow = screen.getByText("Morning work").closest("li");
+    expect(morningRow).not.toBeNull();
+    fireEvent.click(within(morningRow!).getByRole("button", { name: /^start:/i }));
+    const startInput = screen.getByLabelText(/^start$/i);
+    fireEvent.change(startInput, { target: { value: "2026-06-25T08:00" } });
+    fireEvent.blur(startInput);
+
+    await waitFor(() => {
+      const jun25Header = screen.getByText("Thu, Jun 25").closest("div");
+      expect(jun25Header).not.toBeNull();
+      expect(within(jun25Header!.parentElement!).getAllByText("Morning work").length).toBe(1);
+      expect(screen.queryByText("Thu, Jul 2")).not.toBeInTheDocument();
+    });
+  });
+
+  it("surfaces PATCH error messages from the API", async () => {
+    window.matchMedia = createMatchMedia(true) as typeof window.matchMedia;
+    const fetchMock = createFetchMock([morningEntry]);
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (
+        url === `/api/time-entries/${morningEntry.id}` &&
+        init?.method === "PATCH"
+      ) {
+        return Promise.resolve({
+          ok: false,
+          status: 409,
+          json: async () => ({ error: "Invoiced Time Entry is read-only" }),
+        });
+      }
+      return createFetchMock([morningEntry])(url, init);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<TrackerPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Morning work")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /morning work/i }));
+    const input = screen.getByDisplayValue("Morning work");
+    fireEvent.change(input, { target: { value: "Blocked edit" } });
+    fireEvent.blur(input);
+
+    await waitFor(() => {
+      expect(screen.getByText("Invoiced Time Entry is read-only")).toBeInTheDocument();
+    });
+  });
+
+  it("surfaces invalid range PATCH errors from the API", async () => {
+    window.matchMedia = createMatchMedia(true) as typeof window.matchMedia;
+    const fetchMock = createFetchMock([morningEntry]);
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (
+        url === `/api/time-entries/${morningEntry.id}` &&
+        init?.method === "PATCH"
+      ) {
+        return Promise.resolve({
+          ok: false,
+          status: 400,
+          json: async () => ({ error: "endedAt must be after startedAt" }),
+        });
+      }
+      return createFetchMock([morningEntry])(url, init);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<TrackerPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Morning work")).toBeInTheDocument();
+    });
+
+    const morningRow = screen.getByText("Morning work").closest("li");
+    fireEvent.click(within(morningRow!).getByRole("button", { name: /^end:/i }));
+    const endInput = screen.getByLabelText(/^end$/i);
+    fireEvent.change(endInput, { target: { value: "2026-07-02T07:00" } });
+    fireEvent.blur(endInput);
+
+    await waitFor(() => {
+      expect(screen.getByText("endedAt must be after startedAt")).toBeInTheDocument();
+    });
+  });
+
+  it("surfaces not found PATCH errors from the API", async () => {
+    window.matchMedia = createMatchMedia(true) as typeof window.matchMedia;
+    const fetchMock = createFetchMock([morningEntry]);
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (
+        url === `/api/time-entries/${morningEntry.id}` &&
+        init?.method === "PATCH"
+      ) {
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          json: async () => ({ error: "Time Entry not found" }),
+        });
+      }
+      return createFetchMock([morningEntry])(url, init);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<TrackerPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Morning work")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /morning work/i }));
+    const input = screen.getByDisplayValue("Morning work");
+    fireEvent.change(input, { target: { value: "Missing entry" } });
+    fireEvent.blur(input);
+
+    await waitFor(() => {
+      expect(screen.getByText("Time Entry not found")).toBeInTheDocument();
+    });
+  });
+
+  it("updates duration from the server after an inline end edit", async () => {
+    window.matchMedia = createMatchMedia(true) as typeof window.matchMedia;
+    const fetchMock = createFetchMock([morningEntry]);
+    const updatedEndedAt = "2026-07-02T12:00:00.000Z";
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (
+        url === `/api/time-entries/${morningEntry.id}` &&
+        init?.method === "PATCH"
+      ) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            ...morningEntry,
+            endedAt: updatedEndedAt,
+            durationMinutes: 240,
+          }),
+        });
+      }
+      return createFetchMock([morningEntry])(url, init);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<TrackerPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Morning work")).toBeInTheDocument();
+    });
+
+    const morningRow = screen.getByText("Morning work").closest("li");
+    fireEvent.click(within(morningRow!).getByRole("button", { name: /^end:/i }));
+    const endInput = screen.getByLabelText(/^end$/i);
+    fireEvent.change(endInput, {
+      target: { value: localDatetimeValue(new Date(updatedEndedAt)) },
+    });
+    fireEvent.blur(endInput);
+
+    await waitFor(() => {
+      const row = screen.getByText("Morning work").closest("li");
+      expect(within(row!).getByText("4 h")).toBeInTheDocument();
     });
   });
 });

@@ -154,6 +154,9 @@ export function createTimeEntriesRouter(pool: Pool) {
     if (result === "invalid_project") {
       return c.json({ error: "Project not found" }, 404);
     }
+    if (result === "invalid_range") {
+      return c.json({ error: "endedAt must be after startedAt" }, 400);
+    }
     if (result === "cannot_reopen") {
       return c.json({ error: "Cannot reopen a stopped Time Entry" }, 409);
     }
