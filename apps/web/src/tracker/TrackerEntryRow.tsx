@@ -44,6 +44,9 @@ export function TrackerEntryRow({
   const { t } = useTranslation();
   const locked = entry.invoiced || entry.isRunning;
   const editable = !locked && !isMobile;
+  const invoicedReadOnlyHelp = entry.invoiced
+    ? t("tracker.invoicedReadOnlyHelp")
+    : undefined;
 
   const [activeField, setActiveField] = useState<EditableField | null>(null);
   const [descriptionDraft, setDescriptionDraft] = useState(entry.description ?? "");
@@ -126,7 +129,7 @@ export function TrackerEntryRow({
 
   return (
     <li className="flex items-start justify-between gap-4 px-4 py-4">
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1" title={invoicedReadOnlyHelp}>
         {isMobile && !locked ? (
           <button
             type="button"
@@ -325,6 +328,7 @@ export function TrackerEntryRow({
             type="button"
             disabled
             aria-label={t("tracker.invoiced")}
+            title={invoicedReadOnlyHelp}
             className={`${mutedOutlineButtonClass} px-3 py-1.5 text-sm`}
           >
             {t("tracker.invoiced")}
