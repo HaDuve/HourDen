@@ -2,6 +2,8 @@ import { useTranslation } from "react-i18next";
 import {
   cardClass,
   metaTextClass,
+  numericHeaderClass,
+  numericMetaValueClass,
   secondaryButtonClass,
 } from "./ui-classes.js";
 import { mobileSecondaryButtonClass } from "./tap-targets.js";
@@ -66,7 +68,7 @@ export function IssuedInvoicesList({
               </div>
               <div className="flex justify-between gap-3">
                 <dt className="text-muted">{t("invoices.total")}</dt>
-                <dd className={`text-right ${metaTextClass}`}>
+                <dd className={numericMetaValueClass}>
                   {formatAmount(invoice.totalAmount)}
                 </dd>
               </div>
@@ -97,8 +99,8 @@ export function IssuedInvoicesList({
           <tr>
             <th className="px-4 py-3 font-medium">{t("invoices.recipient")}</th>
             <th className="px-4 py-3 font-medium">{t("invoices.invoiceNumber")}</th>
-            <th className="px-4 py-3 font-medium">{t("invoices.billingPeriod")}</th>
-            <th className="px-4 py-3 font-medium">{t("invoices.total")}</th>
+            <th className={`px-4 py-3 ${numericHeaderClass}`}>{t("invoices.billingPeriod")}</th>
+            <th className={`px-4 py-3 ${numericHeaderClass}`}>{t("invoices.total")}</th>
             <th className="px-4 py-3 font-medium">
               <span className="sr-only">{t("invoices.download")}</span>
             </th>
@@ -106,15 +108,15 @@ export function IssuedInvoicesList({
         </thead>
         <tbody>
           {invoices.map((invoice) => (
-            <tr key={invoice.id} className="border-t border-divider">
+            <tr key={invoice.id} className="border-t border-divider hover:bg-surface-hover">
               <td className="px-4 py-3 text-content">{invoice.recipient}</td>
               <td className="px-4 py-3 text-content">
                 {invoice.invoiceNumber}
               </td>
-              <td className={`px-4 py-3 ${metaTextClass}`}>
+              <td className={`px-4 py-3 ${numericMetaValueClass}`}>
                 {formatBillingPeriod(invoice.periodStart, invoice.periodEnd)}
               </td>
-              <td className={`px-4 py-3 ${metaTextClass}`}>
+              <td className={`px-4 py-3 ${numericMetaValueClass}`}>
                 {formatAmount(invoice.totalAmount)}
               </td>
               <td className="px-4 py-3">

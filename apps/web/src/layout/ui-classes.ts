@@ -37,3 +37,8 @@ export const infoPanelClass =
 
 export const accentInputClass =
   "rounded-md border border-accent-border bg-accent-muted px-3 py-2 text-sm text-content";
+
+/** Duration, amounts, rates — monospaced and right-aligned per ADR-0012. */
+export const numericValueClass = "font-mono tabular-nums text-right text-content";
+export const numericMetaValueClass = "font-mono tabular-nums text-right text-muted";
+export const numericHeaderClass = "text-right font-medium";

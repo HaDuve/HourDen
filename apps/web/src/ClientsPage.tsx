@@ -16,6 +16,7 @@ import {
   inputClass,
   listPanelClass,
   metaTextClass,
+  numericMetaValueClass,
   pageSubtitleClass,
   pageTitleLargeClass,
   secondaryButtonClass,
@@ -228,7 +229,7 @@ export default function ClientsPage() {
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt className="text-muted">{t("clients.defaultRate")}</dt>
-                    <dd className="text-right text-muted">
+                    <dd className={numericMetaValueClass}>
                       {formatHourlyRate(client.defaultRate)}
                     </dd>
                   </div>
@@ -244,7 +245,7 @@ export default function ClientsPage() {
               ) : (
                 <div>
                   <p className="font-medium">{client.name}</p>
-                  <p className="text-sm text-muted">
+                  <p className={`text-sm ${numericMetaValueClass}`}>
                     {formatHourlyRate(client.defaultRate)}
                   </p>
                   {client.legalName && (

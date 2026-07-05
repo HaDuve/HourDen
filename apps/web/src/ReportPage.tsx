@@ -11,6 +11,7 @@ import {
   emptyStateClass,
   errorBannerClass,
   metaTextClass,
+  numericMetaValueClass,
   pageTitleClass,
   panelClass,
 } from "./layout/ui-classes.js";
@@ -137,7 +138,7 @@ export default function ReportPage() {
                 <h2 className="text-lg font-medium text-content">
                   {client.clientName || t("report.noClient")}
                 </h2>
-                <p className={metaTextClass}>
+                <p className={numericMetaValueClass}>
                   {formatDurationHMM(client.totalDurationMinutes)} ·{" "}
                   {formatCurrency(client.totalAmount)}
                 </p>
@@ -165,13 +166,13 @@ export default function ReportPage() {
                         </div>
                         <div className="flex justify-between gap-3">
                           <dt className="text-muted">{t("report.duration")}</dt>
-                          <dd className="text-muted">
+                          <dd className={numericMetaValueClass}>
                             {formatDurationHMM(line.durationMinutes)}
                           </dd>
                         </div>
                         <div className="flex justify-between gap-3">
                           <dt className="text-muted">{t("report.amount")}</dt>
-                          <dd className="text-muted">
+                          <dd className={numericMetaValueClass}>
                             {formatCurrency(line.amount)}
                           </dd>
                         </div>
@@ -188,7 +189,7 @@ export default function ReportPage() {
                         </span>{" "}
                         {line.description}
                       </span>
-                      <span className="text-muted">
+                      <span className={numericMetaValueClass}>
                         {formatDurationHMM(line.durationMinutes)} ·{" "}
                         {formatCurrency(line.amount)}
                       </span>
