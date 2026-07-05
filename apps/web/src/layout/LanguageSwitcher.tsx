@@ -30,9 +30,9 @@ export function LanguageSwitcher() {
     <div
       role="group"
       aria-label={t("language.label")}
-      className="flex flex-col gap-1 border-t border-neutral-200 px-3 py-2"
+      className="flex flex-col gap-1 border-t border-divider px-3 py-2"
     >
-      <span className="text-xs font-medium uppercase tracking-wide text-neutral-500">
+      <span className="text-xs font-medium uppercase tracking-wide text-muted">
         {t("language.label")}
       </span>
       <div className="flex gap-1">
@@ -46,8 +46,8 @@ export function LanguageSwitcher() {
             onClick={() => void handleSelect(value)}
             className={`rounded-md px-2 py-1 text-sm disabled:opacity-50 ${
               locale === value
-                ? "bg-slate-900 font-medium text-white"
-                : "text-neutral-700 hover:bg-neutral-100"
+                ? "bg-surface-active font-medium text-content"
+                : "text-muted hover:bg-surface-hover hover:text-content"
             }`}
           >
             {t(`language.${value}`)}
@@ -55,7 +55,7 @@ export function LanguageSwitcher() {
         ))}
       </div>
       {error ? (
-        <p className="text-xs text-red-600" role="alert">
+        <p className="text-xs text-danger" role="alert">
           {error}
         </p>
       ) : null}

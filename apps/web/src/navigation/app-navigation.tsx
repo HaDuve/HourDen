@@ -49,7 +49,7 @@ function DesktopNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
   }, [isMoreOpen]);
 
   return (
-    <nav aria-label={t("nav.primary")} className="border-b border-neutral-200 bg-white">
+    <nav aria-label={t("nav.primary")} className="border-b border-divider bg-surface">
       <div className="mx-auto flex max-w-3xl items-center gap-1 px-8 py-3">
         <div className="flex flex-1 gap-1">
           <TrackerNavLink />
@@ -62,14 +62,14 @@ function DesktopNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
               aria-expanded={isMoreOpen}
               aria-haspopup="menu"
               onClick={() => setIsMoreOpen((open) => !open)}
-              className="rounded-md px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
+              className="rounded-md px-3 py-1.5 text-sm font-medium text-muted hover:bg-surface-hover hover:text-content"
             >
               {t("nav.more")}
             </button>
             {isMoreOpen ? (
               <div
                 role="menu"
-                className="absolute right-0 z-10 mt-1 min-w-48 rounded-md border border-neutral-200 bg-white py-1 shadow-lg"
+                className="absolute right-0 z-10 mt-1 min-w-48 rounded-md border border-divider bg-surface py-1 shadow-lg"
               >
                 {secondaryDestinationKeys.map(({ to, labelKey }) => (
                   <NavLink
@@ -78,7 +78,7 @@ function DesktopNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
                     role="menuitem"
                     className={({ isActive }) =>
                       `block px-3 py-2 text-sm ${
-                        isActive ? "bg-slate-100 font-medium text-slate-900" : "text-neutral-700 hover:bg-neutral-50"
+                        isActive ? "bg-surface-active font-medium text-content" : "text-muted hover:bg-surface-hover hover:text-content"
                       }`
                     }
                     onClick={() => setIsMoreOpen(false)}
@@ -94,7 +94,7 @@ function DesktopNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
                     setIsMoreOpen(false);
                     onLogout();
                   }}
-                  className="block w-full px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50"
+                  className="block w-full px-3 py-2 text-left text-sm text-muted hover:bg-surface-hover hover:text-content"
                 >
                   {t("nav.logout")}
                 </button>
@@ -115,7 +115,7 @@ function MobileNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
     <>
       <nav
         aria-label={t("nav.mobile")}
-        className="fixed inset-x-0 bottom-0 z-20 border-t border-neutral-200 bg-white"
+        className="fixed inset-x-0 bottom-0 z-20 border-t border-divider bg-surface"
       >
         <div className="mx-auto flex max-w-3xl items-stretch justify-around px-2 py-2">
           <div className="flex flex-1 justify-center">
@@ -131,7 +131,7 @@ function MobileNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
               type="button"
               aria-expanded={isMoreOpen}
               onClick={() => setIsMoreOpen((open) => !open)}
-              className="rounded-md px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
+              className="rounded-md px-3 py-1.5 text-sm font-medium text-muted hover:bg-surface-hover hover:text-content"
             >
               {t("nav.more")}
             </button>
@@ -143,19 +143,19 @@ function MobileNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
           role="dialog"
           aria-label={t("nav.moreDestinations")}
           aria-modal="true"
-          className="fixed inset-0 z-30 flex items-end bg-black/40"
+          className="fixed inset-0 z-30 flex items-end bg-background/80"
           onClick={() => setIsMoreOpen(false)}
         >
           <div
-            className="w-full rounded-t-xl border border-neutral-200 bg-white p-4 shadow-lg"
+            className="w-full rounded-t-xl border border-divider bg-surface p-4 shadow-lg"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-neutral-900">{t("nav.more")}</h2>
+              <h2 className="text-sm font-semibold text-content">{t("nav.more")}</h2>
               <button
                 type="button"
                 onClick={() => setIsMoreOpen(false)}
-                className="rounded-md px-2 py-1 text-sm text-neutral-600 hover:bg-neutral-100"
+                className="rounded-md px-2 py-1 text-sm text-muted hover:bg-surface-hover hover:text-content"
               >
                 {t("nav.close")}
               </button>
@@ -167,7 +167,7 @@ function MobileNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
                   to={to}
                   className={({ isActive }) =>
                     `rounded-md px-3 py-2 text-sm ${
-                      isActive ? "bg-slate-100 font-medium text-slate-900" : "text-neutral-700 hover:bg-neutral-50"
+                      isActive ? "bg-surface-active font-medium text-content" : "text-muted hover:bg-surface-hover hover:text-content"
                     }`
                   }
                   onClick={() => setIsMoreOpen(false)}
@@ -182,7 +182,7 @@ function MobileNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
                   setIsMoreOpen(false);
                   onLogout();
                 }}
-                className="rounded-md px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50"
+                className="rounded-md px-3 py-2 text-left text-sm text-muted hover:bg-surface-hover hover:text-content"
               >
                 {t("nav.logout")}
               </button>

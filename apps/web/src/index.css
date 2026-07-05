@@ -1,5 +1,36 @@
 @import "tailwindcss";
 
+/*
+ * Dark, single-theme semantic design tokens (ADR-0012).
+ * Screens reference these tokens (bg-surface, text-content, border-divider, ...),
+ * never raw neutral or slate utilities. A palette change edits values here only.
+ * No light theme, no toggle in this round.
+ *
+ * Numeric/time values (timers, durations, amounts): apply font-mono and tabular-nums
+ * on the element that renders the changing digits so layout does not shift on tick.
+ */
+@theme {
+  /* Base surfaces (darkest -> raised) */
+  --color-background: #0b0f14;
+  --color-surface: #151b23;
+  --color-surface-hover: #1e2630;
+  --color-surface-active: #273140;
+
+  /* Brand / primary action */
+  --color-primary: #3b82f6;
+  --color-primary-content: #ffffff;
+
+  /* Hairlines / separators */
+  --color-divider: #2a3441;
+
+  /* Text hierarchy: high-contrast headings/body vs. muted meta */
+  --color-content: #e6edf3;
+  --color-muted: #8b98a5;
+
+  /* Status */
+  --color-danger: #f87171;
+}
+
 body {
   margin: 0;
   font-family:
@@ -9,6 +40,6 @@ body {
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  background: #f8fafc;
-  color: #0f172a;
+  background: var(--color-background);
+  color: var(--color-content);
 }
