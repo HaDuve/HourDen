@@ -376,6 +376,34 @@ export async function createManualEntry(
   return rowToTimeEntry(result.rows[0]!);
 }
 
+export async function listTrackerTimeEntries(
+  pool: Pool,
+  workspaceId: string,
+  limit: number,
+): Promise<TimeEntry[]> {
+  const result = await pool.query<TimeEntryRow>(
+    `
+      SELECT
+        id,
+        project_id,
+        started_at,
+        ended_at,
+        description,
+        tags,
+        billable,
+        amount,
+        invoice_id
+      FROM time_entries
+      WHERE workspace_id = $1
+      ORDER BY started_at DESC
+      LIMIT $2
+    `,
+    [workspaceId, limit],
+  );
+
+  return result.rows.map((row) => rowToTimeEntry(row));
+}
+
 export async function listTimeEntriesForDate(
   pool: Pool,
   workspaceId: string,

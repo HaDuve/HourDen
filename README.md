@@ -8,7 +8,7 @@ HourDen is a self-hosted, web-only time tracker that replaces Clockify for a sol
 
 **MVP complete** — live at [`hourden.hannesduve.com`](https://hourden.hannesduve.com) (session login). Slices 0–6 shipped: time tracking, clients/projects, report + CSV export, Clockify import, and native invoice PDF generation with preview, issuance, reconstruction, and Outgoing.zip export. Auth slice 1 (#35): operator login via `/login` ([ADR-0009](./docs/adr/0009-session-auth-and-workspace-isolation.md)).
 
-**Tabs:** Today · Clients · Projects · Report · Invoices · Import
+**Tabs:** Tracker · Clients · Projects · Report · Invoices · Import
 
 Native PDFs are the primary invoicing path. `generate_invoice.py` (parent Invoices repo) stays available for manual cross-check over the next days before we retire it.
 

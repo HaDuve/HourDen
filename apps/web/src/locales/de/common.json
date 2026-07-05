@@ -1,5 +1,10 @@
 {
-  "today": {
-    "title": "Heute"
+  "tracker": {
+    "title": "Tracker",
+    "subtitle": "Zeit mit laufendem Timer oder manuellen Einträgen erfassen.",
+    "empty": "Noch keine Zeiteinträge. Timer starten oder manuellen Eintrag hinzufügen.",
+    "weekTotal": "Wochensumme",
+    "dayTotal": "Summe",
+    "showEntries": "Einträge anzeigen"
   }
 }

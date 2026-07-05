@@ -72,7 +72,7 @@ describe.skipIf(!databaseUrl)("Onboarding flow with live API", () => {
     expect(await res.json()).toEqual({ needsOnboarding: true, completedAt: null });
   });
 
-  it("redirects a fresh workspace from Today to the client onboarding step", async () => {
+  it("redirects a fresh workspace from Tracker to the client onboarding step", async () => {
     renderApp("/");
 
     await waitFor(() => {
@@ -90,7 +90,7 @@ describe.skipIf(!databaseUrl)("Onboarding flow with live API", () => {
     });
   });
 
-  it("lands on Today after skipping and does not reopen onboarding", async () => {
+  it("lands on Tracker after skipping and does not reopen onboarding", async () => {
     renderApp("/onboarding/client");
 
     await waitFor(() => {
@@ -100,14 +100,14 @@ describe.skipIf(!databaseUrl)("Onboarding flow with live API", () => {
     fireEvent.click(screen.getByRole("button", { name: /^skip$/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
     });
 
     cleanup();
     renderApp("/");
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: /get started/i })).not.toBeInTheDocument();
     });
   });

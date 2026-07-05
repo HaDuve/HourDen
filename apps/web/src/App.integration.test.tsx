@@ -38,12 +38,12 @@ describe.skipIf(!databaseUrl)("App with live API", () => {
     await pool.end();
   });
 
-  it("loads the Today page from the live API", async () => {
+  it("loads the Tracker page from the live API", async () => {
     renderApp();
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
-      expect(screen.getByText(/no time logged today yet/i)).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
+      expect(screen.getByText(/no time entries yet/i)).toBeInTheDocument();
     });
   });
 

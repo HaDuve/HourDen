@@ -408,6 +408,30 @@ describe.skipIf(!databaseUrl)("Time Entry API", () => {
     expect(deleteRes.status).toBe(409);
   });
 
+  it("lists tracker entries up to the requested limit, most recent first", async () => {
+    for (let day = 1; day <= 3; day += 1) {
+      await app.request("/api/time-entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startedAt: `2026-07-0${day}T10:00:00.000Z`,
+          endedAt: `2026-07-0${day}T11:00:00.000Z`,
+          description: `Work day ${day}`,
+        }),
+      });
+    }
+
+    const listRes = await app.request("/api/time-entries?limit=2");
+    expect(listRes.status).toBe(200);
+    const { entries } = await listRes.json();
+
+    expect(entries).toHaveLength(2);
+    expect(entries.map((e: { description: string | null }) => e.description)).toEqual([
+      "Work day 3",
+      "Work day 2",
+    ]);
+  });
+
   it("lists today's entries for the today view", async () => {
     const running = await (
       await app.request("/api/time-entries/timer", {

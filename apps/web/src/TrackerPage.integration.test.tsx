@@ -4,7 +4,7 @@ import { Pool } from "pg";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { setupAuthenticatedApiFetch } from "./test/authenticated-api.js";
-import TodayPage from "./TodayPage.js";
+import TrackerPage from "./TrackerPage.js";
 import { todayDateInTimeZone } from "./today-date.js";
 
 async function workspaceToday(): Promise<string> {
@@ -15,7 +15,7 @@ async function workspaceToday(): Promise<string> {
 
 const databaseUrl = process.env.DATABASE_URL;
 
-describe.skipIf(!databaseUrl)("TodayPage with live API", () => {
+describe.skipIf(!databaseUrl)("TrackerPage with live API", () => {
   const pool = new Pool({ connectionString: databaseUrl });
   let restoreFetch: () => void;
 
@@ -34,7 +34,7 @@ describe.skipIf(!databaseUrl)("TodayPage with live API", () => {
     await pool.end();
   });
 
-  it("lists today's entries and supports start/stop and manual add", async () => {
+  it("lists tracker entries and supports start/stop and manual add", async () => {
     const today = await workspaceToday();
 
     const postRes = await fetch("/api/time-entries", {
@@ -48,10 +48,10 @@ describe.skipIf(!databaseUrl)("TodayPage with live API", () => {
     });
     expect(postRes.status).toBe(201);
 
-    render(<TodayPage />);
+    render(<TrackerPage />);
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
       expect(screen.getByText("Planning session")).toBeInTheDocument();
       expect(screen.getByText(/1 h/i)).toBeInTheDocument();
     });
@@ -84,16 +84,16 @@ describe.skipIf(!databaseUrl)("TodayPage with live API", () => {
       expect(screen.getByRole("button", { name: /start timer/i })).toBeInTheDocument();
     });
 
-    const listRes = await fetch(`/api/time-entries?date=${today}`);
+    const listRes = await fetch("/api/time-entries?limit=50");
     const { entries } = (await listRes.json()) as { entries: unknown[] };
     expect(entries.length).toBeGreaterThanOrEqual(3);
   });
 
   it("lets the Operator add a description to an incomplete stopped entry", async () => {
-    render(<TodayPage />);
+    render(<TrackerPage />);
 
     await waitFor(() => {
-      expect(screen.getByText(/\d{4}-\d{2}-\d{2} — track time/)).toBeInTheDocument();
+      expect(screen.getByText(/track time with a running timer/i)).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /start timer/i }));

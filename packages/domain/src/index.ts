@@ -37,6 +37,13 @@ export {
   buildClientReport,
 } from "./report.js";
 export {
+  groupTrackerEntriesByWeek,
+  formatTrackerTotal,
+  type TrackerEntryInput,
+  type TrackerDayGroup,
+  type TrackerWeekGroup,
+} from "./tracker-entries.js";
+export {
   deriveDefaultInvoicePrefix,
   normalizeInvoicePrefix,
   isValidInvoicePrefix,
