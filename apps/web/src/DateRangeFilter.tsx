@@ -4,6 +4,7 @@ import {
   shiftMonthRange,
   type DateRange,
 } from "./date-range.js";
+import { useIsMobile } from "./layout/use-is-mobile.js";
 
 type DateRangeFilterProps = {
   from: string;
@@ -11,11 +12,15 @@ type DateRangeFilterProps = {
   onChange: (range: DateRange) => void;
 };
 
-const quickButtonClass =
-  "rounded-md border border-neutral-300 px-2 py-1 text-sm text-neutral-700 hover:bg-neutral-50";
-
 export function DateRangeFilter({ from, to, onChange }: DateRangeFilterProps) {
   const range = { from, to };
+  const isMobile = useIsMobile();
+  const quickButtonClass = isMobile
+    ? "min-h-11 min-w-11 rounded-md border border-neutral-300 px-3 text-sm text-neutral-700 hover:bg-neutral-50"
+    : "rounded-md border border-neutral-300 px-2 py-1 text-sm text-neutral-700 hover:bg-neutral-50";
+  const dateInputClass = isMobile
+    ? "min-h-11 w-full rounded-md border border-neutral-300 px-3 py-2"
+    : "rounded-md border border-neutral-300 px-3 py-2";
 
   return (
     <div className="flex flex-col gap-2">
@@ -53,23 +58,23 @@ export function DateRangeFilter({ from, to, onChange }: DateRangeFilterProps) {
           &gt;
         </button>
       </div>
-      <div className="flex flex-wrap gap-4">
-        <label className="flex flex-col gap-1 text-sm text-neutral-700">
+      <div className={`flex gap-4 ${isMobile ? "flex-col" : "flex-wrap"}`}>
+        <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm text-neutral-700">
           From
           <input
             type="date"
             value={from}
             onChange={(e) => onChange({ from: e.target.value, to })}
-            className="rounded-md border border-neutral-300 px-3 py-2"
+            className={dateInputClass}
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-neutral-700">
+        <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm text-neutral-700">
           To
           <input
             type="date"
             value={to}
             onChange={(e) => onChange({ from, to: e.target.value })}
-            className="rounded-md border border-neutral-300 px-3 py-2"
+            className={dateInputClass}
           />
         </label>
       </div>

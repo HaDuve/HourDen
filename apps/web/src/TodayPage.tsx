@@ -1,6 +1,13 @@
 import { useTranslation } from "react-i18next";
 import type { Project, TimeEntry } from "@hourden/domain";
 import { useCallback, useEffect, useState } from "react";
+import { PageMain } from "./layout/PageMain.js";
+import { ResponsiveOverlay } from "./layout/ResponsiveOverlay.js";
+import {
+  mobileActionButtonClass,
+  mobilePrimaryButtonClass,
+} from "./layout/tap-targets.js";
+import { useIsMobile } from "./layout/use-is-mobile.js";
 import { todayDateInTimeZone } from "./today-date.js";
 import { useDeleteDialog } from "./useDeleteDialog.js";
 
@@ -284,20 +291,24 @@ export default function TodayPage() {
     }
   };
 
+  const isMobile = useIsMobile();
+  const actionButtonClass = mobileActionButtonClass(isMobile);
+  const primaryButtonClass = mobilePrimaryButtonClass(isMobile);
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 p-8">
-      <header className="flex items-center justify-between gap-4">
+    <PageMain variant="flex">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">{t("today.title")}</h1>
           <p className="text-neutral-600">
             {date} — track time with a running timer or manual entries.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setShowManualForm(true)}
-            className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-50"
+            className={`${primaryButtonClass} border border-neutral-300 hover:bg-neutral-50`}
           >
             Add manual entry
           </button>
@@ -392,11 +403,8 @@ export default function TodayPage() {
       )}
 
       {showManualForm && (
-        <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4">
-          <form
-            onSubmit={saveManualEntry}
-            className="w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-6 shadow-lg"
-          >
+        <ResponsiveOverlay ariaLabel="Manual entry">
+          <form onSubmit={saveManualEntry} className="w-full">
             <h2 className="text-lg font-semibold">Manual entry</h2>
 
             <div className="mt-4 grid gap-3">
@@ -489,15 +497,12 @@ export default function TodayPage() {
               </button>
             </div>
           </form>
-        </div>
+        </ResponsiveOverlay>
       )}
 
       {editing && (
-        <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4">
-          <form
-            onSubmit={saveEdit}
-            className="w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-6 shadow-lg"
-          >
+        <ResponsiveOverlay ariaLabel="Edit entry">
+          <form onSubmit={saveEdit} className="w-full">
             <h2 className="text-lg font-semibold">Edit entry</h2>
 
             <div className="mt-4 grid gap-3">
@@ -555,43 +560,40 @@ export default function TodayPage() {
               </button>
             </div>
           </form>
-        </div>
+        </ResponsiveOverlay>
       )}
 
       {pendingDelete && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="delete-entry-title"
-          className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4"
+        <ResponsiveOverlay
+          ariaLabel="Delete entry"
+          labelledBy="delete-entry-title"
+          onBackdropClick={closeDeleteDialog}
         >
-          <div className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 shadow-lg">
-            <h2 id="delete-entry-title" className="text-lg font-semibold">
-              Delete entry?
-            </h2>
-            <p className="mt-2 text-sm text-neutral-600">
-              This will permanently delete this time entry.
-            </p>
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={closeDeleteDialog}
-                className="rounded-md border border-neutral-300 px-4 py-2 text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void confirmDelete()}
-                disabled={saving}
-                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-              >
-                {saving ? "Deleting…" : "Confirm delete"}
-              </button>
-            </div>
+          <h2 id="delete-entry-title" className="text-lg font-semibold">
+            Delete entry?
+          </h2>
+          <p className="mt-2 text-sm text-neutral-600">
+            This will permanently delete this time entry.
+          </p>
+          <div className="mt-6 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={closeDeleteDialog}
+              className={`${actionButtonClass} border-neutral-300`}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void confirmDelete()}
+              disabled={saving}
+              className={`${actionButtonClass} bg-red-600 font-medium text-white disabled:opacity-60`}
+            >
+              {saving ? "Deleting…" : "Confirm delete"}
+            </button>
           </div>
-        </div>
+        </ResponsiveOverlay>
       )}
-    </main>
+    </PageMain>
   );
 }
