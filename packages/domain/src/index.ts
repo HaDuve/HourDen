@@ -81,6 +81,7 @@ export {
   DEFAULT_REPORT_TIMEZONE,
   CLOCKIFY_HEADERS,
 } from "./clockify-csv.js";
+export { elapsedSecondsSince, formatElapsedHMMSS } from "./elapsed.js";
 export type { ClockifyHeader } from "./clockify-csv.js";
 export type {
   ClockifyParsedRow,

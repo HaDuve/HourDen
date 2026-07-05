@@ -7,6 +7,11 @@ vi.mock("./today-date.js", () => ({
   todayDateInTimeZone: () => "2026-07-02",
 }));
 
+class MockEventSource {
+  close() {}
+  addEventListener() {}
+}
+
 const morningEntry = {
   id: "e0000000-0000-4000-8000-000000000001",
   projectId: null,
@@ -61,6 +66,7 @@ function createFetchMock(
     if (url === "/api/auth/me") {
       return Promise.resolve({
         ok: true,
+        status: 200,
         json: async () => ({ calendarTimezone: "UTC" }),
       });
     }
@@ -82,6 +88,12 @@ function createFetchMock(
         json: async () => ({ projects: [] }),
       });
     }
+    if (url === "/api/clients") {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ clients: [] }),
+      });
+    }
     if (init?.method === "DELETE") {
       return Promise.resolve({ ok: true, status: 204 });
     }
@@ -92,7 +104,21 @@ function createFetchMock(
 describe("TrackerPage", () => {
   beforeEach(async () => {
     localStorage.clear();
+    vi.stubGlobal("EventSource", MockEventSource);
     await i18n.changeLanguage("en");
+  });
+
+  it("renders a unified sticky timer bar with start control when idle", async () => {
+    vi.stubGlobal("fetch", createFetchMock([]));
+
+    render(<TrackerPage />);
+
+    await waitFor(() => {
+      const bar = screen.getByRole("region", { name: /timer bar/i });
+      expect(bar.className).toMatch(/sticky/);
+      expect(screen.getByRole("button", { name: /start timer/i })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /stop timer/i })).not.toBeInTheDocument();
+    });
   });
 
   it("renders the page title from the message catalog", async () => {
@@ -215,6 +241,24 @@ describe("TrackerPage", () => {
           json: async () => ({ projects: [project] }),
         });
       }
+      if (url === "/api/clients") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            clients: [
+              {
+                id: project.clientId,
+                name: "Acme Client",
+                defaultRate: 60,
+                legalName: null,
+                addressLine1: null,
+                addressLine2: null,
+                invoicePrefix: null,
+              },
+            ],
+          }),
+        });
+      }
       if (
         url === `/api/time-entries/${runningEntry.id}` &&
         init?.method === "PATCH"
@@ -291,6 +335,12 @@ describe("TrackerPage", () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({ projects: [] }),
+        });
+      }
+      if (url === "/api/clients") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ clients: [] }),
         });
       }
       if (init?.method === "DELETE") {
