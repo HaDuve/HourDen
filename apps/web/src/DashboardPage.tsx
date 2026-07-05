@@ -34,6 +34,10 @@ type DashboardNamedTotal = {
   durationMinutes: number;
 };
 
+type DashboardClientBucket = DashboardNamedTotal & {
+  billableAmount: number;
+};
+
 type DashboardDailyBucket = {
   date: string;
   durationMinutes: number;
@@ -54,7 +58,7 @@ type DashboardResponse = {
   topProject: DashboardNamedTotal | null;
   topClient: DashboardNamedTotal | null;
   dailyBuckets: DashboardDailyBucket[];
-  clientBuckets: DashboardNamedTotal[];
+  clientBuckets: DashboardClientBucket[];
   topActivities: DashboardTopActivity[];
 };
 
@@ -86,6 +90,22 @@ function formatClientBucketLabel(
   t: (key: string) => string,
 ): string {
   return name ?? t("dashboard.unassignedClient");
+}
+
+export function formatClientBucketTooltipValue(
+  minutes: number,
+  percentage: number,
+  billableAmount: number,
+  formatDuration: (value: number) => string,
+  formatMoney: (amount: number) => string,
+): string {
+  const durationLine = `${formatDuration(minutes)} (${percentage}%)`;
+
+  if (billableAmount > 0) {
+    return `${durationLine}\n${formatMoney(billableAmount)}`;
+  }
+
+  return durationLine;
 }
 
 function formatActivityContext(
@@ -296,9 +316,19 @@ export default function DashboardPage() {
                             item.payload && "name" in item.payload
                               ? (item.payload.name as string | null)
                               : null;
+                          const billableAmount =
+                            item.payload && "billableAmount" in item.payload
+                              ? Number(item.payload.billableAmount)
+                              : 0;
 
                           return [
-                            `${formatChartDuration(minutes)} (${percentage}%)`,
+                            formatClientBucketTooltipValue(
+                              minutes,
+                              percentage,
+                              billableAmount,
+                              formatChartDuration,
+                              formatCurrency,
+                            ),
                             formatClientBucketLabel(bucketName, t),
                           ];
                         }}
@@ -335,8 +365,15 @@ export default function DashboardPage() {
                               CLIENT_CHART_COLORS[index % CLIENT_CHART_COLORS.length],
                           }}
                         />
-                        <span>
-                          {formatClientBucketLabel(bucket.name, t)} ({percentage}%)
+                        <span className="flex min-w-0 flex-col">
+                          <span>
+                            {formatClientBucketLabel(bucket.name, t)} ({percentage}%)
+                          </span>
+                          {bucket.billableAmount > 0 ? (
+                            <span className={`text-muted ${numericMetaValueClass}`}>
+                              {formatCurrency(bucket.billableAmount)}
+                            </span>
+                          ) : null}
                         </span>
                       </li>
                     );
