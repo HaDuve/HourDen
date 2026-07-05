@@ -5,6 +5,9 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -22,16 +25,24 @@ import {
   numericValueClass,
   pageTitleClass,
   panelClass,
+  listPanelClass,
 } from "./layout/ui-classes.js";
 import { useLocaleFormat } from "./locale/use-locale-format.js";
 
 type DashboardNamedTotal = {
-  name: string;
+  name: string | null;
   durationMinutes: number;
 };
 
 type DashboardDailyBucket = {
   date: string;
+  durationMinutes: number;
+};
+
+type DashboardTopActivity = {
+  description: string;
+  projectName: string | null;
+  clientName: string | null;
   durationMinutes: number;
 };
 
@@ -43,7 +54,18 @@ type DashboardResponse = {
   topProject: DashboardNamedTotal | null;
   topClient: DashboardNamedTotal | null;
   dailyBuckets: DashboardDailyBucket[];
+  clientBuckets: DashboardNamedTotal[];
+  topActivities: DashboardTopActivity[];
 };
+
+const CLIENT_CHART_COLORS = [
+  "var(--color-chart-series-1)",
+  "var(--color-chart-series-2)",
+  "var(--color-chart-series-3)",
+  "var(--color-chart-series-4)",
+  "var(--color-chart-series-5)",
+  "var(--color-chart-series-6)",
+];
 
 async function fetchDashboard(from: string, to: string): Promise<DashboardResponse> {
   const res = await fetch(
@@ -59,10 +81,29 @@ function formatChartDuration(minutes: number): string {
   return formatDurationHMM(minutes);
 }
 
+function formatClientBucketLabel(
+  name: string | null,
+  t: (key: string) => string,
+): string {
+  return name ?? t("dashboard.unassignedClient");
+}
+
+function formatActivityContext(
+  activity: Pick<DashboardTopActivity, "projectName" | "clientName">,
+): string | null {
+  const parts = [activity.projectName, activity.clientName].filter(
+    (part): part is string => Boolean(part),
+  );
+
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
 export default function DashboardPage() {
   const { t } = useTranslation();
   const { formatCurrency, formatIsoDate } = useLocaleFormat();
   const chartLabelId = useId();
+  const clientChartLabelId = useId();
+  const topActivitiesLabelId = useId();
   const initialRange = currentMonthRange();
   const [from, setFrom] = useState(initialRange.from);
   const [to, setTo] = useState(initialRange.to);
@@ -94,6 +135,12 @@ export default function DashboardPage() {
       label: formatIsoDate(bucket.date),
       durationMinutes: bucket.durationMinutes,
     })) ?? [];
+
+  const clientChartData = summary?.clientBuckets ?? [];
+  const clientBucketTotalMinutes = clientChartData.reduce(
+    (total, bucket) => total + bucket.durationMinutes,
+    0,
+  );
 
   return (
     <PageMain>
@@ -200,6 +247,136 @@ export default function DashboardPage() {
                   />
                 </BarChart>
               </ResponsiveContainer>
+            </div>
+          </section>
+
+          <section className="grid gap-8 lg:grid-cols-2">
+            <div className={panelClass}>
+              <h2
+                id={clientChartLabelId}
+                className="mb-4 text-lg font-medium text-content"
+              >
+                {t("dashboard.clientChartTitle")}
+              </h2>
+              <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+                <div className="relative mx-auto h-56 w-full max-w-xs sm:mx-0 sm:flex-1">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={clientChartData}
+                        dataKey="durationMinutes"
+                        nameKey="name"
+                        innerRadius="58%"
+                        outerRadius="82%"
+                        paddingAngle={2}
+                        stroke="var(--color-surface)"
+                      >
+                        {clientChartData.map((bucket, index) => (
+                          <Cell
+                            key={bucket.name ?? `unassigned-${index}`}
+                            fill={CLIENT_CHART_COLORS[index % CLIENT_CHART_COLORS.length]}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "var(--color-surface)",
+                          border: "1px solid var(--color-divider)",
+                          borderRadius: "0.375rem",
+                          color: "var(--color-content)",
+                        }}
+                        labelStyle={{ color: "var(--color-muted)" }}
+                        formatter={(value, _name, item) => {
+                          const minutes = Number(value);
+                          const percentage =
+                            clientBucketTotalMinutes > 0
+                              ? Math.round((minutes / clientBucketTotalMinutes) * 100)
+                              : 0;
+                          const bucketName =
+                            item.payload && "name" in item.payload
+                              ? (item.payload.name as string | null)
+                              : null;
+
+                          return [
+                            `${formatChartDuration(minutes)} (${percentage}%)`,
+                            formatClientBucketLabel(bucketName, t),
+                          ];
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div
+                    aria-label={t("dashboard.clientChartTotal")}
+                    className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"
+                  >
+                    <span className="text-xs text-muted">{t("dashboard.clientChartTotal")}</span>
+                    <span className={`text-lg font-semibold ${numericValueClass}`}>
+                      {formatDurationHMM(summary.totalDurationMinutes)}
+                    </span>
+                  </div>
+                </div>
+                <ul className="min-w-0 flex-1 space-y-2 text-sm text-content">
+                  {clientChartData.map((bucket, index) => {
+                    const percentage =
+                      clientBucketTotalMinutes > 0
+                        ? Math.round((bucket.durationMinutes / clientBucketTotalMinutes) * 100)
+                        : 0;
+
+                    return (
+                      <li
+                        key={bucket.name ?? `unassigned-${index}`}
+                        className="flex items-center gap-2"
+                      >
+                        <span
+                          aria-hidden
+                          className="h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{
+                            backgroundColor:
+                              CLIENT_CHART_COLORS[index % CLIENT_CHART_COLORS.length],
+                          }}
+                        />
+                        <span>
+                          {formatClientBucketLabel(bucket.name, t)} ({percentage}%)
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </div>
+
+            <div className={panelClass}>
+              <h2
+                id={topActivitiesLabelId}
+                className="mb-4 text-lg font-medium text-content"
+              >
+                {t("dashboard.topActivitiesTitle")}
+              </h2>
+              <ul
+                aria-labelledby={topActivitiesLabelId}
+                className={listPanelClass}
+              >
+                {(summary?.topActivities ?? []).map((activity) => {
+                  const activityContext = formatActivityContext(activity);
+
+                  return (
+                  <li
+                    key={activity.description}
+                    className="flex items-start justify-between gap-4 px-4 py-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium text-content">{activity.description}</p>
+                      {activityContext ? (
+                        <p className="text-sm text-muted">{activityContext}</p>
+                      ) : null}
+                    </div>
+                    <span className={`shrink-0 ${numericMetaValueClass}`}>
+                      {formatDurationHMM(activity.durationMinutes)}
+                    </span>
+                  </li>
+                  );
+                })}
+              </ul>
             </div>
           </section>
         </div>
