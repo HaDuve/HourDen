@@ -600,6 +600,52 @@ describe.skipIf(!databaseUrl)("Invoice API", () => {
     });
   });
 
+  it("returns ENTRIES_WITHOUT_PROJECT when both orphan time and missing-description Client time exist", async () => {
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const ondojo = await createProject(app, bandao.id, "Ondojo");
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        startedAt: "2026-06-18T09:00:00.000Z",
+        endedAt: "2026-06-18T10:00:00.000Z",
+      }),
+    });
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        description: "Unassigned work",
+        startedAt: "2026-06-18T10:00:00.000Z",
+        endedAt: "2026-06-18T11:00:00.000Z",
+      }),
+    });
+
+    const preview = await app.request("/api/invoices/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+
+    expect(preview.status).toBe(400);
+    expect(await preview.json()).toEqual({
+      error: "Time Entries in this Billing Period are not assigned to a Project",
+      code: "ENTRIES_WITHOUT_PROJECT",
+    });
+  });
+
   it("returns MISSING_RECIPIENT when previewing a Client without Recipient fields", async () => {
     const hannah = await createClient(app, { name: "Hannah", defaultRate: 80 });
 

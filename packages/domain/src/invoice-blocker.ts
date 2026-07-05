@@ -8,6 +8,10 @@ export const INVOICE_BLOCKER_CODES = [
 
 export type InvoiceBlockerCode = (typeof INVOICE_BLOCKER_CODES)[number];
 
+export function isInvoiceBlockerCode(value: string): value is InvoiceBlockerCode {
+  return (INVOICE_BLOCKER_CODES as readonly string[]).includes(value);
+}
+
 export type InvoiceBlockerResponse = {
   error: string;
   code: InvoiceBlockerCode;

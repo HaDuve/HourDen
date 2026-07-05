@@ -181,6 +181,7 @@
     "deleteTitle": "Kunde löschen?",
     "deleteBody": "{{name}} wird dauerhaft gelöscht.",
     "loadFailed": "Kunden konnten nicht geladen werden",
+    "editClientNotFound": "Dieser Kunde wurde nicht gefunden. Er wurde möglicherweise gelöscht.",
     "saveFailed": "Kunde konnte nicht gespeichert werden",
     "deleteFailed": "Kunde konnte nicht gelöscht werden"
   },

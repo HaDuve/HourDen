@@ -68,6 +68,25 @@ describe("ClientsPage", () => {
     });
   });
 
+  it("shows an error when the edit query param does not match a Client", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ clients: [bandaoClient] }),
+      }),
+    );
+
+    renderClientsPage("/clients?edit=c0000000-0000-4000-8000-000000009999");
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/that client could not be found/i),
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("heading", { name: /edit client/i })).not.toBeInTheDocument();
+  });
+
   it("shows an empty state when there are no Clients", async () => {
     vi.stubGlobal(
       "fetch",

@@ -181,6 +181,7 @@
     "deleteTitle": "Delete client?",
     "deleteBody": "This will permanently delete {{name}}.",
     "loadFailed": "Failed to load clients",
+    "editClientNotFound": "That client could not be found. It may have been deleted.",
     "saveFailed": "Failed to save client",
     "deleteFailed": "Failed to delete client"
   },

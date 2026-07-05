@@ -327,6 +327,32 @@ describe("InvoicesPage", () => {
     });
   });
 
+  it("shows plain text when preview fails with an unknown blocker code", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        return Promise.resolve({
+          ok: false,
+          status: 400,
+          json: async () => ({
+            error: "Something went wrong",
+            code: "NOT_A_REAL_BLOCKER",
+          }),
+        });
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderInvoicesPage();
+    await waitForClientReady("Bandao", bandaoClient.id);
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
   it("links to the Clients page when preview fails because Recipient fields are missing", async () => {
     vi.stubGlobal("fetch", clientsFetchMock([clientWithoutRecipient]));
 

@@ -111,6 +111,8 @@ export default function ClientsPage() {
       if (client) {
         setEditing(client);
         setForm(clientToForm(client));
+      } else {
+        setError(t("clients.editClientNotFound"));
       }
     } else {
       setEditing("new");
@@ -118,7 +120,7 @@ export default function ClientsPage() {
     }
 
     setSearchParams({}, { replace: true });
-  }, [clients, loading, searchParams, setSearchParams]);
+  }, [clients, loading, searchParams, setSearchParams, t]);
 
   const openCreate = () => {
     setEditing("new");

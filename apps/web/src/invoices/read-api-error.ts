@@ -1,11 +1,14 @@
 import type { InvoiceBlockerCode } from "@hourden/domain";
+import { isInvoiceBlockerCode } from "@hourden/domain";
 
 type ApiErrorBody = {
   error?: string;
-  code?: InvoiceBlockerCode;
+  code?: string;
 };
 
-export type ParsedApiError = ApiErrorBody & {
+export type ParsedApiError = {
+  error?: string;
+  code?: InvoiceBlockerCode;
   message: string;
 };
 
@@ -13,7 +16,9 @@ export async function readApiErrorBody(res: Response): Promise<ParsedApiError> {
   try {
     const data = (await res.json()) as ApiErrorBody;
     if (data.error) {
-      return { ...data, message: data.error };
+      const code =
+        data.code && isInvoiceBlockerCode(data.code) ? data.code : undefined;
+      return { error: data.error, code, message: data.error };
     }
   } catch {
     // Fall through to generic message.
