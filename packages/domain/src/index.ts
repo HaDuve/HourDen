@@ -38,11 +38,11 @@ export {
   buildClientReport,
 } from "./report.js";
 export {
-  groupTrackerEntriesByWeek,
+  groupTrackerEntriesByMonth,
   formatTrackerTotal,
   type TrackerEntryInput,
   type TrackerDayGroup,
-  type TrackerWeekGroup,
+  type TrackerMonthGroup,
 } from "./tracker-entries.js";
 export {
   deriveDefaultInvoicePrefix,

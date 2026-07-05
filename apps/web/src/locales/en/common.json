@@ -148,7 +148,7 @@
     "title": "Tracker",
     "subtitle": "Track time with a running timer or manual entries.",
     "empty": "No time entries yet. Start a timer or add a manual entry.",
-    "weekTotal": "Week total",
+    "monthTotal": "Month total",
     "dayTotal": "Total",
     "showEntries": "Show entries",
     "addManualEntry": "Add manual entry",

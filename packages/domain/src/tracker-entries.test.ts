@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupTrackerEntriesByWeek } from "./tracker-entries.js";
+import { groupTrackerEntriesByMonth } from "./tracker-entries.js";
 
 function entry(
   id: string,
@@ -9,9 +9,9 @@ function entry(
   return { id, startedAt, durationMinutes };
 }
 
-describe("groupTrackerEntriesByWeek", () => {
-  it("groups entries by week and day with newest first", () => {
-    const groups = groupTrackerEntriesByWeek(
+describe("groupTrackerEntriesByMonth", () => {
+  it("groups entries by month and day with newest first", () => {
+    const groups = groupTrackerEntriesByMonth(
       [
         entry("1", "2026-07-02T10:00:00.000Z", 60),
         entry("2", "2026-07-01T10:00:00.000Z", 30),
@@ -21,26 +21,46 @@ describe("groupTrackerEntriesByWeek", () => {
     );
 
     expect(groups).toHaveLength(2);
-    expect(groups[0]!.weekLabel).toBe("This week");
+    expect(groups[0]!.monthLabel).toBe("This month");
     expect(groups[0]!.days).toHaveLength(2);
     expect(groups[0]!.days[0]!.date).toBe("2026-07-02");
     expect(groups[0]!.days[0]!.entries.map((e) => e.id)).toEqual(["1"]);
     expect(groups[0]!.days[1]!.date).toBe("2026-07-01");
-    expect(groups[1]!.weekLabel).toBe("Last week");
+    expect(groups[1]!.monthLabel).toBe("Last month");
     expect(groups[1]!.days[0]!.date).toBe("2026-06-25");
   });
 
-  it("labels older weeks with a date range", () => {
-    const groups = groupTrackerEntriesByWeek(
-      [entry("1", "2026-06-10T10:00:00.000Z", 60)],
+  it("labels older months with month and year", () => {
+    const groups = groupTrackerEntriesByMonth(
+      [entry("1", "2026-05-10T10:00:00.000Z", 60)],
       { timeZone: "UTC", today: "2026-07-02" },
     );
 
-    expect(groups[0]!.weekLabel).toBe("Jun 8 - Jun 14");
+    expect(groups[0]!.monthLabel).toBe("May 2026");
   });
 
-  it("uses German week labels when locale is de", () => {
-    const groups = groupTrackerEntriesByWeek(
+  it("labels older months in German", () => {
+    const groups = groupTrackerEntriesByMonth(
+      [entry("1", "2026-05-10T10:00:00.000Z", 60)],
+      { timeZone: "UTC", today: "2026-07-02", locale: "de" },
+    );
+
+    expect(groups[0]!.monthLabel).toBe("Mai 2026");
+  });
+
+  it("groups by calendar month in the workspace timezone", () => {
+    const groups = groupTrackerEntriesByMonth(
+      [entry("1", "2026-06-30T22:00:00.000Z", 60)],
+      { timeZone: "Europe/Berlin", today: "2026-07-02" },
+    );
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.monthLabel).toBe("This month");
+    expect(groups[0]!.days[0]!.date).toBe("2026-07-01");
+  });
+
+  it("uses German month labels when locale is de", () => {
+    const groups = groupTrackerEntriesByMonth(
       [
         entry("1", "2026-07-02T10:00:00.000Z", 60),
         entry("2", "2026-06-25T09:00:00.000Z", 45),
@@ -48,7 +68,7 @@ describe("groupTrackerEntriesByWeek", () => {
       { timeZone: "UTC", today: "2026-07-02", locale: "de" },
     );
 
-    expect(groups[0]!.weekLabel).toBe("Diese Woche");
-    expect(groups[1]!.weekLabel).toBe("Letzte Woche");
+    expect(groups[0]!.monthLabel).toBe("Dieser Monat");
+    expect(groups[1]!.monthLabel).toBe("Letzter Monat");
   });
 });
