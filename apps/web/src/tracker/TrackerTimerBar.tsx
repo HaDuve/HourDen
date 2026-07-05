@@ -61,13 +61,13 @@ export function TrackerTimerBar({
           />
         </div>
 
-        <label className="min-w-0 sm:w-44">
+        <label className="shrink-0 sm:w-44">
           <span className="sr-only">{t("tracker.projectOptional")}</span>
           <select
             aria-label={t("tracker.projectOptional")}
             value={projectId}
             onChange={(event) => onProjectChange(event.target.value)}
-            className={selectClass}
+            className={`w-full ${selectClass}`}
           >
             <option value="">{t("tracker.noProject")}</option>
             {projectGroups.map((group) => (
@@ -82,7 +82,7 @@ export function TrackerTimerBar({
           </select>
         </label>
 
-        <div className="flex items-center gap-3 sm:shrink-0">
+        <div className="flex shrink-0 items-center gap-3">
           <p
             aria-live="polite"
             className={`min-w-[5.5rem] ${numericValueClass} text-lg`}
