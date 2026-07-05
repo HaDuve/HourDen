@@ -1,10 +1,51 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import i18n from "./i18n/i18n.js";
 import { DateRangeFilter } from "./DateRangeFilter.js";
 
 describe("DateRangeFilter", () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
+  });
+
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("shows explicit month quick-control labels instead of terse abbreviations", () => {
+    render(
+      <DateRangeFilter
+        from="2026-06-01"
+        to="2026-06-30"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /^last month$/i })).toHaveTextContent(
+      "Last month",
+    );
+    expect(screen.getByRole("button", { name: /^this month$/i })).toHaveTextContent(
+      "This month",
+    );
+  });
+
+  it("shows German month quick-control labels when the active locale is de", async () => {
+    await i18n.changeLanguage("de");
+
+    render(
+      <DateRangeFilter
+        from="2026-06-01"
+        to="2026-06-30"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /^letzter monat$/i })).toHaveTextContent(
+      "Letzter Monat",
+    );
+    expect(screen.getByRole("button", { name: /^dieser monat$/i })).toHaveTextContent(
+      "Dieser Monat",
+    );
   });
 
   it("renders from/to date inputs and month quick controls", () => {

@@ -1,6 +1,7 @@
 import type { Client, InvoiceNumberingStrategy } from "@hourden/domain";
 import { deriveDefaultInvoicePrefix, isValidAnyInvoiceNumber } from "@hourden/domain";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { DateRangeFilter } from "./DateRangeFilter.js";
 import { currentMonthRange } from "./date-range.js";
 import { IssuedInvoicesList } from "./layout/IssuedInvoicesList.js";
@@ -185,6 +186,7 @@ function downloadAttachmentBlob(blob: Blob, disposition: string) {
 }
 
 export default function InvoicesPage() {
+  const { t } = useTranslation();
   const initialRange = currentMonthRange();
   const [clients, setClients] = useState<Client[]>([]);
   const [clientId, setClientId] = useState("");
@@ -555,7 +557,7 @@ export default function InvoicesPage() {
       return;
     }
     if (!invoiceNumber) {
-      setError("Preview the invoice before issuing");
+      setError(t("invoices.previewBeforeIssue"));
       return;
     }
     if (!invoiceSenderConfigured) {
@@ -722,8 +724,8 @@ export default function InvoicesPage() {
 
   return (
     <PageMain>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-slate-900">Invoices</h1>
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <h1 className="text-2xl font-semibold text-slate-900">{t("invoices.title")}</h1>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -731,7 +733,7 @@ export default function InvoicesPage() {
             disabled={loading || loadingSender}
             className={secondaryButtonClass}
           >
-            Invoice sender
+            {t("invoices.invoiceSender")}
           </button>
           <button
             type="button"
@@ -739,7 +741,7 @@ export default function InvoicesPage() {
             disabled={previewing || issuing || loading || !clientId}
             className={secondaryButtonClass}
           >
-            {previewing ? "Previewing…" : "Preview"}
+            {previewing ? t("invoices.previewing") : t("invoices.preview")}
           </button>
           <button
             type="button"
@@ -747,14 +749,14 @@ export default function InvoicesPage() {
             disabled={issueDisabled}
             className={`${primaryButtonClass} bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50`}
           >
-            {issuing ? "Issuing…" : "Issue Invoice"}
+            {issuing ? t("invoices.issuing") : t("invoices.issueInvoice")}
           </button>
         </div>
       </div>
 
-      <div className="mb-6 flex flex-wrap gap-4">
+      <div className="mb-8 flex flex-wrap gap-6 rounded-lg border border-neutral-200 bg-neutral-50/50 p-4">
         <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-sm text-neutral-700">
-          Client
+          {t("invoices.client")}
           <select
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
@@ -762,7 +764,7 @@ export default function InvoicesPage() {
             className="rounded-md border border-neutral-300 px-3 py-2"
           >
             {clients.length === 0 ? (
-              <option value="">No clients</option>
+              <option value="">{t("invoices.noClients")}</option>
             ) : (
               clients.map((client) => (
                 <option key={client.id} value={client.id}>
@@ -775,6 +777,7 @@ export default function InvoicesPage() {
         <DateRangeFilter
           from={from}
           to={to}
+          periodLabel={t("invoices.billingPeriod")}
           onChange={({ from: nextFrom, to: nextTo }) => {
             setFrom(nextFrom);
             setTo(nextTo);
@@ -793,20 +796,20 @@ export default function InvoicesPage() {
           <label className="flex items-center gap-2 text-sm text-neutral-700">
             <input
               type="checkbox"
-              aria-label="Use prefix"
+              aria-label={t("invoices.usePrefix")}
               checked={usePrefix}
               onChange={(e) => handleUsePrefixChange(e.target.checked)}
               disabled={previewing || issuing}
               className="rounded border-neutral-300"
             />
-            Use prefix
+            {t("invoices.usePrefix")}
           </label>
 
           <label className="flex max-w-xs flex-col gap-1 text-sm text-neutral-700">
-            Invoice Prefix
+            {t("invoices.invoicePrefix")}
             <input
               type="text"
-              aria-label="Invoice Prefix"
+              aria-label={t("invoices.invoicePrefix")}
               value={invoicePrefix ?? ""}
               onChange={(e) => handleInvoicePrefixChange(e.target.value)}
               disabled={previewing || issuing}
@@ -815,7 +818,7 @@ export default function InvoicesPage() {
           </label>
 
           <label className="flex max-w-xs flex-col gap-1 text-sm text-neutral-700">
-            Invoice Number
+            {t("invoices.invoiceNumber")}
             <input
               type="text"
               value={invoiceNumber}
@@ -827,7 +830,7 @@ export default function InvoicesPage() {
 
           {invoiceNumberExists ? (
             <p className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              Invoice Number already exists in this Workspace.
+              {t("invoices.invoiceNumberExists")}
             </p>
           ) : null}
 
@@ -835,8 +838,12 @@ export default function InvoicesPage() {
             <fieldset className="rounded-md border border-neutral-200 bg-neutral-50 px-4 py-3">
               <legend className="px-1 text-sm font-medium text-neutral-900">
                 {usePrefix
-                  ? `Future invoices for this Client in ${invoiceYearFromPeriodEnd(to)}`
-                  : `Future plain invoices in this Workspace for ${invoiceYearFromPeriodEnd(to)}`}
+                  ? t("invoices.futureInvoicesForClient", {
+                      year: invoiceYearFromPeriodEnd(to),
+                    })
+                  : t("invoices.futurePlainInvoices", {
+                      year: invoiceYearFromPeriodEnd(to),
+                    })}
               </legend>
               <div className="mt-2 space-y-2 text-sm text-neutral-700">
                 <label className="flex cursor-pointer items-start gap-2">
@@ -849,9 +856,11 @@ export default function InvoicesPage() {
                     className="mt-1"
                   />
                   <span>
-                    Continue suggested sequence
+                    {t("invoices.continueSuggestedSequence")}
                     <span className="mt-0.5 block text-neutral-500">
-                      Next: {numberingPreview.nextIfIssued.sequential}
+                      {t("invoices.nextNumber", {
+                        number: numberingPreview.nextIfIssued.sequential,
+                      })}
                     </span>
                   </span>
                 </label>
@@ -865,9 +874,11 @@ export default function InvoicesPage() {
                     className="mt-1"
                   />
                   <span>
-                    Continue from this number
+                    {t("invoices.continueFromThisNumber")}
                     <span className="mt-0.5 block text-neutral-500">
-                      Next: {numberingPreview.nextIfIssued.fromLast}
+                      {t("invoices.nextNumber", {
+                        number: numberingPreview.nextIfIssued.fromLast,
+                      })}
                     </span>
                   </span>
                 </label>
@@ -879,7 +890,7 @@ export default function InvoicesPage() {
 
       {previewUrl && !isMobile ? (
         <iframe
-          title="Invoice preview"
+          title={t("invoices.invoicePreview")}
           src={previewUrl}
           className="h-[70vh] w-full rounded-md border border-neutral-200"
         />
@@ -887,11 +898,11 @@ export default function InvoicesPage() {
 
       {previewUrl && isMobile && previewSheetOpen ? (
         <ResponsiveOverlay
-          ariaLabel="Invoice preview"
+          ariaLabel={t("invoices.invoicePreview")}
           onBackdropClick={() => setPreviewSheetOpen(false)}
         >
           <iframe
-            title="Invoice preview"
+            title={t("invoices.invoicePreview")}
             src={previewUrl}
             className="h-[70vh] w-full rounded-md border border-neutral-200"
           />
@@ -900,7 +911,7 @@ export default function InvoicesPage() {
 
       <section className="mt-10">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
-          <h2 className="text-lg font-medium text-slate-900">Issued Invoices</h2>
+          <h2 className="text-lg font-medium text-slate-900">{t("invoices.issuedInvoices")}</h2>
           <div
             className={`flex gap-3 ${
               isMobile
@@ -913,7 +924,7 @@ export default function InvoicesPage() {
                 isMobile ? "min-w-0 flex-1" : "min-w-[10rem]"
               }`}
             >
-              Export client
+              {t("invoices.exportClient")}
               <select
                 value={exportClientId}
                 onChange={(e) => setExportClientId(e.target.value)}
@@ -922,7 +933,7 @@ export default function InvoicesPage() {
                   isMobile ? " min-h-11 w-full" : ""
                 }`}
               >
-                <option value="">All clients</option>
+                <option value="">{t("invoices.allClients")}</option>
                 {clients.map((client) => (
                   <option key={client.id} value={client.id}>
                     {client.name}
@@ -931,12 +942,12 @@ export default function InvoicesPage() {
               </select>
             </label>
             <label className="flex flex-col gap-1 text-sm text-neutral-700">
-              Export year
+              {t("invoices.exportYear")}
               <input
                 type="number"
                 min={2000}
                 max={2100}
-                placeholder="All years"
+                placeholder={t("invoices.allYears")}
                 value={exportYear}
                 onChange={(e) => setExportYear(e.target.value)}
                 className={`rounded-md border border-neutral-300 px-3 py-2${
@@ -952,12 +963,14 @@ export default function InvoicesPage() {
                 isMobile ? " w-full" : ""
               }`}
             >
-              {exporting ? "Exporting…" : "Export Outgoing.zip"}
+              {exporting ? t("invoices.exporting") : t("invoices.exportOutgoing")}
             </button>
           </div>
         </div>
         {issuedInvoices.length === 0 ? (
-          <p className="text-sm text-neutral-600">No issued invoices yet.</p>
+          <p className="rounded-md border border-neutral-200 bg-white px-4 py-6 text-sm text-neutral-600">
+            {t("invoices.noIssuedInvoices")}
+          </p>
         ) : (
           <IssuedInvoicesList
             invoices={issuedInvoices}
@@ -970,17 +983,17 @@ export default function InvoicesPage() {
       </section>
 
       {editingSender && (
-        <ResponsiveOverlay ariaLabel="Invoice sender">
+        <ResponsiveOverlay ariaLabel={t("invoices.senderTitle")}>
           <form onSubmit={handleSaveSender} className="w-full">
-            <h2 className="text-lg font-semibold">Invoice sender</h2>
+            <h2 className="text-lg font-semibold">{t("invoices.senderTitle")}</h2>
             <p className="mt-1 text-sm text-neutral-600">
               {invoiceSenderConfigured
-                ? "Business identity printed on invoice PDFs for this Workspace."
-                : "Add your business details before issuing — they appear on invoice PDFs."}
+                ? t("invoices.senderConfiguredHint")
+                : t("invoices.senderMissingHint")}
             </p>
 
             {loadingSender ? (
-              <p className="mt-4 text-sm text-neutral-600">Loading…</p>
+              <p className="mt-4 text-sm text-neutral-600">{t("invoices.loading")}</p>
             ) : (
               <div className="mt-4 grid gap-3">
                 <label className="grid gap-1 text-sm">
@@ -1071,7 +1084,7 @@ export default function InvoicesPage() {
                 </label>
 
                 <fieldset className="grid gap-3 rounded-md border border-neutral-200 p-3">
-                  <legend className="px-1 text-sm font-medium">Bank details</legend>
+                  <legend className="px-1 text-sm font-medium">{t("invoices.bankDetails")}</legend>
                   <label className="grid gap-1 text-sm">
                     <span>Bank name</span>
                     <input
@@ -1121,14 +1134,14 @@ export default function InvoicesPage() {
                 onClick={closeSenderEditor}
                 className="rounded-md border border-neutral-300 px-4 py-2 text-sm"
               >
-                Cancel
+                {t("invoices.cancel")}
               </button>
               <button
                 type="submit"
                 disabled={savingSender || loadingSender}
                 className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
               >
-                {savingSender ? "Saving…" : "Save"}
+                {savingSender ? t("invoices.saving") : t("invoices.save")}
               </button>
             </div>
           </form>
