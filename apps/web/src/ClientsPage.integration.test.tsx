@@ -45,7 +45,7 @@ describe.skipIf(!databaseUrl)("ClientsPage with live API", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Bandao")).toBeInTheDocument();
-      expect(screen.getByText("60 €/h")).toBeInTheDocument();
+      expect(screen.getByText("€60.00/h")).toBeInTheDocument();
     });
   });
 });

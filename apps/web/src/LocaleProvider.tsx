@@ -1,12 +1,15 @@
 import { isSupportedLocale, type SupportedLocale } from "@hourden/domain";
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { applyLocale } from "./i18n/i18n.js";
+import { LocaleContext } from "./locale/LocaleContext.js";
 import { resolveLocale } from "./locale/resolve-locale.js";
 import {
   readAcceptLanguage,
   readStoredLocale,
   writeStoredLocale,
 } from "./locale/storage.js";
+import { updateUserLocale } from "./locale/update-user-locale.js";
 
 type LocaleProviderProps = {
   children: ReactNode;
@@ -14,7 +17,9 @@ type LocaleProviderProps = {
 };
 
 export function LocaleProvider({ children, userLocale }: LocaleProviderProps) {
+  const { t } = useTranslation();
   const [ready, setReady] = useState(false);
+  const [activeLocale, setActiveLocale] = useState<SupportedLocale>("en");
 
   useEffect(() => {
     let cancelled = false;
@@ -35,6 +40,7 @@ export function LocaleProvider({ children, userLocale }: LocaleProviderProps) {
       await applyLocale(locale);
 
       if (!cancelled) {
+        setActiveLocale(locale);
         setReady(true);
       }
     }
@@ -46,13 +52,25 @@ export function LocaleProvider({ children, userLocale }: LocaleProviderProps) {
     };
   }, [userLocale]);
 
+  const changeLocale = useCallback(async (locale: SupportedLocale) => {
+    if (!isSupportedLocale(locale)) {
+      return;
+    }
+    await updateUserLocale(locale);
+    setActiveLocale(locale);
+  }, []);
+
   if (!ready) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-neutral-600">
-        Loading…
+        {t("common.loading")}
       </div>
     );
   }
 
-  return children;
+  return (
+    <LocaleContext.Provider value={{ locale: activeLocale, changeLocale }}>
+      {children}
+    </LocaleContext.Provider>
+  );
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 
 type ClientFormData = {
@@ -18,6 +19,7 @@ const emptyForm: ClientFormData = {
 };
 
 export default function ClientStepPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [form, setForm] = useState<ClientFormData>(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -53,7 +55,7 @@ export default function ClientStepPage() {
       const client = (await res.json()) as { id: string };
       navigate(`/onboarding/project?clientId=${encodeURIComponent(client.id)}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save client");
+      setError(t("onboarding.saveClientFailed"));
     } finally {
       setSaving(false);
     }
@@ -61,10 +63,8 @@ export default function ClientStepPage() {
 
   return (
     <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold">Add your first client</h2>
-      <p className="mt-1 text-sm text-neutral-600">
-        Clients are the organizations you bill for tracked time.
-      </p>
+      <h2 className="text-lg font-semibold">{t("onboarding.addFirstClient")}</h2>
+      <p className="mt-1 text-sm text-neutral-600">{t("onboarding.addFirstClientHint")}</p>
 
       {error ? (
         <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -74,7 +74,7 @@ export default function ClientStepPage() {
 
       <form onSubmit={handleSubmit} className="mt-4 grid gap-3">
         <label className="grid gap-1 text-sm">
-          <span>Name</span>
+          <span>{t("clients.name")}</span>
           <input
             required
             value={form.name}
@@ -86,7 +86,7 @@ export default function ClientStepPage() {
         </label>
 
         <label className="grid gap-1 text-sm">
-          <span>Default rate (€/h)</span>
+          <span>{t("clients.defaultRate")}</span>
           <input
             required
             type="number"
@@ -104,9 +104,11 @@ export default function ClientStepPage() {
         </label>
 
         <fieldset className="grid gap-3 rounded-md border border-neutral-200 p-3">
-          <legend className="px-1 text-sm font-medium">Recipient (optional)</legend>
+          <legend className="px-1 text-sm font-medium">
+            {t("clients.recipientOptional")}
+          </legend>
           <label className="grid gap-1 text-sm">
-            <span>Legal name</span>
+            <span>{t("clients.legalName")}</span>
             <input
               value={form.legalName}
               onChange={(e) =>
@@ -119,7 +121,7 @@ export default function ClientStepPage() {
             />
           </label>
           <label className="grid gap-1 text-sm">
-            <span>Address line 1</span>
+            <span>{t("clients.addressLine1")}</span>
             <input
               value={form.addressLine1}
               onChange={(e) =>
@@ -132,7 +134,7 @@ export default function ClientStepPage() {
             />
           </label>
           <label className="grid gap-1 text-sm">
-            <span>Address line 2</span>
+            <span>{t("clients.addressLine2")}</span>
             <input
               value={form.addressLine2}
               onChange={(e) =>
@@ -152,7 +154,7 @@ export default function ClientStepPage() {
             disabled={saving}
             className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
           >
-            {saving ? "Saving…" : "Continue"}
+            {saving ? t("common.saving") : t("onboarding.continue")}
           </button>
         </div>
       </form>

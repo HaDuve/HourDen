@@ -1,7 +1,7 @@
 import "./test/load-env.js";
 
 import { Pool } from "pg";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { setupAuthenticatedApiFetch } from "./test/authenticated-api.js";
 import TrackerPage from "./TrackerPage.js";
@@ -53,7 +53,9 @@ describe.skipIf(!databaseUrl)("TrackerPage with live API", () => {
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
       expect(screen.getByText("Planning session")).toBeInTheDocument();
-      expect(screen.getByText(/1 h/i)).toBeInTheDocument();
+      const entryRow = screen.getByText("Planning session").closest("li");
+      expect(entryRow).not.toBeNull();
+      expect(within(entryRow!).getByText(/1 h/i)).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /add manual entry/i }));

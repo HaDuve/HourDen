@@ -603,8 +603,8 @@ describe("InvoicesPage", () => {
     await waitFor(() => {
       expect(screen.getByText("BANDAO Guidance GmbH")).toBeInTheDocument();
       expect(screen.getByText("BAN2026001")).toBeInTheDocument();
-      expect(screen.getByText("2026-06-01 – 2026-06-30")).toBeInTheDocument();
-      expect(screen.getByText("60.00 EUR")).toBeInTheDocument();
+      expect(screen.getByText("06/01/2026 – 06/30/2026")).toBeInTheDocument();
+      expect(screen.getByText("€60.00")).toBeInTheDocument();
     });
 
     fireEvent.click(

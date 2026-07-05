@@ -2,6 +2,7 @@ import type { Client, InvoiceNumberingStrategy } from "@hourden/domain";
 import { deriveDefaultInvoicePrefix, isValidAnyInvoiceNumber } from "@hourden/domain";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useLocaleFormat } from "./locale/use-locale-format.js";
 import { DateRangeFilter } from "./DateRangeFilter.js";
 import { currentMonthRange } from "./date-range.js";
 import { IssuedInvoicesList } from "./layout/IssuedInvoicesList.js";
@@ -154,14 +155,6 @@ async function fetchNumberingPreview(
   return res.json() as Promise<NumberingPreview>;
 }
 
-function formatAmount(amount: number): string {
-  return `${amount.toFixed(2)} EUR`;
-}
-
-function formatBillingPeriod(periodStart: string, periodEnd: string): string {
-  return `${periodStart} – ${periodEnd}`;
-}
-
 async function readApiError(res: Response): Promise<string> {
   try {
     const data = (await res.json()) as { error?: string };
@@ -187,6 +180,9 @@ function downloadAttachmentBlob(blob: Blob, disposition: string) {
 
 export default function InvoicesPage() {
   const { t } = useTranslation();
+  const { formatCurrency, formatIsoDate } = useLocaleFormat();
+  const formatBillingPeriod = (periodStart: string, periodEnd: string) =>
+    `${formatIsoDate(periodStart)} – ${formatIsoDate(periodEnd)}`;
   const initialRange = currentMonthRange();
   const [clients, setClients] = useState<Client[]>([]);
   const [clientId, setClientId] = useState("");
@@ -260,7 +256,7 @@ export default function InvoicesPage() {
       const invoices = await fetchIssuedInvoices();
       setIssuedInvoices(invoices);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("invoices.loadInvoicesFailed"));
+      setError(t("invoices.loadInvoicesFailed"));
     }
   }, [t]);
 
@@ -269,7 +265,7 @@ export default function InvoicesPage() {
       const status = await fetchInvoiceSenderStatus();
       setInvoiceSenderConfigured(status.configured);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("invoices.loadInvoiceSenderFailed"));
+      setError(t("invoices.loadInvoiceSenderFailed"));
     }
   }, [t]);
 
@@ -284,7 +280,7 @@ export default function InvoicesPage() {
       }
       await Promise.all([loadIssuedInvoices(), loadInvoiceSenderStatus()]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("invoices.loadClientsFailed"));
+      setError(t("invoices.loadClientsFailed"));
     } finally {
       setLoading(false);
     }
@@ -338,10 +334,8 @@ export default function InvoicesPage() {
         );
         setNumberingPreview(preview);
         setNumberingStrategy((current) => current ?? "from_last");
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : t("invoices.loadNumberingPreviewFailed"),
-        );
+      } catch {
+        setError(t("invoices.loadNumberingPreviewFailed"));
       }
     },
     [clientId, suggestedInvoiceNumber, to, usePrefix, t],
@@ -357,7 +351,7 @@ export default function InvoicesPage() {
       setSenderForm(invoiceSenderToForm(status.invoiceSender));
     } catch (err) {
       setEditingSender(false);
-      setError(err instanceof Error ? err.message : t("invoices.loadInvoiceSenderFailed"));
+      setError(t("invoices.loadInvoiceSenderFailed"));
     } finally {
       setLoadingSender(false);
     }
@@ -456,7 +450,7 @@ export default function InvoicesPage() {
         }
       } catch (err) {
         if (requestId === previewRequestIdRef.current) {
-          setError(err instanceof Error ? err.message : t("invoices.previewFailed"));
+          setError(t("invoices.previewFailed"));
         }
       } finally {
         if (requestId === previewRequestIdRef.current) {
@@ -617,7 +611,7 @@ export default function InvoicesPage() {
       setNumberingStrategy(null);
       await loadIssuedInvoices();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("invoices.issueFailed"));
+      setError(t("invoices.issueFailed"));
     } finally {
       setIssuing(false);
     }
@@ -650,7 +644,7 @@ export default function InvoicesPage() {
       const disposition = res.headers.get("Content-Disposition") ?? "";
       downloadAttachmentBlob(blob, disposition);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("invoices.exportInvoicesFailed"));
+      setError(t("invoices.exportInvoicesFailed"));
     } finally {
       setExporting(false);
     }
@@ -671,7 +665,7 @@ export default function InvoicesPage() {
       const disposition = res.headers.get("Content-Disposition") ?? "";
       downloadAttachmentBlob(blob, disposition);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("invoices.downloadInvoiceFailed"));
+      setError(t("invoices.downloadInvoiceFailed"));
     } finally {
       setDownloadingId(null);
     }
@@ -701,7 +695,7 @@ export default function InvoicesPage() {
         });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("invoices.saveInvoiceSenderFailed"));
+      setError(t("invoices.saveInvoiceSenderFailed"));
     } finally {
       setSavingSender(false);
     }
@@ -978,7 +972,7 @@ export default function InvoicesPage() {
             downloadingId={downloadingId}
             onDownload={(invoice) => void handleDownloadIssued(invoice)}
             formatBillingPeriod={formatBillingPeriod}
-            formatAmount={formatAmount}
+            formatAmount={formatCurrency}
           />
         )}
       </section>

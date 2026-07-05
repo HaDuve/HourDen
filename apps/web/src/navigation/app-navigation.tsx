@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { NavLink } from "react-router-dom";
+import { LanguageSwitcher } from "../layout/LanguageSwitcher.js";
 import { navLinkClass } from "./nav-link-class.js";
 import { TrackerNavLink } from "./tracker-nav-link.js";
 
-const secondaryDestinations = [
-  { to: "clients", label: "Clients" },
-  { to: "projects", label: "Projects" },
-  { to: "report", label: "Report" },
-  { to: "import", label: "Import" },
+const secondaryDestinationKeys = [
+  { to: "clients", labelKey: "nav.clients" },
+  { to: "projects", labelKey: "nav.projects" },
+  { to: "report", labelKey: "nav.report" },
+  { to: "import", labelKey: "nav.import" },
 ] as const;
 
 type AppNavigationProps = {
@@ -16,6 +18,7 @@ type AppNavigationProps = {
 };
 
 function DesktopNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
+  const { t } = useTranslation();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
 
@@ -46,12 +49,12 @@ function DesktopNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
   }, [isMoreOpen]);
 
   return (
-    <nav aria-label="Primary navigation" className="border-b border-neutral-200 bg-white">
+    <nav aria-label={t("nav.primary")} className="border-b border-neutral-200 bg-white">
       <div className="mx-auto flex max-w-3xl items-center gap-1 px-8 py-3">
         <div className="flex flex-1 gap-1">
           <TrackerNavLink />
           <NavLink to="invoices" className={navLinkClass}>
-            Invoices
+            {t("nav.invoices")}
           </NavLink>
           <div className="relative" ref={moreMenuRef}>
             <button
@@ -61,14 +64,14 @@ function DesktopNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
               onClick={() => setIsMoreOpen((open) => !open)}
               className="rounded-md px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
             >
-              More
+              {t("nav.more")}
             </button>
             {isMoreOpen ? (
               <div
                 role="menu"
-                className="absolute right-0 z-10 mt-1 min-w-40 rounded-md border border-neutral-200 bg-white py-1 shadow-lg"
+                className="absolute right-0 z-10 mt-1 min-w-48 rounded-md border border-neutral-200 bg-white py-1 shadow-lg"
               >
-                {secondaryDestinations.map(({ to, label }) => (
+                {secondaryDestinationKeys.map(({ to, labelKey }) => (
                   <NavLink
                     key={to}
                     to={to}
@@ -80,9 +83,10 @@ function DesktopNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
                     }
                     onClick={() => setIsMoreOpen(false)}
                   >
-                    {label}
+                    {t(labelKey)}
                   </NavLink>
                 ))}
+                <LanguageSwitcher />
                 <button
                   type="button"
                   role="menuitem"
@@ -92,7 +96,7 @@ function DesktopNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
                   }}
                   className="block w-full px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50"
                 >
-                  Log out
+                  {t("nav.logout")}
                 </button>
               </div>
             ) : null}
@@ -104,12 +108,13 @@ function DesktopNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
 }
 
 function MobileNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
+  const { t } = useTranslation();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   return (
     <>
       <nav
-        aria-label="Mobile navigation"
+        aria-label={t("nav.mobile")}
         className="fixed inset-x-0 bottom-0 z-20 border-t border-neutral-200 bg-white"
       >
         <div className="mx-auto flex max-w-3xl items-stretch justify-around px-2 py-2">
@@ -118,7 +123,7 @@ function MobileNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
           </div>
           <div className="flex flex-1 justify-center">
             <NavLink to="invoices" className={navLinkClass}>
-              Invoices
+              {t("nav.invoices")}
             </NavLink>
           </div>
           <div className="flex flex-1 justify-center">
@@ -128,7 +133,7 @@ function MobileNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
               onClick={() => setIsMoreOpen((open) => !open)}
               className="rounded-md px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
             >
-              More
+              {t("nav.more")}
             </button>
           </div>
         </div>
@@ -136,7 +141,7 @@ function MobileNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
       {isMoreOpen ? (
         <div
           role="dialog"
-          aria-label="More destinations"
+          aria-label={t("nav.moreDestinations")}
           aria-modal="true"
           className="fixed inset-0 z-30 flex items-end bg-black/40"
           onClick={() => setIsMoreOpen(false)}
@@ -146,17 +151,17 @@ function MobileNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-neutral-900">More</h2>
+              <h2 className="text-sm font-semibold text-neutral-900">{t("nav.more")}</h2>
               <button
                 type="button"
                 onClick={() => setIsMoreOpen(false)}
                 className="rounded-md px-2 py-1 text-sm text-neutral-600 hover:bg-neutral-100"
               >
-                Close
+                {t("nav.close")}
               </button>
             </div>
             <div className="flex flex-col gap-1">
-              {secondaryDestinations.map(({ to, label }) => (
+              {secondaryDestinationKeys.map(({ to, labelKey }) => (
                 <NavLink
                   key={to}
                   to={to}
@@ -167,9 +172,10 @@ function MobileNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
                   }
                   onClick={() => setIsMoreOpen(false)}
                 >
-                  {label}
+                  {t(labelKey)}
                 </NavLink>
               ))}
+              <LanguageSwitcher />
               <button
                 type="button"
                 onClick={() => {
@@ -178,7 +184,7 @@ function MobileNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
                 }}
                 className="rounded-md px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50"
               >
-                Log out
+                {t("nav.logout")}
               </button>
             </div>
           </div>

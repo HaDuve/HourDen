@@ -1,5 +1,6 @@
 import type { Client, Project } from "@hourden/domain";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { PageMain } from "./layout/PageMain.js";
 import { ResponsiveOverlay } from "./layout/ResponsiveOverlay.js";
 import {
@@ -47,6 +48,7 @@ async function fetchProjects(clientId: string): Promise<Project[]> {
 }
 
 export default function ProjectsPage() {
+  const { t } = useTranslation();
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [projects, setProjects] = useState<Project[]>([]);
@@ -70,11 +72,11 @@ export default function ProjectsPage() {
     try {
       setClients(await fetchClients());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load clients");
+      setError(t("projects.loadClientsFailed"));
     } finally {
       setLoadingClients(false);
     }
-  }, []);
+  }, [t]);
 
   const loadProjects = useCallback(async (clientId: string) => {
     if (!clientId) {
@@ -87,11 +89,11 @@ export default function ProjectsPage() {
     try {
       setProjects(await fetchProjects(clientId));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load projects");
+      setError(t("projects.loadFailed"));
     } finally {
       setLoadingProjects(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadClients();
@@ -155,7 +157,7 @@ export default function ProjectsPage() {
       closeForm();
       await loadProjects(selectedClientId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save project");
+      setError(t("projects.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -177,7 +179,7 @@ export default function ProjectsPage() {
       closeDeleteDialog();
       await loadProjects(selectedClientId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete project");
+      setError(t("projects.deleteFailed"));
     } finally {
       setSaving(false);
     }
@@ -191,10 +193,8 @@ export default function ProjectsPage() {
     <PageMain variant="flex">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Projects</h1>
-          <p className="text-neutral-600">
-            Work streams under a Client for time tracking.
-          </p>
+          <h1 className="text-3xl font-semibold tracking-tight">{t("projects.title")}</h1>
+          <p className="text-neutral-600">{t("projects.subtitle")}</p>
         </div>
         <button
           type="button"
@@ -202,12 +202,12 @@ export default function ProjectsPage() {
           disabled={!selectedClientId}
           className={`${primaryButtonClass} bg-slate-900 text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50`}
         >
-          New project
+          {t("projects.newProject")}
         </button>
       </header>
 
       <label className="grid max-w-sm gap-1 text-sm" htmlFor="project-client-select">
-        <span>Client</span>
+        <span>{t("projects.client")}</span>
         <select
           id="project-client-select"
           value={selectedClientId}
@@ -215,7 +215,7 @@ export default function ProjectsPage() {
           disabled={loadingClients}
           className="rounded-md border border-neutral-300 px-3 py-2"
         >
-          <option value="">Select a client…</option>
+          <option value="">{t("projects.selectClient")}</option>
           {clients.map((client) => (
             <option key={client.id} value={client.id}>
               {client.name}
@@ -232,14 +232,15 @@ export default function ProjectsPage() {
 
       {!selectedClientId ? (
         <p className="rounded-lg border border-dashed border-neutral-300 bg-white px-4 py-8 text-center text-neutral-500">
-          Select a client to view and manage their projects.
+          {t("projects.selectClientPrompt")}
         </p>
       ) : loadingProjects ? (
-        <p className="text-neutral-500">Loading projects…</p>
+        <p className="text-neutral-500">{t("projects.loading")}</p>
       ) : projects.length === 0 ? (
         <p className="rounded-lg border border-dashed border-neutral-300 bg-white px-4 py-8 text-center text-neutral-500">
-          No projects yet for {selectedClient?.name ?? "this client"}. Create
-          the first project to start logging time.
+          {t("projects.empty", {
+            clientName: selectedClient?.name ?? t("projects.thisClient"),
+          })}
         </p>
       ) : (
         <ul
@@ -260,7 +261,7 @@ export default function ProjectsPage() {
               {isMobile ? (
                 <dl className="grid gap-1 text-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <dt className="text-neutral-500">Name</dt>
+                    <dt className="text-neutral-500">{t("clients.name")}</dt>
                     <dd className="flex items-center gap-2 font-medium">
                       {project.color && (
                         <span
@@ -293,7 +294,7 @@ export default function ProjectsPage() {
                     isMobile ? " flex-1" : ""
                   }`}
                 >
-                  Edit
+                  {t("common.edit")}
                 </button>
                 <button
                   type="button"
@@ -302,7 +303,7 @@ export default function ProjectsPage() {
                     isMobile ? " flex-1" : ""
                   }`}
                 >
-                  Delete
+                  {t("common.delete")}
                 </button>
               </div>
             </li>
@@ -312,21 +313,23 @@ export default function ProjectsPage() {
 
       {editing && (
         <ResponsiveOverlay
-          ariaLabel={editing === "new" ? "New project" : "Edit project"}
+          ariaLabel={
+            editing === "new" ? t("projects.newProject") : t("projects.editProject")
+          }
         >
           <form onSubmit={saveProject} className="w-full">
             <h2 className="text-lg font-semibold">
-              {editing === "new" ? "New project" : "Edit project"}
+              {editing === "new" ? t("projects.newProject") : t("projects.editProject")}
             </h2>
             {selectedClient && (
               <p className="mt-1 text-sm text-neutral-600">
-                Client: {selectedClient.name}
+                {t("projects.clientLabel", { name: selectedClient.name })}
               </p>
             )}
 
             <div className="mt-4 grid gap-3">
               <label className="grid gap-1 text-sm">
-                <span>Name</span>
+                <span>{t("clients.name")}</span>
                 <input
                   required
                   value={form.name}
@@ -338,7 +341,7 @@ export default function ProjectsPage() {
               </label>
 
               <label className="grid gap-1 text-sm">
-                <span>Color (optional)</span>
+                <span>{t("projects.colorOptional")}</span>
                 <input
                   type="color"
                   value={form.color}
@@ -359,14 +362,14 @@ export default function ProjectsPage() {
                 onClick={closeForm}
                 className="rounded-md border border-neutral-300 px-4 py-2 text-sm"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 type="submit"
                 disabled={saving}
                 className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
               >
-                {saving ? "Saving…" : "Save"}
+                {saving ? t("common.saving") : t("common.save")}
               </button>
             </div>
           </form>
@@ -375,16 +378,15 @@ export default function ProjectsPage() {
 
       {pendingDelete && (
         <ResponsiveOverlay
-          ariaLabel="Delete project"
+          ariaLabel={t("common.delete")}
           labelledBy="delete-project-title"
           onBackdropClick={closeDeleteDialog}
         >
           <h2 id="delete-project-title" className="text-lg font-semibold">
-            Delete project?
+            {t("projects.deleteTitle")}
           </h2>
           <p className="mt-2 text-sm text-neutral-600">
-            This will permanently delete{" "}
-            <strong>{pendingDelete.name}</strong>.
+            {t("projects.deleteBody", { name: pendingDelete.name })}
           </p>
           <div className="mt-6 flex justify-end gap-2">
             <button
@@ -392,7 +394,7 @@ export default function ProjectsPage() {
               onClick={closeDeleteDialog}
               className={`${actionButtonClass} border-neutral-300`}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -400,7 +402,7 @@ export default function ProjectsPage() {
               disabled={saving}
               className={`${actionButtonClass} bg-red-600 font-medium text-white disabled:opacity-60`}
             >
-              {saving ? "Deleting…" : "Confirm delete"}
+              {saving ? t("common.deleting") : t("common.confirmDelete")}
             </button>
           </div>
         </ResponsiveOverlay>

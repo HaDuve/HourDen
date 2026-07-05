@@ -1,3 +1,4 @@
+import type { SupportedLocale } from "./locale.js";
 import { formatDurationHMM, toLocalDateKey } from "./clockify-csv.js";
 
 export type TrackerEntryInput = {
@@ -21,14 +22,25 @@ export type TrackerWeekGroup<T extends TrackerEntryInput> = {
   days: TrackerDayGroup<T>[];
 };
 
-const WEEKDAY_FORMATTER = new Intl.DateTimeFormat("en-US", {
-  weekday: "short",
-});
+const WEEKDAY_FORMATTERS: Record<SupportedLocale, Intl.DateTimeFormat> = {
+  en: new Intl.DateTimeFormat("en-US", { weekday: "short" }),
+  de: new Intl.DateTimeFormat("de-DE", { weekday: "short" }),
+};
 
-const MONTH_DAY_FORMATTER = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-});
+const MONTH_DAY_FORMATTERS: Record<SupportedLocale, Intl.DateTimeFormat> = {
+  en: new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }),
+  de: new Intl.DateTimeFormat("de-DE", { month: "short", day: "numeric" }),
+};
+
+const THIS_WEEK_LABEL: Record<SupportedLocale, string> = {
+  en: "This week",
+  de: "Diese Woche",
+};
+
+const LAST_WEEK_LABEL: Record<SupportedLocale, string> = {
+  en: "Last week",
+  de: "Letzte Woche",
+};
 
 function parseDateKey(dateKey: string): Date {
   const [year, month, day] = dateKey.split("-").map(Number);
@@ -56,18 +68,22 @@ function mondayOfWeek(dateKey: string): string {
   return formatDateKey(date);
 }
 
-function formatDayLabel(dateKey: string): string {
+function formatDayLabel(dateKey: string, locale: SupportedLocale): string {
   const date = parseDateKey(dateKey);
-  const weekday = WEEKDAY_FORMATTER.format(date);
-  const monthDay = MONTH_DAY_FORMATTER.format(date);
+  const weekday = WEEKDAY_FORMATTERS[locale].format(date);
+  const monthDay = MONTH_DAY_FORMATTERS[locale].format(date);
   return `${weekday}, ${monthDay}`;
 }
 
-function formatWeekRangeLabel(weekStart: string, weekEnd: string): string {
+function formatWeekRangeLabel(
+  weekStart: string,
+  weekEnd: string,
+  locale: SupportedLocale,
+): string {
   const start = parseDateKey(weekStart);
   const end = parseDateKey(weekEnd);
-  const startLabel = MONTH_DAY_FORMATTER.format(start);
-  const endLabel = MONTH_DAY_FORMATTER.format(end);
+  const startLabel = MONTH_DAY_FORMATTERS[locale].format(start);
+  const endLabel = MONTH_DAY_FORMATTERS[locale].format(end);
   return `${startLabel} - ${endLabel}`;
 }
 
@@ -75,23 +91,25 @@ function weekLabelForRange(
   weekStart: string,
   weekEnd: string,
   todayKey: string,
+  locale: SupportedLocale,
 ): string {
   const thisWeekStart = mondayOfWeek(todayKey);
   const lastWeekStart = addDays(thisWeekStart, -7);
 
   if (weekStart === thisWeekStart) {
-    return "This week";
+    return THIS_WEEK_LABEL[locale];
   }
   if (weekStart === lastWeekStart) {
-    return "Last week";
+    return LAST_WEEK_LABEL[locale];
   }
-  return formatWeekRangeLabel(weekStart, weekEnd);
+  return formatWeekRangeLabel(weekStart, weekEnd, locale);
 }
 
 export function groupTrackerEntriesByWeek<T extends TrackerEntryInput>(
   entries: T[],
-  options: { timeZone: string; today?: string },
+  options: { timeZone: string; today?: string; locale?: SupportedLocale },
 ): TrackerWeekGroup<T>[] {
+  const locale = options.locale ?? "en";
   const todayKey = options.today ?? toLocalDateKey(new Date(), options.timeZone);
   const byWeek = new Map<string, Map<string, T[]>>();
 
@@ -113,7 +131,7 @@ export function groupTrackerEntriesByWeek<T extends TrackerEntryInput>(
         .sort(([a], [b]) => b.localeCompare(a))
         .map(([date, dayEntries]) => ({
           date,
-          dayLabel: formatDayLabel(date),
+          dayLabel: formatDayLabel(date, locale),
           totalDurationMinutes: dayEntries.reduce(
             (sum, entry) => sum + entry.durationMinutes,
             0,
@@ -130,7 +148,7 @@ export function groupTrackerEntriesByWeek<T extends TrackerEntryInput>(
       );
 
       return {
-        weekLabel: weekLabelForRange(weekStart, weekEnd, todayKey),
+        weekLabel: weekLabelForRange(weekStart, weekEnd, todayKey, locale),
         weekStart,
         weekEnd,
         totalDurationMinutes,

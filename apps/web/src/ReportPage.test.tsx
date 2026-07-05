@@ -66,4 +66,46 @@ describe("ReportPage", () => {
       expect(screen.getByLabelText(/^to$/i)).toHaveValue("2026-05-31");
     });
   });
+
+  it("formats amounts and dates for German locale", async () => {
+    await i18n.changeLanguage("de");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((url: string) => {
+        if (url.startsWith("/api/reports?")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              from: "2026-06-01",
+              to: "2026-06-30",
+              clients: [
+                {
+                  clientId: "c1",
+                  clientName: "Acme",
+                  totalDurationMinutes: 60,
+                  totalAmount: 1234.56,
+                  lines: [
+                    {
+                      date: "2026-06-15",
+                      description: "Work",
+                      durationMinutes: 60,
+                      amount: 1234.56,
+                    },
+                  ],
+                },
+              ],
+            }),
+          });
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      }),
+    );
+
+    render(<ReportPage />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/1\.234,56/).length).toBeGreaterThan(0);
+      expect(screen.getByText("15.06.2026")).toBeInTheDocument();
+    });
+  });
 });

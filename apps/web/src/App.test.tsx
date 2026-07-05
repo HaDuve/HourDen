@@ -1,15 +1,33 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { createMemoryRouter, MemoryRouter, RouterProvider, useLocation, useNavigate, useRoutes } from "react-router-dom";
+import type { SupportedLocale } from "@hourden/domain";
+import i18n from "./i18n/i18n.js";
+import { createMemoryRouter, MemoryRouter, Outlet, RouterProvider, useLocation, useNavigate, useRoutes } from "react-router-dom";
+import { LocaleProvider } from "./LocaleProvider.js";
 import { authenticatedAppRoutes } from "./routes.js";
 import { createMatchMedia } from "./test/match-media.js";
+
+function routesWithLocale(userLocale: SupportedLocale | null = "en") {
+  return [
+    {
+      element: (
+        <LocaleProvider userLocale={userLocale}>
+          <Outlet />
+        </LocaleProvider>
+      ),
+      children: authenticatedAppRoutes,
+    },
+  ];
+}
 
 function AppRoutes() {
   return useRoutes(authenticatedAppRoutes);
 }
 
-function renderApp(initialPath = "/") {
-  const router = createMemoryRouter(authenticatedAppRoutes, { initialEntries: [initialPath] });
+function renderApp(initialPath = "/", userLocale: SupportedLocale | null = "en") {
+  const router = createMemoryRouter(routesWithLocale(userLocale), {
+    initialEntries: [initialPath],
+  });
   render(<RouterProvider router={router} />);
   return router;
 }
@@ -17,9 +35,11 @@ function renderApp(initialPath = "/") {
 afterEach(() => {
   vi.unstubAllGlobals();
   window.matchMedia = createMatchMedia(false) as typeof window.matchMedia;
+  localStorage.clear();
+  void i18n.changeLanguage("en");
 });
 
-function renderAppWithMemoryRouter(initialPath = "/") {
+function renderAppWithMemoryRouter(initialPath = "/", userLocale: SupportedLocale | null = "en") {
   let pathname = initialPath;
   let navigate: ReturnType<typeof useNavigate> | undefined;
 
@@ -35,9 +55,11 @@ function renderAppWithMemoryRouter(initialPath = "/") {
 
   render(
     <MemoryRouter initialEntries={[initialPath]}>
-      <LocationObserver />
-      <NavigateCapture />
-      <AppRoutes />
+      <LocaleProvider userLocale={userLocale}>
+        <LocationObserver />
+        <NavigateCapture />
+        <AppRoutes />
+      </LocaleProvider>
     </MemoryRouter>,
   );
 
@@ -86,6 +108,12 @@ function mockAppFetch() {
       return Promise.resolve({
         ok: true,
         json: async () => ({ from: "2026-07-01", to: "2026-07-31", clients: [] }),
+      });
+    }
+    if (url === "/api/auth/locale") {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ locale: "de" }),
       });
     }
     if (url.includes("/api/clients")) {
@@ -173,6 +201,49 @@ describe("App", () => {
     await waitFor(() => {
       expect(app.pathname).toBe("/");
       expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
+    });
+  });
+
+  it("shows German navigation when locale is de", async () => {
+    mockDesktopViewport();
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    renderApp("/", "de");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
+    });
+
+    const primaryNav = screen.getByRole("navigation", { name: /hauptnavigation/i });
+    expect(within(primaryNav).getByRole("link", { name: /^rechnungen$/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^mehr$/i }));
+
+    const menu = screen.getByRole("menu");
+    expect(within(menu).getByRole("menuitem", { name: /^kunden$/i })).toBeInTheDocument();
+    expect(within(menu).getByRole("group", { name: /sprache/i })).toBeInTheDocument();
+  });
+
+  it("switches to German from the desktop overflow menu", async () => {
+    mockDesktopViewport();
+    const fetchMock = mockAppFetch();
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderApp("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^more$/i }));
+    fireEvent.click(screen.getByRole("radio", { name: /^deutsch$/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/auth/locale",
+        expect.objectContaining({ method: "PATCH" }),
+      );
+      expect(screen.getByRole("link", { name: /^rechnungen$/i })).toBeInTheDocument();
     });
   });
 
