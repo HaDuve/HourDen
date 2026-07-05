@@ -6,6 +6,14 @@ import { DateRangeFilter } from "./DateRangeFilter.js";
 import { currentMonthRange } from "./date-range.js";
 import { PageMain } from "./layout/PageMain.js";
 import { mobilePrimaryButtonClass } from "./layout/tap-targets.js";
+import {
+  cardClass,
+  emptyStateClass,
+  errorBannerClass,
+  metaTextClass,
+  pageTitleClass,
+  panelClass,
+} from "./layout/ui-classes.js";
 import { useIsMobile } from "./layout/use-is-mobile.js";
 import { useLocaleFormat } from "./locale/use-locale-format.js";
 
@@ -87,18 +95,18 @@ export default function ReportPage() {
   return (
     <PageMain>
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-slate-900">{t("report.title")}</h1>
+        <h1 className={pageTitleClass}>{t("report.title")}</h1>
         <button
           type="button"
           onClick={() => void handleExport()}
           disabled={exporting || loading}
-          className={`${primaryButtonClass} bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50`}
+          className={primaryButtonClass}
         >
           {exporting ? t("report.exporting") : t("report.exportCsv")}
         </button>
       </div>
 
-      <div className="mb-8 rounded-lg border border-neutral-200 bg-neutral-50/50 p-4">
+      <div className={`mb-8 ${panelClass}`}>
         <DateRangeFilter
           from={from}
           to={to}
@@ -110,26 +118,26 @@ export default function ReportPage() {
       </div>
 
       {error ? (
-        <p className="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p className={`mb-4 ${errorBannerClass}`}>
           {error}
         </p>
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-neutral-600">{t("report.loading")}</p>
+        <p className={metaTextClass}>{t("report.loading")}</p>
       ) : clients.length === 0 ? (
-        <p className="rounded-md border border-neutral-200 bg-white px-4 py-6 text-sm text-neutral-600">
+        <p className={`${emptyStateClass} py-6`}>
           {t("report.empty")}
         </p>
       ) : (
         <div className="space-y-8">
           {clients.map((client) => (
             <section key={client.clientName}>
-              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-neutral-200 pb-2">
-                <h2 className="text-lg font-medium text-slate-900">
+              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-divider pb-2">
+                <h2 className="text-lg font-medium text-content">
                   {client.clientName || t("report.noClient")}
                 </h2>
-                <p className="text-sm text-neutral-600">
+                <p className={metaTextClass}>
                   {formatDurationHMM(client.totalDurationMinutes)} ·{" "}
                   {formatCurrency(client.totalAmount)}
                 </p>
@@ -140,30 +148,30 @@ export default function ReportPage() {
                     <li
                       key={`${line.date}-${line.description}`}
                       data-testid="report-line-card"
-                      className="rounded-lg border border-neutral-200 bg-white p-3"
+                      className={`${cardClass} p-3`}
                     >
                       <dl className="grid gap-2 text-sm">
                         <div className="flex justify-between gap-3">
-                          <dt className="text-neutral-500">{t("report.date")}</dt>
-                          <dd className="text-neutral-800">
+                          <dt className="text-muted">{t("report.date")}</dt>
+                          <dd className="text-content">
                             {formatIsoDate(line.date)}
                           </dd>
                         </div>
                         <div className="flex justify-between gap-3">
-                          <dt className="text-neutral-500">{t("report.description")}</dt>
-                          <dd className="text-right text-neutral-800">
+                          <dt className="text-muted">{t("report.description")}</dt>
+                          <dd className="text-right text-content">
                             {line.description}
                           </dd>
                         </div>
                         <div className="flex justify-between gap-3">
-                          <dt className="text-neutral-500">{t("report.duration")}</dt>
-                          <dd className="text-neutral-600">
+                          <dt className="text-muted">{t("report.duration")}</dt>
+                          <dd className="text-muted">
                             {formatDurationHMM(line.durationMinutes)}
                           </dd>
                         </div>
                         <div className="flex justify-between gap-3">
-                          <dt className="text-neutral-500">{t("report.amount")}</dt>
-                          <dd className="text-neutral-600">
+                          <dt className="text-muted">{t("report.amount")}</dt>
+                          <dd className="text-muted">
                             {formatCurrency(line.amount)}
                           </dd>
                         </div>
@@ -174,13 +182,13 @@ export default function ReportPage() {
                       key={`${line.date}-${line.description}`}
                       className="flex flex-wrap items-baseline justify-between gap-2 text-sm"
                     >
-                      <span className="text-neutral-800">
-                        <span className="text-neutral-500">
+                      <span className="text-content">
+                        <span className="text-muted">
                           {formatIsoDate(line.date)}
                         </span>{" "}
                         {line.description}
                       </span>
-                      <span className="text-neutral-600">
+                      <span className="text-muted">
                         {formatDurationHMM(line.durationMinutes)} ·{" "}
                         {formatCurrency(line.amount)}
                       </span>

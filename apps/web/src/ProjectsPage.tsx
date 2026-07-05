@@ -7,15 +7,27 @@ import {
   mobileActionButtonClass,
   mobilePrimaryButtonClass,
 } from "./layout/tap-targets.js";
+import {
+  destructiveButtonClass,
+  destructiveOutlineButtonClass,
+  emptyStateClass,
+  errorBannerClass,
+  inputClass,
+  listPanelClass,
+  metaTextClass,
+  pageSubtitleClass,
+  pageTitleLargeClass,
+  secondaryButtonClass,
+  selectClass,
+} from "./layout/ui-classes.js";
 import { useIsMobile } from "./layout/use-is-mobile.js";
 import { useDeleteDialog } from "./useDeleteDialog.js";
+import { DEFAULT_PROJECT_COLOR } from "./project-default-color.js";
 
 type ProjectFormData = {
   name: string;
   color: string;
 };
-
-const DEFAULT_PROJECT_COLOR = "#3b82f6";
 
 const emptyForm: ProjectFormData = {
   name: "",
@@ -193,14 +205,14 @@ export default function ProjectsPage() {
     <PageMain variant="flex">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">{t("projects.title")}</h1>
-          <p className="text-neutral-600">{t("projects.subtitle")}</p>
+          <h1 className={pageTitleLargeClass}>{t("projects.title")}</h1>
+          <p className={pageSubtitleClass}>{t("projects.subtitle")}</p>
         </div>
         <button
           type="button"
           onClick={openCreate}
           disabled={!selectedClientId}
-          className={`${primaryButtonClass} bg-slate-900 text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50`}
+          className={primaryButtonClass}
         >
           {t("projects.newProject")}
         </button>
@@ -213,7 +225,7 @@ export default function ProjectsPage() {
           value={selectedClientId}
           onChange={(e) => setSelectedClientId(e.target.value)}
           disabled={loadingClients}
-          className="rounded-md border border-neutral-300 px-3 py-2"
+          className={selectClass}
         >
           <option value="">{t("projects.selectClient")}</option>
           {clients.map((client) => (
@@ -225,26 +237,26 @@ export default function ProjectsPage() {
       </label>
 
       {error && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p className={errorBannerClass}>
           {error}
         </p>
       )}
 
       {!selectedClientId ? (
-        <p className="rounded-lg border border-dashed border-neutral-300 bg-white px-4 py-8 text-center text-neutral-500">
+        <p className={emptyStateClass}>
           {t("projects.selectClientPrompt")}
         </p>
       ) : loadingProjects ? (
-        <p className="text-neutral-500">{t("projects.loading")}</p>
+        <p className={metaTextClass}>{t("projects.loading")}</p>
       ) : projects.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-neutral-300 bg-white px-4 py-8 text-center text-neutral-500">
+        <p className={emptyStateClass}>
           {t("projects.empty", {
             clientName: selectedClient?.name ?? t("projects.thisClient"),
           })}
         </p>
       ) : (
         <ul
-          className={`divide-y divide-neutral-200 overflow-hidden rounded-lg border border-neutral-200 bg-white${
+          className={`${listPanelClass}${
             isDeleteDialogOpen ? " pointer-events-none" : ""
           }`}
         >
@@ -261,7 +273,7 @@ export default function ProjectsPage() {
               {isMobile ? (
                 <dl className="grid gap-1 text-sm">
                   <div className="flex items-center justify-between gap-3">
-                    <dt className="text-neutral-500">{t("clients.name")}</dt>
+                    <dt className="text-muted">{t("clients.name")}</dt>
                     <dd className="flex items-center gap-2 font-medium">
                       {project.color && (
                         <span
@@ -290,7 +302,7 @@ export default function ProjectsPage() {
                 <button
                   type="button"
                   onClick={() => openEdit(project)}
-                  className={`${actionButtonClass} border-neutral-300 hover:bg-neutral-50${
+                  className={`${actionButtonClass}${
                     isMobile ? " flex-1" : ""
                   }`}
                 >
@@ -299,8 +311,8 @@ export default function ProjectsPage() {
                 <button
                   type="button"
                   onClick={() => openDeleteDialog(project)}
-                  className={`${actionButtonClass} border-red-200 text-red-700 hover:bg-red-50${
-                    isMobile ? " flex-1" : ""
+                  className={`${destructiveOutlineButtonClass}${
+                    isMobile ? " min-h-11 flex-1 px-4 text-sm" : " px-3 py-1.5 text-sm"
                   }`}
                 >
                   {t("common.delete")}
@@ -322,13 +334,13 @@ export default function ProjectsPage() {
               {editing === "new" ? t("projects.newProject") : t("projects.editProject")}
             </h2>
             {selectedClient && (
-              <p className="mt-1 text-sm text-neutral-600">
+              <p className={`mt-1 ${metaTextClass}`}>
                 {t("projects.clientLabel", { name: selectedClient.name })}
               </p>
             )}
 
             <div className="mt-4 grid gap-3">
-              <label className="grid gap-1 text-sm">
+              <label className="grid gap-1 text-sm text-content">
                 <span>{t("clients.name")}</span>
                 <input
                   required
@@ -336,11 +348,11 @@ export default function ProjectsPage() {
                   onChange={(e) =>
                     setForm((current) => ({ ...current, name: e.target.value }))
                   }
-                  className="rounded-md border border-neutral-300 px-3 py-2"
+                  className={inputClass}
                 />
               </label>
 
-              <label className="grid gap-1 text-sm">
+              <label className="grid gap-1 text-sm text-content">
                 <span>{t("projects.colorOptional")}</span>
                 <input
                   type="color"
@@ -351,7 +363,7 @@ export default function ProjectsPage() {
                       color: e.target.value,
                     }))
                   }
-                  className="h-10 w-full cursor-pointer rounded-md border border-neutral-300"
+                  className="h-10 w-full cursor-pointer rounded-md border border-input"
                 />
               </label>
             </div>
@@ -360,14 +372,14 @@ export default function ProjectsPage() {
               <button
                 type="button"
                 onClick={closeForm}
-                className="rounded-md border border-neutral-300 px-4 py-2 text-sm"
+                className={secondaryButtonClass}
               >
                 {t("common.cancel")}
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                className={primaryButtonClass}
               >
                 {saving ? t("common.saving") : t("common.save")}
               </button>
@@ -385,14 +397,14 @@ export default function ProjectsPage() {
           <h2 id="delete-project-title" className="text-lg font-semibold">
             {t("projects.deleteTitle")}
           </h2>
-          <p className="mt-2 text-sm text-neutral-600">
+          <p className={`mt-2 ${metaTextClass}`}>
             {t("projects.deleteBody", { name: pendingDelete.name })}
           </p>
           <div className="mt-6 flex justify-end gap-2">
             <button
               type="button"
               onClick={closeDeleteDialog}
-              className={`${actionButtonClass} border-neutral-300`}
+              className={actionButtonClass}
             >
               {t("common.cancel")}
             </button>
@@ -400,7 +412,7 @@ export default function ProjectsPage() {
               type="button"
               onClick={() => void confirmDelete()}
               disabled={saving}
-              className={`${actionButtonClass} bg-red-600 font-medium text-white disabled:opacity-60`}
+              className={destructiveButtonClass}
             >
               {saving ? t("common.deleting") : t("common.confirmDelete")}
             </button>

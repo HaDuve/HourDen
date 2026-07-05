@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  cardClass,
+  errorBannerClass,
+  fieldLabelClass,
+  inputClass,
+  metaTextClass,
+  primaryButtonClass,
+} from "../layout/ui-classes.js";
 import { completeOnboarding } from "./onboarding-api.js";
 
 type InvoiceSenderFormData = {
@@ -101,21 +109,21 @@ export default function InvoiceSenderStepPage() {
   }
 
   return (
-    <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold">{t("onboarding.invoiceSenderTitle")}</h2>
-      <p className="mt-1 text-sm text-neutral-600">{t("onboarding.invoiceSenderHint")}</p>
+    <section className={`${cardClass} p-6 shadow-sm`}>
+      <h2 className="text-lg font-semibold text-content">{t("onboarding.invoiceSenderTitle")}</h2>
+      <p className={`mt-1 ${metaTextClass}`}>{t("onboarding.invoiceSenderHint")}</p>
 
       {error ? (
-        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p className={`mt-4 ${errorBannerClass}`}>
           {error}
         </p>
       ) : null}
 
       {loading ? (
-        <p className="mt-4 text-sm text-neutral-600">{t("onboarding.loading")}</p>
+        <p className={`mt-4 ${metaTextClass}`}>{t("onboarding.loading")}</p>
       ) : (
         <form onSubmit={handleSubmit} className="mt-4 grid gap-3">
-          <label className="grid gap-1 text-sm">
+          <label className={`grid gap-1 ${fieldLabelClass}`}>
             <span>{t("invoices.senderName")}</span>
             <input
               required
@@ -123,44 +131,44 @@ export default function InvoiceSenderStepPage() {
               onChange={(e) =>
                 setForm((current) => ({ ...current, name: e.target.value }))
               }
-              className="rounded-md border border-neutral-300 px-3 py-2"
+              className={inputClass}
             />
           </label>
 
-          <label className="grid gap-1 text-sm">
+          <label className={`grid gap-1 ${fieldLabelClass}`}>
             <span>{t("invoices.senderStreet")}</span>
             <input
               value={form.street}
               onChange={(e) =>
                 setForm((current) => ({ ...current, street: e.target.value }))
               }
-              className="rounded-md border border-neutral-300 px-3 py-2"
+              className={inputClass}
             />
           </label>
 
-          <label className="grid gap-1 text-sm">
+          <label className={`grid gap-1 ${fieldLabelClass}`}>
             <span>{t("invoices.senderCity")}</span>
             <input
               value={form.city}
               onChange={(e) =>
                 setForm((current) => ({ ...current, city: e.target.value }))
               }
-              className="rounded-md border border-neutral-300 px-3 py-2"
+              className={inputClass}
             />
           </label>
 
-          <label className="grid gap-1 text-sm">
+          <label className={`grid gap-1 ${fieldLabelClass}`}>
             <span>{t("invoices.senderTaxNumber")}</span>
             <input
               value={form.taxNumber}
               onChange={(e) =>
                 setForm((current) => ({ ...current, taxNumber: e.target.value }))
               }
-              className="rounded-md border border-neutral-300 px-3 py-2"
+              className={inputClass}
             />
           </label>
 
-          <label className="grid gap-1 text-sm">
+          <label className={`grid gap-1 ${fieldLabelClass}`}>
             <span>{t("invoices.senderEmail")}</span>
             <input
               required
@@ -169,51 +177,51 @@ export default function InvoiceSenderStepPage() {
               onChange={(e) =>
                 setForm((current) => ({ ...current, email: e.target.value }))
               }
-              className="rounded-md border border-neutral-300 px-3 py-2"
+              className={inputClass}
             />
           </label>
 
-          <label className="grid gap-1 text-sm">
+          <label className={`grid gap-1 ${fieldLabelClass}`}>
             <span>{t("invoices.senderPhone")}</span>
             <input
               value={form.phone}
               onChange={(e) =>
                 setForm((current) => ({ ...current, phone: e.target.value }))
               }
-              className="rounded-md border border-neutral-300 px-3 py-2"
+              className={inputClass}
             />
           </label>
 
-          <fieldset className="grid gap-3 rounded-md border border-neutral-200 p-3">
-            <legend className="px-1 text-sm font-medium">{t("invoices.bankDetails")}</legend>
-            <label className="grid gap-1 text-sm">
+          <fieldset className="grid gap-3 rounded-md border border-divider p-3">
+            <legend className={`px-1 ${fieldLabelClass}`}>{t("invoices.bankDetails")}</legend>
+            <label className={`grid gap-1 ${fieldLabelClass}`}>
               <span>{t("invoices.senderBankName")}</span>
               <input
                 value={form.bankName}
                 onChange={(e) =>
                   setForm((current) => ({ ...current, bankName: e.target.value }))
                 }
-                className="rounded-md border border-neutral-300 px-3 py-2"
+                className={inputClass}
               />
             </label>
-            <label className="grid gap-1 text-sm">
+            <label className={`grid gap-1 ${fieldLabelClass}`}>
               <span>{t("invoices.senderIban")}</span>
               <input
                 value={form.iban}
                 onChange={(e) =>
                   setForm((current) => ({ ...current, iban: e.target.value }))
                 }
-                className="rounded-md border border-neutral-300 px-3 py-2"
+                className={inputClass}
               />
             </label>
-            <label className="grid gap-1 text-sm">
+            <label className={`grid gap-1 ${fieldLabelClass}`}>
               <span>{t("invoices.senderBic")}</span>
               <input
                 value={form.bic}
                 onChange={(e) =>
                   setForm((current) => ({ ...current, bic: e.target.value }))
                 }
-                className="rounded-md border border-neutral-300 px-3 py-2"
+                className={inputClass}
               />
             </label>
           </fieldset>
@@ -222,7 +230,7 @@ export default function InvoiceSenderStepPage() {
             <button
               type="submit"
               disabled={saving}
-              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+              className={primaryButtonClass}
             >
               {saving ? t("common.saving") : t("onboarding.finish")}
             </button>

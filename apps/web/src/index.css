@@ -20,15 +20,35 @@
   --color-primary: #3b82f6;
   --color-primary-content: #ffffff;
 
+  /* Secondary actions (outline buttons, export, preview, invoice sender) */
+  --color-secondary: #1a222c;
+  --color-secondary-hover: #243040;
+  --color-secondary-content: #c5d0db;
+  --color-secondary-border: #3d4f63;
+
+  /* Form controls */
+  --color-input: #121820;
+  --color-input-border: #3d4f63;
+
   /* Hairlines / separators */
   --color-divider: #2a3441;
 
   /* Text hierarchy: high-contrast headings/body vs. muted meta */
   --color-content: #e6edf3;
-  --color-muted: #8b98a5;
+  --color-muted: #9aa8b5;
 
   /* Status */
   --color-danger: #f87171;
+  --color-destructive: #dc2626;
+  --color-destructive-content: #ffffff;
+  --color-destructive-hover: #b91c1c;
+  --color-destructive-border: #7f1d1d;
+  --color-destructive-muted: #2a1212;
+
+  /* Running timer / active entry accent */
+  --color-accent: #34d399;
+  --color-accent-border: #059669;
+  --color-accent-muted: #0f2922;
 }
 
 body {
@@ -42,4 +62,5 @@ body {
     sans-serif;
   background: var(--color-background);
   color: var(--color-content);
+  color-scheme: dark;
 }

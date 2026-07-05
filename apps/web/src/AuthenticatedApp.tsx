@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Outlet } from "react-router-dom";
 import { LocaleProvider } from "./LocaleProvider.js";
+import { metaTextClass } from "./layout/ui-classes.js";
 
 type AuthState =
   | { status: "loading" }
@@ -53,7 +54,7 @@ export default function AuthenticatedApp() {
 
   if (auth.status === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-neutral-600">
+      <div className={`flex min-h-screen items-center justify-center ${metaTextClass}`}>
         {t("common.loading")}
       </div>
     );

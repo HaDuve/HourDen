@@ -10,6 +10,7 @@ import {
   writeStoredLocale,
 } from "./locale/storage.js";
 import { updateUserLocale } from "./locale/update-user-locale.js";
+import { metaTextClass } from "./layout/ui-classes.js";
 
 type LocaleProviderProps = {
   children: ReactNode;
@@ -62,7 +63,7 @@ export function LocaleProvider({ children, userLocale }: LocaleProviderProps) {
 
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-neutral-600">
+      <div className={`flex min-h-screen items-center justify-center ${metaTextClass}`}>
         {t("common.loading")}
       </div>
     );

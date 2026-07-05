@@ -1,5 +1,6 @@
 import type { DescriptionSuggestion } from "@hourden/domain";
 import { useEffect, useId, useRef, useState } from "react";
+import { inputClass } from "./layout/ui-classes.js";
 import { useDebouncedValue } from "./useDebouncedValue.js";
 
 const SUGGESTION_DEBOUNCE_MS = 300;
@@ -32,7 +33,7 @@ export function DescriptionAutocomplete({
   required = false,
   onChange,
   onSuggestionSelect,
-  inputClassName = "rounded-md border border-neutral-300 px-3 py-2",
+  inputClassName = inputClass,
 }: DescriptionAutocompleteProps) {
   const listboxId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -114,14 +115,14 @@ export function DescriptionAutocomplete({
           <ul
             id={listboxId}
             role="listbox"
-            className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border border-neutral-200 bg-white py-1 shadow-lg"
+            className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border border-divider bg-surface py-1 shadow-lg"
           >
             {suggestions.map((suggestion) => (
               <li key={suggestion.description} role="presentation">
                 <button
                   type="button"
                   role="option"
-                  className="block w-full px-3 py-2 text-left text-sm hover:bg-neutral-100"
+                  className="block w-full px-3 py-2 text-left text-sm text-content hover:bg-surface-hover"
                   onMouseDown={(event) => {
                     event.preventDefault();
                   }}

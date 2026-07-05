@@ -8,7 +8,20 @@ import { currentMonthRange } from "./date-range.js";
 import { IssuedInvoicesList } from "./layout/IssuedInvoicesList.js";
 import { PageMain } from "./layout/PageMain.js";
 import { ResponsiveOverlay } from "./layout/ResponsiveOverlay.js";
-import { mobilePrimaryButtonClass } from "./layout/tap-targets.js";
+import {
+  mobilePrimaryButtonClass,
+  mobileSecondaryButtonClass,
+} from "./layout/tap-targets.js";
+import {
+  emptyStateClass,
+  errorBannerClass,
+  fieldLabelClass,
+  inputClass,
+  metaTextClass,
+  pageTitleClass,
+  panelClass,
+  selectClass,
+} from "./layout/ui-classes.js";
 import { useIsMobile } from "./layout/use-is-mobile.js";
 
 type IssuedInvoice = {
@@ -713,14 +726,12 @@ export default function InvoicesPage() {
 
   const isMobile = useIsMobile();
   const primaryButtonClass = mobilePrimaryButtonClass(isMobile);
-  const secondaryButtonClass = isMobile
-    ? "min-h-11 rounded-md border border-neutral-300 bg-white px-4 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
-    : "rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50";
+  const secondaryButtonClass = mobileSecondaryButtonClass(isMobile);
 
   return (
     <PageMain>
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-slate-900">{t("invoices.title")}</h1>
+        <h1 className={pageTitleClass}>{t("invoices.title")}</h1>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -742,21 +753,21 @@ export default function InvoicesPage() {
             type="button"
             onClick={() => void handleIssue()}
             disabled={issueDisabled}
-            className={`${primaryButtonClass} bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50`}
+            className={primaryButtonClass}
           >
             {issuing ? t("invoices.issuing") : t("invoices.issueInvoice")}
           </button>
         </div>
       </div>
 
-      <div className="mb-8 flex flex-wrap gap-6 rounded-lg border border-neutral-200 bg-neutral-50/50 p-4">
-        <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-sm text-neutral-700">
+      <div className={`mb-8 flex flex-wrap gap-6 ${panelClass}`}>
+        <label className={`flex min-w-[12rem] flex-1 flex-col gap-1 ${fieldLabelClass}`}>
           {t("invoices.client")}
           <select
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
             disabled={loading || clients.length === 0}
-            className="rounded-md border border-neutral-300 px-3 py-2"
+            className={selectClass}
           >
             {clients.length === 0 ? (
               <option value="">{t("invoices.noClients")}</option>
@@ -781,26 +792,26 @@ export default function InvoicesPage() {
       </div>
 
       {error ? (
-        <p className="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p className={`mb-4 ${errorBannerClass}`}>
           {error}
         </p>
       ) : null}
 
       {invoiceNumber ? (
         <div className="mb-4 space-y-3">
-          <label className="flex items-center gap-2 text-sm text-neutral-700">
+          <label className={`flex items-center gap-2 ${fieldLabelClass}`}>
             <input
               type="checkbox"
               aria-label={t("invoices.usePrefix")}
               checked={usePrefix}
               onChange={(e) => handleUsePrefixChange(e.target.checked)}
               disabled={previewing || issuing}
-              className="rounded border-neutral-300"
+              className="rounded border-input"
             />
             {t("invoices.usePrefix")}
           </label>
 
-          <label className="flex max-w-xs flex-col gap-1 text-sm text-neutral-700">
+          <label className={`flex max-w-xs flex-col gap-1 ${fieldLabelClass}`}>
             {t("invoices.invoicePrefix")}
             <input
               type="text"
@@ -808,30 +819,30 @@ export default function InvoicesPage() {
               value={invoicePrefix ?? ""}
               onChange={(e) => handleInvoicePrefixChange(e.target.value)}
               disabled={previewing || issuing}
-              className="rounded-md border border-neutral-300 px-3 py-2 font-medium uppercase text-neutral-900"
+              className={`${inputClass} font-medium uppercase`}
             />
           </label>
 
-          <label className="flex max-w-xs flex-col gap-1 text-sm text-neutral-700">
+          <label className={`flex max-w-xs flex-col gap-1 ${fieldLabelClass}`}>
             {t("invoices.invoiceNumber")}
             <input
               type="text"
               value={invoiceNumber}
               onChange={(e) => handleInvoiceNumberChange(e.target.value)}
               disabled={previewing || issuing}
-              className="rounded-md border border-neutral-300 px-3 py-2 font-medium text-neutral-900"
+              className={`${inputClass} font-medium`}
             />
           </label>
 
           {invoiceNumberExists ? (
-            <p className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <p className="rounded-md border border-accent-border bg-accent-muted px-4 py-3 text-sm text-accent">
               {t("invoices.invoiceNumberExists")}
             </p>
           ) : null}
 
           {invoiceNumberEdited && numberingPreview ? (
-            <fieldset className="rounded-md border border-neutral-200 bg-neutral-50 px-4 py-3">
-              <legend className="px-1 text-sm font-medium text-neutral-900">
+            <fieldset className="rounded-md border border-divider bg-surface px-4 py-3">
+              <legend className={`px-1 ${fieldLabelClass}`}>
                 {usePrefix
                   ? t("invoices.futureInvoicesForClient", {
                       year: invoiceYearFromPeriodEnd(to),
@@ -840,7 +851,7 @@ export default function InvoicesPage() {
                       year: invoiceYearFromPeriodEnd(to),
                     })}
               </legend>
-              <div className="mt-2 space-y-2 text-sm text-neutral-700">
+              <div className={`mt-2 space-y-2 ${fieldLabelClass}`}>
                 <label className="flex cursor-pointer items-start gap-2">
                   <input
                     type="radio"
@@ -852,7 +863,7 @@ export default function InvoicesPage() {
                   />
                   <span>
                     {t("invoices.continueSuggestedSequence")}
-                    <span className="mt-0.5 block text-neutral-500">
+                    <span className="mt-0.5 block text-muted">
                       {t("invoices.nextNumber", {
                         number: numberingPreview.nextIfIssued.sequential,
                       })}
@@ -870,7 +881,7 @@ export default function InvoicesPage() {
                   />
                   <span>
                     {t("invoices.continueFromThisNumber")}
-                    <span className="mt-0.5 block text-neutral-500">
+                    <span className="mt-0.5 block text-muted">
                       {t("invoices.nextNumber", {
                         number: numberingPreview.nextIfIssued.fromLast,
                       })}
@@ -887,7 +898,7 @@ export default function InvoicesPage() {
         <iframe
           title={t("invoices.invoicePreview")}
           src={previewUrl}
-          className="h-[70vh] w-full rounded-md border border-neutral-200"
+          className="h-[70vh] w-full rounded-md border border-divider"
         />
       ) : null}
 
@@ -899,14 +910,14 @@ export default function InvoicesPage() {
           <iframe
             title={t("invoices.invoicePreview")}
             src={previewUrl}
-            className="h-[70vh] w-full rounded-md border border-neutral-200"
+            className="h-[70vh] w-full rounded-md border border-divider"
           />
         </ResponsiveOverlay>
       ) : null}
 
       <section className="mt-10">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
-          <h2 className="text-lg font-medium text-slate-900">{t("invoices.issuedInvoices")}</h2>
+          <h2 className="text-lg font-medium text-content">{t("invoices.issuedInvoices")}</h2>
           <div
             className={`flex gap-3 ${
               isMobile
@@ -915,7 +926,7 @@ export default function InvoicesPage() {
             }`}
           >
             <label
-              className={`flex flex-col gap-1 text-sm text-neutral-700 ${
+              className={`flex flex-col gap-1 ${fieldLabelClass} ${
                 isMobile ? "min-w-0 flex-1" : "min-w-[10rem]"
               }`}
             >
@@ -924,9 +935,7 @@ export default function InvoicesPage() {
                 value={exportClientId}
                 onChange={(e) => setExportClientId(e.target.value)}
                 disabled={loading || clients.length === 0}
-                className={`rounded-md border border-neutral-300 px-3 py-2${
-                  isMobile ? " min-h-11 w-full" : ""
-                }`}
+                className={`${selectClass}${isMobile ? " min-h-11 w-full" : ""}`}
               >
                 <option value="">{t("invoices.allClients")}</option>
                 {clients.map((client) => (
@@ -936,7 +945,7 @@ export default function InvoicesPage() {
                 ))}
               </select>
             </label>
-            <label className="flex flex-col gap-1 text-sm text-neutral-700">
+            <label className={`flex flex-col gap-1 ${fieldLabelClass}`}>
               {t("invoices.exportYear")}
               <input
                 type="number"
@@ -945,25 +954,21 @@ export default function InvoicesPage() {
                 placeholder={t("invoices.allYears")}
                 value={exportYear}
                 onChange={(e) => setExportYear(e.target.value)}
-                className={`rounded-md border border-neutral-300 px-3 py-2${
-                  isMobile ? " min-h-11 w-full" : " w-28"
-                }`}
+                className={`${inputClass}${isMobile ? " min-h-11 w-full" : " w-28"}`}
               />
             </label>
             <button
               type="button"
               onClick={() => void handleExportOutgoing()}
               disabled={exporting || loading}
-              className={`${primaryButtonClass} bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50${
-                isMobile ? " w-full" : ""
-              }`}
+              className={`${secondaryButtonClass}${isMobile ? " w-full" : ""}`}
             >
               {exporting ? t("invoices.exporting") : t("invoices.exportOutgoing")}
             </button>
           </div>
         </div>
         {issuedInvoices.length === 0 ? (
-          <p className="rounded-md border border-neutral-200 bg-white px-4 py-6 text-sm text-neutral-600">
+          <p className={`${emptyStateClass} py-6`}>
             {t("invoices.noIssuedInvoices")}
           </p>
         ) : (
@@ -981,17 +986,17 @@ export default function InvoicesPage() {
         <ResponsiveOverlay ariaLabel={t("invoices.senderTitle")}>
           <form onSubmit={handleSaveSender} className="w-full">
             <h2 className="text-lg font-semibold">{t("invoices.senderTitle")}</h2>
-            <p className="mt-1 text-sm text-neutral-600">
+            <p className={`mt-1 ${metaTextClass}`}>
               {invoiceSenderConfigured
                 ? t("invoices.senderConfiguredHint")
                 : t("invoices.senderMissingHint")}
             </p>
 
             {loadingSender ? (
-              <p className="mt-4 text-sm text-neutral-600">{t("invoices.loading")}</p>
+              <p className={`mt-4 ${metaTextClass}`}>{t("invoices.loading")}</p>
             ) : (
               <div className="mt-4 grid gap-3">
-                <label className="grid gap-1 text-sm">
+                <label className={`grid gap-1 ${fieldLabelClass}`}>
                   {t("invoices.senderName")}
                   <input
                     required
@@ -1002,11 +1007,11 @@ export default function InvoicesPage() {
                         name: e.target.value,
                       }))
                     }
-                    className="rounded-md border border-neutral-300 px-3 py-2"
+                    className={inputClass}
                   />
                 </label>
 
-                <label className="grid gap-1 text-sm">
+                <label className={`grid gap-1 ${fieldLabelClass}`}>
                   {t("invoices.senderStreet")}
                   <input
                     value={senderForm.street}
@@ -1016,11 +1021,11 @@ export default function InvoicesPage() {
                         street: e.target.value,
                       }))
                     }
-                    className="rounded-md border border-neutral-300 px-3 py-2"
+                    className={inputClass}
                   />
                 </label>
 
-                <label className="grid gap-1 text-sm">
+                <label className={`grid gap-1 ${fieldLabelClass}`}>
                   {t("invoices.senderCity")}
                   <input
                     value={senderForm.city}
@@ -1030,11 +1035,11 @@ export default function InvoicesPage() {
                         city: e.target.value,
                       }))
                     }
-                    className="rounded-md border border-neutral-300 px-3 py-2"
+                    className={inputClass}
                   />
                 </label>
 
-                <label className="grid gap-1 text-sm">
+                <label className={`grid gap-1 ${fieldLabelClass}`}>
                   {t("invoices.senderTaxNumber")}
                   <input
                     value={senderForm.taxNumber}
@@ -1044,11 +1049,11 @@ export default function InvoicesPage() {
                         taxNumber: e.target.value,
                       }))
                     }
-                    className="rounded-md border border-neutral-300 px-3 py-2"
+                    className={inputClass}
                   />
                 </label>
 
-                <label className="grid gap-1 text-sm">
+                <label className={`grid gap-1 ${fieldLabelClass}`}>
                   {t("invoices.senderEmail")}
                   <input
                     required
@@ -1060,11 +1065,11 @@ export default function InvoicesPage() {
                         email: e.target.value,
                       }))
                     }
-                    className="rounded-md border border-neutral-300 px-3 py-2"
+                    className={inputClass}
                   />
                 </label>
 
-                <label className="grid gap-1 text-sm">
+                <label className={`grid gap-1 ${fieldLabelClass}`}>
                   {t("invoices.senderPhone")}
                   <input
                     value={senderForm.phone}
@@ -1074,13 +1079,13 @@ export default function InvoicesPage() {
                         phone: e.target.value,
                       }))
                     }
-                    className="rounded-md border border-neutral-300 px-3 py-2"
+                    className={inputClass}
                   />
                 </label>
 
-                <fieldset className="grid gap-3 rounded-md border border-neutral-200 p-3">
-                  <legend className="px-1 text-sm font-medium">{t("invoices.bankDetails")}</legend>
-                  <label className="grid gap-1 text-sm">
+                <fieldset className="grid gap-3 rounded-md border border-divider p-3">
+                  <legend className={`px-1 ${fieldLabelClass}`}>{t("invoices.bankDetails")}</legend>
+                  <label className={`grid gap-1 ${fieldLabelClass}`}>
                     {t("invoices.senderBankName")}
                     <input
                       value={senderForm.bankName}
@@ -1090,10 +1095,10 @@ export default function InvoicesPage() {
                           bankName: e.target.value,
                         }))
                       }
-                      className="rounded-md border border-neutral-300 px-3 py-2"
+                      className={inputClass}
                     />
                   </label>
-                  <label className="grid gap-1 text-sm">
+                  <label className={`grid gap-1 ${fieldLabelClass}`}>
                     {t("invoices.senderIban")}
                     <input
                       value={senderForm.iban}
@@ -1103,10 +1108,10 @@ export default function InvoicesPage() {
                           iban: e.target.value,
                         }))
                       }
-                      className="rounded-md border border-neutral-300 px-3 py-2"
+                      className={inputClass}
                     />
                   </label>
-                  <label className="grid gap-1 text-sm">
+                  <label className={`grid gap-1 ${fieldLabelClass}`}>
                     {t("invoices.senderBic")}
                     <input
                       value={senderForm.bic}
@@ -1116,7 +1121,7 @@ export default function InvoicesPage() {
                           bic: e.target.value,
                         }))
                       }
-                      className="rounded-md border border-neutral-300 px-3 py-2"
+                      className={inputClass}
                     />
                   </label>
                 </fieldset>
@@ -1127,14 +1132,14 @@ export default function InvoicesPage() {
               <button
                 type="button"
                 onClick={closeSenderEditor}
-                className="rounded-md border border-neutral-300 px-4 py-2 text-sm"
+                className={secondaryButtonClass}
               >
                 {t("invoices.cancel")}
               </button>
               <button
                 type="submit"
                 disabled={savingSender || loadingSender}
-                className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                className={primaryButtonClass}
               >
                 {savingSender ? t("invoices.saving") : t("invoices.save")}
               </button>

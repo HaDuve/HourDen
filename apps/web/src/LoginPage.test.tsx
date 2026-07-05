@@ -3,6 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 import LoginPage from "./LoginPage.js";
 
 describe("LoginPage", () => {
+  it("renders on a dark semantic-token background", () => {
+    render(<LoginPage />);
+    const shell = screen.getByRole("heading", { name: /hourden/i }).closest("div");
+    expect(shell?.parentElement).toHaveClass("bg-background");
+    expect(shell).toHaveClass("bg-surface", "border-divider");
+  });
+
   it("submits credentials to the login API", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
