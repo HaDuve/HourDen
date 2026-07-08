@@ -31,6 +31,38 @@ describe("generateInvoicePdf layout", () => {
     expect(lines).toContain("Am Deichfleet 116 Schloßbergstraße 1");
     expect(lines).toContain("28357 Bremen 82319 Starnberg");
     expect(lines).toContain("Steuernummer: 06044/47008");
+    expect(lines).toContain("Mail: hannes.duve@outlook.com");
+    expect(lines).toContain("Tel.: +49 15734521445");
+  });
+
+  it("places Mail and phone directly under the Invoice Sender block", async () => {
+    const lines = normalizeLines(
+      await extractPdfText(await generateInvoicePdf(bandaoFixture)),
+    );
+
+    const mailIdx = lines.indexOf("Mail: hannes.duve@outlook.com");
+    const paymentIdx = lines.indexOf("Zahlungsinformationen:");
+    const leistungsIdx = lines.indexOf("Leistungsnachweis");
+
+    expect(mailIdx).toBeGreaterThanOrEqual(0);
+    expect(paymentIdx).toBeGreaterThan(mailIdx);
+    expect(leistungsIdx).toBeGreaterThan(mailIdx);
+    expect(lines.filter((line) => line.startsWith("Mail:"))).toHaveLength(1);
+  });
+
+  it("omits the §19 UStG text when Kleinunternehmerregelung is not used", async () => {
+    const lines = normalizeLines(
+      await extractPdfText(
+        await generateInvoicePdf({
+          ...bandaoFixture,
+          usesSmallBusinessRule: false,
+        }),
+      ),
+    );
+
+    expect(
+      lines.some((line) => line.startsWith("Gemäß § 19 UStG")),
+    ).toBe(false);
   });
 
   it("keeps payment terms and §19 UStG text on single lines like the Python PDF", async () => {

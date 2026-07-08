@@ -34,6 +34,7 @@ export type GenerateInvoicePdfInput = {
   recipient: InvoiceRecipient;
   lines: InvoiceLine[];
   operator: InvoiceOperator;
+  usesSmallBusinessRule?: boolean;
 };
 
 const MM = 72 / 25.4;
@@ -128,6 +129,9 @@ function drawTableCell(
     lineBreak: true,
   });
 }
+
+const SMALL_BUSINESS_RULE_TEXT =
+  "Gemäß § 19 UStG enthält der ausgewiesene Betrag keine Umsatzsteuer.";
 
 function measureTableRowHeight(
   doc: PdfDoc,
@@ -235,6 +239,24 @@ export function generateInvoicePdf(input: GenerateInvoicePdfInput): Promise<Buff
       `Steuernummer: ${input.operator.taxNumber}`,
       { fontSize: 9 },
     );
+    y = drawFullLine(
+      doc,
+      margin,
+      y,
+      halfWidth,
+      mm(5),
+      `Mail: ${input.operator.email}`,
+      { fontSize: 9 },
+    );
+    y = drawFullLine(
+      doc,
+      margin,
+      y,
+      halfWidth,
+      mm(5),
+      `Tel.: ${input.operator.phone}`,
+      { fontSize: 9 },
+    );
     y += mm(3);
 
     y = drawFullLine(
@@ -331,26 +353,6 @@ export function generateInvoicePdf(input: GenerateInvoicePdfInput): Promise<Buff
       "Zahlungsbedingungen: Zahlbar innerhalb von 14 Tagen ohne Abzug.",
       { fontSize: 10 },
     );
-    y += mm(3);
-
-    y = drawFullLine(
-      doc,
-      margin,
-      y,
-      contentWidth,
-      mm(5),
-      `Mail: ${input.operator.email}`,
-      { fontSize: 10 },
-    );
-    y = drawFullLine(
-      doc,
-      margin,
-      y,
-      contentWidth,
-      mm(5),
-      `Tel.: ${input.operator.phone}`,
-      { fontSize: 10 },
-    );
     y += mm(5);
 
     y = drawFullLine(
@@ -443,15 +445,17 @@ export function generateInvoicePdf(input: GenerateInvoicePdfInput): Promise<Buff
     );
     y += mm(2);
 
-    drawFullLine(
-      doc,
-      margin,
-      y,
-      contentWidth,
-      mm(5),
-      "Gemäß § 19 UStG enthält der ausgewiesene Betrag keine Umsatzsteuer.",
-      { fontSize: 9 },
-    );
+    if (input.usesSmallBusinessRule !== false) {
+      drawFullLine(
+        doc,
+        margin,
+        y,
+        contentWidth,
+        mm(5),
+        SMALL_BUSINESS_RULE_TEXT,
+        { fontSize: 9 },
+      );
+    }
 
     doc.end();
   });

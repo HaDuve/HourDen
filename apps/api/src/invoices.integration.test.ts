@@ -411,7 +411,68 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
         totalAmount: 66,
         totalDurationMinutes: 66,
       },
+      usesSmallBusinessRule: true,
     });
+  });
+
+  it("omits §19 UStG text when Kleinunternehmerregelung is declined", async () => {
+    const bandao = await createClient(getWorkspace().app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
+
+    await getWorkspace().app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "App Development",
+        startedAt: "2026-06-18T14:33:00.000Z",
+        endedAt: "2026-06-18T15:39:00.000Z",
+      }),
+    });
+
+    const preview = await getWorkspace().app.request("/api/invoices/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-18",
+        to: "2026-06-30",
+        usesSmallBusinessRule: false,
+      }),
+    });
+
+    expect(preview.status).toBe(200);
+    const previewText = await pdfText(await preview.arrayBuffer());
+    expect(previewText).not.toContain("Gemäß § 19 UStG");
+
+    const issued = await getWorkspace().app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-18",
+        to: "2026-06-30",
+        usesSmallBusinessRule: false,
+      }),
+    });
+
+    expect(issued.status).toBe(201);
+
+    const row = await getWorkspace().pool.query<{ snapshot: InvoiceIssuanceSnapshot; id: string }>(
+      "SELECT id, snapshot FROM invoices LIMIT 1",
+    );
+    expect(row.rows[0]!.snapshot.usesSmallBusinessRule).toBe(false);
+
+    const reconstructed = await getWorkspace().app.request(
+      `/api/invoices/${row.rows[0]!.id}/pdf`,
+    );
+    const reconstructedText = await pdfText(await reconstructed.arrayBuffer());
+    expect(reconstructedText).not.toContain("Gemäß § 19 UStG");
   });
 
   it("captures Workspace Invoice Sender in issuance snapshot, not process env", async () => {

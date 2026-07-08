@@ -219,6 +219,7 @@ export default function InvoicesPage() {
   const [usePrefix, setUsePrefix] = useState(true);
   const [invoiceNumberSeqBeforeYear, setInvoiceNumberSeqBeforeYear] =
     useState(false);
+  const [usesSmallBusinessRule, setUsesSmallBusinessRule] = useState(true);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewSheetOpen, setPreviewSheetOpen] = useState(false);
   const [issuedInvoices, setIssuedInvoices] = useState<IssuedInvoice[]>([]);
@@ -405,6 +406,7 @@ export default function InvoicesPage() {
       invoicePrefix?: string;
       usePrefix?: boolean;
       invoiceNumberSeqBeforeYear?: boolean;
+      usesSmallBusinessRule?: boolean;
     }) => {
       if (!clientId) {
         setPlainAlert(t("invoices.selectClientBeforePreview"));
@@ -424,15 +426,21 @@ export default function InvoicesPage() {
           invoicePrefix?: string;
           usePrefix?: boolean;
           invoiceNumberSeqBeforeYear?: boolean;
+          usesSmallBusinessRule?: boolean;
         } = { clientId, from, to };
         const nextUsePrefix = options?.usePrefix ?? usePrefix;
         const nextInvoiceNumberSeqBeforeYear =
           options?.invoiceNumberSeqBeforeYear ?? invoiceNumberSeqBeforeYear;
+        const nextUsesSmallBusinessRule =
+          options?.usesSmallBusinessRule ?? usesSmallBusinessRule;
         if (!nextUsePrefix) {
           body.usePrefix = false;
         }
         if (nextInvoiceNumberSeqBeforeYear) {
           body.invoiceNumberSeqBeforeYear = true;
+        }
+        if (!nextUsesSmallBusinessRule) {
+          body.usesSmallBusinessRule = false;
         }
         if (options?.invoiceNumber) {
           body.invoiceNumber = options.invoiceNumber;
@@ -514,6 +522,7 @@ export default function InvoicesPage() {
       to,
       usePrefix,
       invoiceNumberSeqBeforeYear,
+      usesSmallBusinessRule,
       clearPreviewBlob,
       refreshNumberingPreview,
       invoiceSenderConfigured,
@@ -538,6 +547,14 @@ export default function InvoicesPage() {
             : undefined,
         invoicePrefix: invoicePrefix ?? undefined,
       });
+    }
+  }
+
+  function handleUsesSmallBusinessRuleChange(checked: boolean) {
+    setUsesSmallBusinessRule(checked);
+
+    if (previewUrl) {
+      void requestPreview({ usesSmallBusinessRule: checked });
     }
   }
 
@@ -647,12 +664,16 @@ export default function InvoicesPage() {
         numberingStrategy?: InvoiceNumberingStrategy;
         usePrefix?: boolean;
         invoiceNumberSeqBeforeYear?: boolean;
+        usesSmallBusinessRule?: boolean;
       } = { clientId, from, to, invoiceNumber };
       if (!usePrefix) {
         body.usePrefix = false;
       }
       if (invoiceNumberSeqBeforeYear) {
         body.invoiceNumberSeqBeforeYear = true;
+      }
+      if (!usesSmallBusinessRule) {
+        body.usesSmallBusinessRule = false;
       }
       if (invoicePrefix) {
         body.invoicePrefix = invoicePrefix;
@@ -849,6 +870,20 @@ export default function InvoicesPage() {
             setTo(nextTo);
           }}
         />
+      </div>
+
+      <div className={`mb-8 ${panelClass}`}>
+        <label className={`flex items-center gap-2 ${fieldLabelClass}`}>
+          <input
+            type="checkbox"
+            aria-label={t("invoices.usesSmallBusinessRule")}
+            checked={usesSmallBusinessRule}
+            onChange={(e) => handleUsesSmallBusinessRuleChange(e.target.checked)}
+            disabled={previewing || issuing || !clientId}
+            className="rounded border-input"
+          />
+          {t("invoices.usesSmallBusinessRule")}
+        </label>
       </div>
 
       {alert ? (

@@ -92,6 +92,7 @@
     "exporting": "Exporting…",
     "usePrefix": "Use prefix",
     "invoiceNumberSeqBeforeYear": "Sequence before year",
+    "usesSmallBusinessRule": "Uses Kleinunternehmerregelung (§19 UStG)",
     "invoicePrefix": "Invoice Prefix",
     "invoiceNumber": "Invoice Number",
     "invoiceNumberExists": "Invoice Number already exists in this Workspace.",
