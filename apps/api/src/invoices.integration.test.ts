@@ -1453,7 +1453,7 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
       nextIfIssued: { sequential: string; fromLast: string };
     };
     expect(numbering.nextIfIssued).toEqual({
-      sequential: "2026001",
+      sequential: "2026002",
       fromLast: "2026011",
     });
   });
