@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   deriveDefaultInvoicePrefix,
   invoiceNumberExists,
+  isValidAnyInvoiceNumber,
   nextInvoiceNumber,
   nextPrefixedInvoiceNumber,
   previewNextInvoiceNumbers,
+  previewNextPrefixedInvoiceNumbers,
 } from "./invoice-number.js";
 
 describe("deriveDefaultInvoicePrefix", () => {
@@ -99,5 +101,31 @@ describe("invoiceNumberExists", () => {
   it("returns true when the number is already issued for the Client", () => {
     expect(invoiceNumberExists(["2026001"], "2026001")).toBe(true);
     expect(invoiceNumberExists(["2026001"], "2026002")).toBe(false);
+  });
+});
+
+describe("isValidAnyInvoiceNumber", () => {
+  it("accepts hyphen-separated Invoice Numbers when hyphens are separators only", () => {
+    expect(isValidAnyInvoiceNumber("BAN-2026-001", 2026)).toBe(true);
+    expect(isValidAnyInvoiceNumber("2026-001", 2026)).toBe(true);
+    expect(isValidAnyInvoiceNumber("001-2026", 2026)).toBe(true);
+    expect(isValidAnyInvoiceNumber("BAN-001-2026", 2026)).toBe(true);
+  });
+
+  it("rejects hyphen placement that does not match allowed separator patterns", () => {
+    expect(isValidAnyInvoiceNumber("BAN-20-26-001", 2026)).toBe(false);
+    expect(isValidAnyInvoiceNumber("BA-N-2026-001", 2026)).toBe(false);
+    expect(isValidAnyInvoiceNumber("BAN-2026-01", 2026)).toBe(false);
+  });
+});
+
+describe("previewNextPrefixedInvoiceNumbers", () => {
+  it("returns correct next numbers when the issued number used separator hyphens", () => {
+    expect(
+      previewNextPrefixedInvoiceNumbers([], "BAN", 2026, "BAN-2026-010"),
+    ).toEqual({
+      sequential: "BAN2026002",
+      fromLast: "BAN2026011",
+    });
   });
 });

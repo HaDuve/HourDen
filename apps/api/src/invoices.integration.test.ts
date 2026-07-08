@@ -1423,6 +1423,102 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
     expect(duplicatePreview.headers.get("x-invoice-number-exists")).toBe("true");
   });
 
+  it("preview and issue accept a hyphen-separated Invoice Number", async () => {
+    const bandao = await createClient(getWorkspace().app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
+
+    await getWorkspace().app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "Billable work",
+        startedAt: "2026-06-18T10:00:00.000Z",
+        endedAt: "2026-06-18T11:00:00.000Z",
+      }),
+    });
+
+    const preview = await getWorkspace().app.request("/api/invoices/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+        invoiceNumber: "BAN-2026-010",
+      }),
+    });
+
+    expect(preview.status).toBe(200);
+    expect(preview.headers.get("x-invoice-number")).toBe("BAN-2026-010");
+    expect(preview.headers.get("x-suggested-invoice-number")).toBe("BAN2026001");
+
+    const numberingPreview = await getWorkspace().app.request(
+      `/api/invoices/numbering-preview?clientId=${bandao.id}&invoiceNumber=BAN-2026-010&year=2026`,
+    );
+    expect(numberingPreview.status).toBe(200);
+    const numbering = (await numberingPreview.json()) as {
+      nextIfIssued: { sequential: string; fromLast: string };
+    };
+    expect(numbering.nextIfIssued).toEqual({
+      sequential: "BAN2026002",
+      fromLast: "BAN2026011",
+    });
+
+    const issued = await getWorkspace().app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+        invoiceNumber: "BAN-2026-010",
+        numberingStrategy: "from_last",
+      }),
+    });
+
+    expect(issued.status).toBe(201);
+    expect(issued.headers.get("x-invoice-number")).toBe("BAN-2026-010");
+  });
+
+  it("numbering-preview handles a hyphen-separated plain Invoice Number", async () => {
+    const hannah = await createClient(getWorkspace().app, {
+      name: "Hannah",
+      legalName: "Hannah Coaching",
+      addressLine1: "Main Street 1",
+      addressLine2: "10115 Berlin",
+    });
+    const coaching = await createProject(getWorkspace().app, hannah.id, "Coaching");
+
+    await getWorkspace().app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: coaching.id,
+        description: "Billable work",
+        startedAt: "2026-06-18T10:00:00.000Z",
+        endedAt: "2026-06-18T11:00:00.000Z",
+      }),
+    });
+
+    const numberingPreview = await getWorkspace().app.request(
+      `/api/invoices/numbering-preview?clientId=${hannah.id}&invoiceNumber=2026-010&year=2026&usePrefix=false`,
+    );
+    expect(numberingPreview.status).toBe(200);
+    const numbering = (await numberingPreview.json()) as {
+      nextIfIssued: { sequential: string; fromLast: string };
+    };
+    expect(numbering.nextIfIssued).toEqual({
+      sequential: "2026002",
+      fromLast: "2026011",
+    });
+  });
+
   it("issues with an edited Invoice Number and persists the chosen numbering strategy", async () => {
     const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",

@@ -920,6 +920,71 @@ describe("InvoicesPage", () => {
     });
   });
 
+  it("re-previews the PDF after editing to a hyphen-separated Invoice Number", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        const body = JSON.parse(init.body as string) as { invoiceNumber?: string };
+        const number = body.invoiceNumber ?? "BAN2026001";
+        return Promise.resolve(
+          new Response(new Blob(["%PDF-preview"], { type: "application/pdf" }), {
+            status: 200,
+            headers: {
+              "Content-Type": "application/pdf",
+              "X-Invoice-Number": number,
+              "X-Suggested-Invoice-Number": "BAN2026001",
+              "X-Invoice-Number-Exists": "false",
+            },
+          }),
+        );
+      }
+      if (url.startsWith("/api/invoices/numbering-preview")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            exists: false,
+            suggestedNumber: "BAN2026001",
+            nextIfIssued: { sequential: "BAN2026002", fromLast: "BAN2026011" },
+          }),
+        });
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderInvoicesPage();
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
+    });
+
+    fireEvent.change(screen.getByLabelText(/^invoice number$/i), {
+      target: { value: "BAN-2026-010" },
+    });
+
+    await waitFor(
+      () => {
+        const previewCalls = fetchMock.mock.calls.filter(
+          ([callUrl, callInit]) =>
+            callUrl === "/api/invoices/preview" && callInit?.method === "POST",
+        );
+        const lastCall = previewCalls.at(-1);
+        expect(lastCall).toBeDefined();
+        const body = JSON.parse(lastCall![1]!.body as string) as {
+          invoiceNumber?: string;
+        };
+        expect(body.invoiceNumber).toBe("BAN-2026-010");
+      },
+      { timeout: 2000 },
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN-2026-010");
+    });
+  });
+
   it("shows a warning when the edited Invoice Number already exists", async () => {
     const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
       if (url === "/api/invoices/preview" && init?.method === "POST") {

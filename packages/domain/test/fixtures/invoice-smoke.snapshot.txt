@@ -4,6 +4,8 @@ Hannes Duve <LEGAL_NAME>
 Am Deichfleet 116 Example Street 1
 28357 Bremen 12345 Example City
 Steuernummer: 06044/47008
+Mail: hannes.duve@outlook.com
+Tel.: +49 15734521445
 Rechnungsnummer: <INVOICE_NUMBER>
 Rechnungsdatum: 30.06.2026
 Leistungszeitraum: 01.06.2026 - 30.06.2026
@@ -14,8 +16,6 @@ IBAN: DE74 120300001060924758
 BIC: BYLADEM1001
 Fälligkeitsdatum: 14.07.2026
 Zahlungsbedingungen: Zahlbar innerhalb von 14 Tagen ohne Abzug.
-Mail: hannes.duve@outlook.com
-Tel.: +49 15734521445
 Leistungsnachweis
 Datum Beschreibung Dauer (Min) Betrag (EUR)
 18.06.2026 App Development 74 74.00
