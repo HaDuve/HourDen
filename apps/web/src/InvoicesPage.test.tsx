@@ -597,6 +597,42 @@ describe("InvoicesPage", () => {
     );
   });
 
+  it("sends usesSmallBusinessRule false on preview when the checkbox is unchecked", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        return Promise.resolve(previewPdfResponse("BAN2026001"));
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderInvoicesPage();
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: /uses kleinunternehmerregelung/i,
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/invoices/preview",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            clientId: bandaoClient.id,
+            from: currentMonthRange().from,
+            to: currentMonthRange().to,
+            usesSmallBusinessRule: false,
+          }),
+        }),
+      );
+    });
+  });
+
   it("keeps Issue Invoice disabled until preview succeeds for the current selection", async () => {
     vi.stubGlobal(
       "fetch",

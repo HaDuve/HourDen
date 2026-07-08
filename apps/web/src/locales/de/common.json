@@ -91,6 +91,7 @@
     "exportOutgoing": "Outgoing.zip exportieren",
     "exporting": "Export läuft…",
     "usePrefix": "Präfix verwenden",
+    "usesSmallBusinessRule": "Nehmen Sie die Kleinunternehmerregelung in Anspruch?",
     "invoicePrefix": "Rechnungspräfix",
     "invoiceNumber": "Rechnungsnummer",
     "invoiceNumberExists": "Rechnungsnummer existiert bereits in diesem Workspace.",

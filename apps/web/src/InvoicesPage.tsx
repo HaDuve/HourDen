@@ -213,6 +213,7 @@ export default function InvoicesPage() {
   const [numberingStrategy, setNumberingStrategy] =
     useState<InvoiceNumberingStrategy | null>(null);
   const [usePrefix, setUsePrefix] = useState(true);
+  const [usesSmallBusinessRule, setUsesSmallBusinessRule] = useState(true);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewSheetOpen, setPreviewSheetOpen] = useState(false);
   const [issuedInvoices, setIssuedInvoices] = useState<IssuedInvoice[]>([]);
@@ -390,6 +391,7 @@ export default function InvoicesPage() {
       invoiceNumber?: string;
       invoicePrefix?: string;
       usePrefix?: boolean;
+      usesSmallBusinessRule?: boolean;
     }) => {
       if (!clientId) {
         setPlainAlert(t("invoices.selectClientBeforePreview"));
@@ -408,10 +410,16 @@ export default function InvoicesPage() {
           invoiceNumber?: string;
           invoicePrefix?: string;
           usePrefix?: boolean;
+          usesSmallBusinessRule?: boolean;
         } = { clientId, from, to };
         const nextUsePrefix = options?.usePrefix ?? usePrefix;
+        const nextUsesSmallBusinessRule =
+          options?.usesSmallBusinessRule ?? usesSmallBusinessRule;
         if (!nextUsePrefix) {
           body.usePrefix = false;
+        }
+        if (!nextUsesSmallBusinessRule) {
+          body.usesSmallBusinessRule = false;
         }
         if (options?.invoiceNumber) {
           body.invoiceNumber = options.invoiceNumber;
@@ -492,6 +500,7 @@ export default function InvoicesPage() {
       from,
       to,
       usePrefix,
+      usesSmallBusinessRule,
       clearPreviewBlob,
       refreshNumberingPreview,
       invoiceSenderConfigured,
@@ -501,6 +510,14 @@ export default function InvoicesPage() {
       t,
     ],
   );
+
+  function handleUsesSmallBusinessRuleChange(checked: boolean) {
+    setUsesSmallBusinessRule(checked);
+
+    if (previewUrl) {
+      void requestPreview({ usesSmallBusinessRule: checked });
+    }
+  }
 
   function handleUsePrefixChange(checked: boolean) {
     setUsePrefix(checked);
@@ -607,9 +624,13 @@ export default function InvoicesPage() {
         invoicePrefix?: string;
         numberingStrategy?: InvoiceNumberingStrategy;
         usePrefix?: boolean;
+        usesSmallBusinessRule?: boolean;
       } = { clientId, from, to, invoiceNumber };
       if (!usePrefix) {
         body.usePrefix = false;
+      }
+      if (!usesSmallBusinessRule) {
+        body.usesSmallBusinessRule = false;
       }
       if (invoicePrefix) {
         body.invoicePrefix = invoicePrefix;
@@ -806,6 +827,20 @@ export default function InvoicesPage() {
             setTo(nextTo);
           }}
         />
+      </div>
+
+      <div className={`mb-8 ${panelClass}`}>
+        <label className={`flex items-center gap-2 ${fieldLabelClass}`}>
+          <input
+            type="checkbox"
+            aria-label={t("invoices.usesSmallBusinessRule")}
+            checked={usesSmallBusinessRule}
+            onChange={(e) => handleUsesSmallBusinessRuleChange(e.target.checked)}
+            disabled={previewing || issuing || !clientId}
+            className="rounded border-input"
+          />
+          {t("invoices.usesSmallBusinessRule")}
+        </label>
       </div>
 
       {alert ? (

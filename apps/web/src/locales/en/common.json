@@ -91,6 +91,7 @@
     "exportOutgoing": "Export Outgoing.zip",
     "exporting": "Exporting…",
     "usePrefix": "Use prefix",
+    "usesSmallBusinessRule": "Uses Kleinunternehmerregelung (§19 UStG)",
     "invoicePrefix": "Invoice Prefix",
     "invoiceNumber": "Invoice Number",
     "invoiceNumberExists": "Invoice Number already exists in this Workspace.",
