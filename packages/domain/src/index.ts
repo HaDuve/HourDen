@@ -59,6 +59,7 @@ export {
   invoiceNumberExists,
   isValidInvoiceNumber,
   type InvoiceNumberingStrategy,
+  type InvoiceNumberFormat,
 } from "./invoice-number.js";
 export type { InvoiceIssuanceSnapshot } from "./invoice-issuance-snapshot.js";
 export {

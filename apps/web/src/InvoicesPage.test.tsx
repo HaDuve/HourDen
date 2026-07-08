@@ -20,6 +20,7 @@ const bandaoClient = {
   addressLine1: "Schloßbergstraße 1",
   addressLine2: "82319 Starnberg",
   invoicePrefix: null,
+  invoiceNumberSeqBeforeYear: false,
 };
 
 const clientWithoutRecipient = {
@@ -30,6 +31,7 @@ const clientWithoutRecipient = {
   addressLine1: null,
   addressLine2: null,
   invoicePrefix: null,
+  invoiceNumberSeqBeforeYear: false,
 };
 
 function emptyInvoicesListResponse() {
@@ -595,6 +597,40 @@ describe("InvoicesPage", () => {
       "/api/invoices",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  it("sends invoiceNumberSeqBeforeYear when sequence-before-year is enabled", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        return Promise.resolve(previewPdfResponse("BAN-001-2026"));
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderInvoicesPage();
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /sequence before year|laufnummer vor jahr/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/invoices/preview",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            clientId: bandaoClient.id,
+            from: currentMonthRange().from,
+            to: currentMonthRange().to,
+            invoiceNumberSeqBeforeYear: true,
+          }),
+        }),
+      );
+    });
   });
 
   it("sends usesSmallBusinessRule false on preview when the checkbox is unchecked", async () => {

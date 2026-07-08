@@ -51,6 +51,7 @@ type InvoiceRequestBody = {
   invoicePrefix?: string;
   numberingStrategy?: InvoiceNumberingStrategy;
   usePrefix?: boolean;
+  invoiceNumberSeqBeforeYear?: boolean;
   usesSmallBusinessRule?: boolean;
 };
 
@@ -61,6 +62,7 @@ type InvoiceClient = {
   addressLine1: string;
   addressLine2: string;
   invoicePrefix: string | null;
+  invoiceNumberSeqBeforeYear: boolean;
 };
 
 type PreparedInvoice = {
@@ -230,6 +232,7 @@ async function prepareInvoice(
       addressLine1: client.addressLine1,
       addressLine2: client.addressLine2,
       invoicePrefix: client.invoicePrefix,
+      invoiceNumberSeqBeforeYear: client.invoiceNumberSeqBeforeYear,
     },
     range,
     lines,
@@ -270,6 +273,19 @@ function invoiceConflictMessage(
 
 function parseUsePrefix(value: unknown): boolean {
   return value !== false;
+}
+
+function resolveInvoiceNumberSeqBeforeYear(
+  body: InvoiceRequestBody,
+  client: { invoiceNumberSeqBeforeYear: boolean },
+): boolean {
+  if (body.invoiceNumberSeqBeforeYear === true) {
+    return true;
+  }
+  if (body.invoiceNumberSeqBeforeYear === false) {
+    return false;
+  }
+  return client.invoiceNumberSeqBeforeYear;
 }
 
 function parseUsesSmallBusinessRule(value: unknown): boolean {
@@ -435,6 +451,8 @@ export function createInvoicesRouter(pool: Pool) {
     const yearParam = c.req.query("year");
     const prefixParam = c.req.query("invoicePrefix");
     const usePrefix = c.req.query("usePrefix") !== "false";
+    const invoiceNumberSeqBeforeYear =
+      c.req.query("invoiceNumberSeqBeforeYear") === "true";
 
     if (!clientId || !UUID_RE.test(clientId)) {
       return c.json({ error: "clientId is required" }, 400);
@@ -474,6 +492,7 @@ export function createInvoicesRouter(pool: Pool) {
       invoiceNumber,
       prefix,
       usePrefix,
+      invoiceNumberSeqBeforeYear,
     );
 
     return c.json(preview);
@@ -546,6 +565,10 @@ export function createInvoicesRouter(pool: Pool) {
     const prepared = withInvoiceOptions(preparedOrError, body);
 
     const usePrefix = parseUsePrefix(body.usePrefix);
+    const invoiceNumberSeqBeforeYear = resolveInvoiceNumberSeqBeforeYear(
+      body,
+      prepared.client,
+    );
     const prefix = usePrefix ? resolveRequestInvoicePrefix(body, prepared.client) : "";
     if (usePrefix && !isValidInvoicePrefix(prefix)) {
       return c.json({ error: "invoicePrefix must be 1-6 letters or digits" }, 400);
@@ -558,6 +581,7 @@ export function createInvoicesRouter(pool: Pool) {
       prepared.invoiceYear,
       usePrefix ? prefix : undefined,
       usePrefix,
+      invoiceNumberSeqBeforeYear,
     );
 
     const invoiceNumber = body.invoiceNumber ?? suggestedInvoiceNumber;
@@ -613,6 +637,10 @@ export function createInvoicesRouter(pool: Pool) {
     const client = prepared.client;
 
     const usePrefix = parseUsePrefix(body.usePrefix);
+    const invoiceNumberSeqBeforeYear = resolveInvoiceNumberSeqBeforeYear(
+      body,
+      client,
+    );
     const prefix = usePrefix
       ? resolveRequestInvoicePrefix(body, client)
       : resolveInvoicePrefix(client);
@@ -627,6 +655,7 @@ export function createInvoicesRouter(pool: Pool) {
       prepared.invoiceYear,
       usePrefix ? prefix : undefined,
       usePrefix,
+      invoiceNumberSeqBeforeYear,
     );
     const invoiceNumber = body.invoiceNumber ?? suggestedInvoiceNumber;
 
@@ -668,6 +697,7 @@ export function createInvoicesRouter(pool: Pool) {
       invoicePrefix: prefix,
       numberingStrategy: editedNumber ? body.numberingStrategy : undefined,
       usePrefix,
+      invoiceNumberSeqBeforeYear: resolveInvoiceNumberSeqBeforeYear(body, client),
     });
 
     if (created === "duplicate_period") {

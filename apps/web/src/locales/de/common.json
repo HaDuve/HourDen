@@ -91,6 +91,7 @@
     "exportOutgoing": "Outgoing.zip exportieren",
     "exporting": "Export läuft…",
     "usePrefix": "Präfix verwenden",
+    "invoiceNumberSeqBeforeYear": "Laufnummer vor Jahr",
     "usesSmallBusinessRule": "Nehmen Sie die Kleinunternehmerregelung in Anspruch?",
     "invoicePrefix": "Rechnungspräfix",
     "invoiceNumber": "Rechnungsnummer",

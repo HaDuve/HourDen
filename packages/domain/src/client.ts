@@ -6,6 +6,7 @@ export type Client = {
   addressLine1: string | null;
   addressLine2: string | null;
   invoicePrefix: string | null;
+  invoiceNumberSeqBeforeYear: boolean;
 };
 
 export type CreateClientInput = {

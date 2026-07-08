@@ -30,6 +30,12 @@ describe("nextPrefixedInvoiceNumber", () => {
     expect(nextPrefixedInvoiceNumber([], "BAN", 2026)).toBe("BAN2026001");
   });
 
+  it("returns PREFIX-###-YYYY when sequence comes before the year", () => {
+    expect(
+      nextPrefixedInvoiceNumber([], "BAN", 2026, "sequential", "sequence_first"),
+    ).toBe("BAN-001-2026");
+  });
+
   it("increments the per-Client per-year counter", () => {
     expect(
       nextPrefixedInvoiceNumber(["BAN2026001", "BAN2026002"], "BAN", 2026),
@@ -57,6 +63,12 @@ describe("nextPrefixedInvoiceNumber", () => {
 describe("nextInvoiceNumber", () => {
   it("returns YYYY001 when no invoices exist for the year", () => {
     expect(nextInvoiceNumber([], 2026)).toBe("2026001");
+  });
+
+  it("returns ###-YYYY when sequence comes before the year", () => {
+    expect(nextInvoiceNumber([], 2026, "sequential", "sequence_first")).toBe(
+      "001-2026",
+    );
   });
 
   it("increments the sequence for the same Recipient year", () => {

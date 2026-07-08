@@ -221,4 +221,11 @@ export const MIGRATIONS: Migration[] = [
       WHERE onboarding_completed_at IS NULL;
     `,
   },
+  {
+    id: "015_client_invoice_number_seq_before_year",
+    sql: `
+      ALTER TABLE clients
+        ADD COLUMN IF NOT EXISTS invoice_number_seq_before_year boolean NOT NULL DEFAULT false;
+    `,
+  },
 ] as const;

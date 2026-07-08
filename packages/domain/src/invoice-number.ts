@@ -1,4 +1,5 @@
 export type InvoiceNumberingStrategy = "sequential" | "from_last";
+export type InvoiceNumberFormat = "year_first" | "sequence_first";
 
 const INVOICE_PREFIX_RE = /^[A-Z0-9]{1,6}$/;
 const SEQUENCE_RE = /^\d{3,}$/;
@@ -75,6 +76,46 @@ export function buildPrefixedInvoiceNumber(
   return `${prefix}${year}${formatInvoiceSuffix(sequence)}`;
 }
 
+export function buildPrefixedSeqFirstInvoiceNumber(
+  prefix: string,
+  year: number,
+  sequence: number,
+): string {
+  return `${prefix}-${formatInvoiceSuffix(sequence)}-${year}`;
+}
+
+export function buildPlainSeqFirstInvoiceNumber(
+  year: number,
+  sequence: number,
+): string {
+  return `${formatInvoiceSuffix(sequence)}-${year}`;
+}
+
+function buildPrefixedNumberForFormat(
+  prefix: string,
+  year: number,
+  sequence: number,
+  format: InvoiceNumberFormat,
+): string {
+  if (format === "sequence_first") {
+    return buildPrefixedSeqFirstInvoiceNumber(prefix, year, sequence);
+  }
+
+  return buildPrefixedInvoiceNumber(prefix, year, sequence);
+}
+
+function buildPlainNumberForFormat(
+  year: number,
+  sequence: number,
+  format: InvoiceNumberFormat,
+): string {
+  if (format === "sequence_first") {
+    return buildPlainSeqFirstInvoiceNumber(year, sequence);
+  }
+
+  return `${year}${formatInvoiceSuffix(sequence)}`;
+}
+
 export function parsePrefixedInvoiceNumber(
   invoiceNumber: string,
   prefix: string,
@@ -120,6 +161,7 @@ export function nextPrefixedInvoiceNumber(
   prefix: string,
   year: number,
   strategy: InvoiceNumberingStrategy = "sequential",
+  format: InvoiceNumberFormat = "year_first",
 ): string {
   const suffixes = existingNumbers
     .map((number) => parsePrefixedInvoiceNumber(number, prefix, year))
@@ -127,13 +169,14 @@ export function nextPrefixedInvoiceNumber(
 
   if (strategy === "from_last") {
     const nextSuffix = suffixes.length === 0 ? 1 : Math.max(...suffixes) + 1;
-    return buildPrefixedInvoiceNumber(prefix, year, nextSuffix);
+    return buildPrefixedNumberForFormat(prefix, year, nextSuffix, format);
   }
 
-  return buildPrefixedInvoiceNumber(
+  return buildPrefixedNumberForFormat(
     prefix,
     year,
     existingNumbers.length + 1,
+    format,
   );
 }
 
@@ -142,12 +185,13 @@ export function previewNextPrefixedInvoiceNumbers(
   prefix: string,
   year: number,
   issuedNumber: string,
+  format: InvoiceNumberFormat = "year_first",
 ): { sequential: string; fromLast: string } {
   const withIssued = [...existingNumbers, issuedNumber];
 
   return {
-    sequential: nextPrefixedInvoiceNumber(withIssued, prefix, year, "sequential"),
-    fromLast: nextPrefixedInvoiceNumber(withIssued, prefix, year, "from_last"),
+    sequential: nextPrefixedInvoiceNumber(withIssued, prefix, year, "sequential", format),
+    fromLast: nextPrefixedInvoiceNumber(withIssued, prefix, year, "from_last", format),
   };
 }
 
@@ -190,33 +234,35 @@ export function nextInvoiceNumber(
   existingNumbers: string[],
   year: number,
   strategy: InvoiceNumberingStrategy = "sequential",
+  format: InvoiceNumberFormat = "year_first",
 ): string {
   const suffixes = existingNumbers
     .map((number) => parsePlainInvoiceNumber(number, year))
     .filter((suffix): suffix is number => suffix !== null);
 
   if (suffixes.length === 0) {
-    return `${year}001`;
+    return buildPlainNumberForFormat(year, 1, format);
   }
 
   if (strategy === "from_last") {
     const maxSuffix = Math.max(...suffixes);
-    return `${year}${String(maxSuffix + 1).padStart(3, "0")}`;
+    return buildPlainNumberForFormat(year, maxSuffix + 1, format);
   }
 
-  return `${year}${String(suffixes.length + 1).padStart(3, "0")}`;
+  return buildPlainNumberForFormat(year, suffixes.length + 1, format);
 }
 
 export function previewNextInvoiceNumbers(
   existingNumbers: string[],
   year: number,
   issuedNumber: string,
+  format: InvoiceNumberFormat = "year_first",
 ): { sequential: string; fromLast: string } {
   const withIssued = [...existingNumbers, issuedNumber];
 
   return {
-    sequential: nextInvoiceNumber(withIssued, year, "sequential"),
-    fromLast: nextInvoiceNumber(withIssued, year, "from_last"),
+    sequential: nextInvoiceNumber(withIssued, year, "sequential", format),
+    fromLast: nextInvoiceNumber(withIssued, year, "from_last", format),
   };
 }
 
