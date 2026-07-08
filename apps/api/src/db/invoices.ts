@@ -13,9 +13,14 @@ import {
   type GroupedReportLine,
   type InvoiceIssuanceSnapshot,
   type InvoiceNumberingStrategy,
+  type InvoiceNumberFormat,
 } from "@hourden/domain";
 import type { DatabaseError, Pool, PoolClient } from "pg";
 import { reportTimeZone } from "./reports.js";
+
+function invoiceNumberFormat(seqBeforeYear: boolean): InvoiceNumberFormat {
+  return seqBeforeYear ? "sequence_first" : "year_first";
+}
 
 type InvoiceableEntryRow = {
   id: string;
@@ -147,11 +152,19 @@ async function listPlainInvoiceNumbersForWorkspaceYear(
 export async function peekNextInvoiceNumber(
   pool: Pool,
   workspaceId: string,
-  client: { id: string; name: string; invoicePrefix: string | null },
+  client: {
+    id: string;
+    name: string;
+    invoicePrefix: string | null;
+    invoiceNumberSeqBeforeYear?: boolean;
+  },
   year: number,
   prefixOverride?: string,
   usePrefix = true,
+  invoiceNumberSeqBeforeYear = false,
 ): Promise<string> {
+  const format = invoiceNumberFormat(invoiceNumberSeqBeforeYear);
+
   if (!usePrefix) {
     const existingNumbers = await listPlainInvoiceNumbersForWorkspaceYear(
       pool,
@@ -163,7 +176,7 @@ export async function peekNextInvoiceNumber(
       workspaceId,
       year,
     );
-    return nextInvoiceNumber(existingNumbers, year, strategy);
+    return nextInvoiceNumber(existingNumbers, year, strategy, format);
   }
 
   const prefix = prefixOverride
@@ -176,7 +189,13 @@ export async function peekNextInvoiceNumber(
   );
   const strategy = await getInvoiceNumberingStrategy(pool, client.id, year);
 
-  return nextPrefixedInvoiceNumber(existingNumbers, prefix, year, strategy);
+  return nextPrefixedInvoiceNumber(
+    existingNumbers,
+    prefix,
+    year,
+    strategy,
+    format,
+  );
 }
 
 export async function getInvoiceNumberingStrategy(
@@ -273,11 +292,13 @@ export async function getInvoiceNumberingPreview(
   invoiceNumber: string,
   prefix: string,
   usePrefix = true,
+  invoiceNumberSeqBeforeYear = false,
 ): Promise<{
   exists: boolean;
   suggestedNumber: string;
   nextIfIssued: { sequential: string; fromLast: string };
 }> {
+  const format = invoiceNumberFormat(invoiceNumberSeqBeforeYear);
   const exists = await invoiceNumberExistsInWorkspace(
     pool,
     workspaceId,
@@ -293,8 +314,13 @@ export async function getInvoiceNumberingPreview(
 
     return {
       exists,
-      suggestedNumber: nextInvoiceNumber(plainNumbers, year, "sequential"),
-      nextIfIssued: previewNextInvoiceNumbers(plainNumbers, year, invoiceNumber),
+      suggestedNumber: nextInvoiceNumber(plainNumbers, year, "sequential", format),
+      nextIfIssued: previewNextInvoiceNumbers(
+        plainNumbers,
+        year,
+        invoiceNumber,
+        format,
+      ),
     };
   }
 
@@ -311,12 +337,14 @@ export async function getInvoiceNumberingPreview(
       prefix,
       year,
       "sequential",
+      format,
     ),
     nextIfIssued: previewNextPrefixedInvoiceNumbers(
       existingNumbers,
       prefix,
       year,
       invoiceNumber,
+      format,
     ),
   };
 }
@@ -334,9 +362,10 @@ export async function getClientForInvoice(
     address_line1: string | null;
     address_line2: string | null;
     invoice_prefix: string | null;
+    invoice_number_seq_before_year: boolean;
   }>(
     `
-      SELECT id, name, default_rate, legal_name, address_line1, address_line2, invoice_prefix
+      SELECT id, name, default_rate, legal_name, address_line1, address_line2, invoice_prefix, invoice_number_seq_before_year
       FROM clients
       WHERE id = $1 AND workspace_id = $2
     `,
@@ -354,6 +383,7 @@ export async function getClientForInvoice(
     addressLine1: row.address_line1,
     addressLine2: row.address_line2,
     invoicePrefix: row.invoice_prefix,
+    invoiceNumberSeqBeforeYear: row.invoice_number_seq_before_year,
   };
 }
 
@@ -513,6 +543,7 @@ export async function createInvoice(
     invoicePrefix?: string;
     numberingStrategy?: InvoiceNumberingStrategy;
     usePrefix?: boolean;
+    invoiceNumberSeqBeforeYear?: boolean;
   },
 ): Promise<CreateInvoiceResult> {
   const client = await pool.connect();
@@ -568,6 +599,8 @@ export async function createInvoice(
     }
 
     const usePrefix = input.usePrefix ?? true;
+    const invoiceNumberSeqBeforeYear = input.invoiceNumberSeqBeforeYear ?? false;
+    const format = invoiceNumberFormat(invoiceNumberSeqBeforeYear);
     const existingNumbers = await listInvoiceNumbersForClientYear(
       client,
       input.clientId,
@@ -590,6 +623,7 @@ export async function createInvoice(
           plainNumbers,
           input.invoiceYear,
           strategy,
+          format,
         );
       } else {
         const strategy = await getInvoiceNumberingStrategy(
@@ -602,6 +636,7 @@ export async function createInvoice(
           prefix,
           input.invoiceYear,
           strategy,
+          format,
         );
       }
     }
@@ -641,10 +676,12 @@ export async function createInvoice(
     await client.query(
       `
         UPDATE clients
-        SET invoice_prefix = $1, updated_at = now()
-        WHERE id = $2
+        SET invoice_prefix = $1,
+            invoice_number_seq_before_year = $2,
+            updated_at = now()
+        WHERE id = $3
       `,
-      [prefix, input.clientId],
+      [prefix, invoiceNumberSeqBeforeYear, input.clientId],
     );
 
     const invoiceResult = await client.query<InvoiceRow>(

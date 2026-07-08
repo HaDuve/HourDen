@@ -156,6 +156,7 @@ async function fetchNumberingPreview(
   year: number,
   invoicePrefix: string,
   usePrefix: boolean,
+  invoiceNumberSeqBeforeYear: boolean,
 ): Promise<NumberingPreview> {
   const params = new URLSearchParams({
     clientId,
@@ -165,6 +166,9 @@ async function fetchNumberingPreview(
   });
   if (!usePrefix) {
     params.set("usePrefix", "false");
+  }
+  if (invoiceNumberSeqBeforeYear) {
+    params.set("invoiceNumberSeqBeforeYear", "true");
   }
   const res = await fetch(`/api/invoices/numbering-preview?${params}`);
   if (!res.ok) {
@@ -213,6 +217,8 @@ export default function InvoicesPage() {
   const [numberingStrategy, setNumberingStrategy] =
     useState<InvoiceNumberingStrategy | null>(null);
   const [usePrefix, setUsePrefix] = useState(true);
+  const [invoiceNumberSeqBeforeYear, setInvoiceNumberSeqBeforeYear] =
+    useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewSheetOpen, setPreviewSheetOpen] = useState(false);
   const [issuedInvoices, setIssuedInvoices] = useState<IssuedInvoice[]>([]);
@@ -323,6 +329,13 @@ export default function InvoicesPage() {
   }, [clientId, from, to, clearPreview]);
 
   useEffect(() => {
+    const selectedClient = clients.find((client) => client.id === clientId);
+    setInvoiceNumberSeqBeforeYear(
+      selectedClient?.invoiceNumberSeqBeforeYear ?? false,
+    );
+  }, [clientId, clients]);
+
+  useEffect(() => {
     return () => {
       if (previewUrlRef.current) {
         URL.revokeObjectURL(previewUrlRef.current);
@@ -359,6 +372,7 @@ export default function InvoicesPage() {
           invoiceYearFromPeriodEnd(to),
           nextInvoicePrefix,
           usePrefix,
+          invoiceNumberSeqBeforeYear,
         );
         setNumberingPreview(preview);
         setNumberingStrategy((current) => current ?? "from_last");
@@ -366,7 +380,7 @@ export default function InvoicesPage() {
         setPlainAlert(t("invoices.loadNumberingPreviewFailed"));
       }
     },
-    [clientId, suggestedInvoiceNumber, to, usePrefix, t],
+    [clientId, suggestedInvoiceNumber, to, usePrefix, invoiceNumberSeqBeforeYear, t],
   );
 
   const openSenderEditor = useCallback(async () => {
@@ -390,6 +404,7 @@ export default function InvoicesPage() {
       invoiceNumber?: string;
       invoicePrefix?: string;
       usePrefix?: boolean;
+      invoiceNumberSeqBeforeYear?: boolean;
     }) => {
       if (!clientId) {
         setPlainAlert(t("invoices.selectClientBeforePreview"));
@@ -408,10 +423,16 @@ export default function InvoicesPage() {
           invoiceNumber?: string;
           invoicePrefix?: string;
           usePrefix?: boolean;
+          invoiceNumberSeqBeforeYear?: boolean;
         } = { clientId, from, to };
         const nextUsePrefix = options?.usePrefix ?? usePrefix;
+        const nextInvoiceNumberSeqBeforeYear =
+          options?.invoiceNumberSeqBeforeYear ?? invoiceNumberSeqBeforeYear;
         if (!nextUsePrefix) {
           body.usePrefix = false;
+        }
+        if (nextInvoiceNumberSeqBeforeYear) {
+          body.invoiceNumberSeqBeforeYear = true;
         }
         if (options?.invoiceNumber) {
           body.invoiceNumber = options.invoiceNumber;
@@ -492,6 +513,7 @@ export default function InvoicesPage() {
       from,
       to,
       usePrefix,
+      invoiceNumberSeqBeforeYear,
       clearPreviewBlob,
       refreshNumberingPreview,
       invoiceSenderConfigured,
@@ -501,6 +523,23 @@ export default function InvoicesPage() {
       t,
     ],
   );
+
+  function handleInvoiceNumberSeqBeforeYearChange(checked: boolean) {
+    setInvoiceNumberSeqBeforeYear(checked);
+    setNumberingStrategy(null);
+    setNumberingPreview(null);
+
+    if (previewUrl) {
+      void requestPreview({
+        invoiceNumberSeqBeforeYear: checked,
+        invoiceNumber:
+          invoiceNumber && invoiceNumber !== suggestedInvoiceNumber
+            ? invoiceNumber
+            : undefined,
+        invoicePrefix: invoicePrefix ?? undefined,
+      });
+    }
+  }
 
   function handleUsePrefixChange(checked: boolean) {
     setUsePrefix(checked);
@@ -607,9 +646,13 @@ export default function InvoicesPage() {
         invoicePrefix?: string;
         numberingStrategy?: InvoiceNumberingStrategy;
         usePrefix?: boolean;
+        invoiceNumberSeqBeforeYear?: boolean;
       } = { clientId, from, to, invoiceNumber };
       if (!usePrefix) {
         body.usePrefix = false;
+      }
+      if (invoiceNumberSeqBeforeYear) {
+        body.invoiceNumberSeqBeforeYear = true;
       }
       if (invoicePrefix) {
         body.invoicePrefix = invoicePrefix;
@@ -824,6 +867,20 @@ export default function InvoicesPage() {
               className="rounded border-input"
             />
             {t("invoices.usePrefix")}
+          </label>
+
+          <label className={`flex items-center gap-2 ${fieldLabelClass}`}>
+            <input
+              type="checkbox"
+              aria-label={t("invoices.invoiceNumberSeqBeforeYear")}
+              checked={invoiceNumberSeqBeforeYear}
+              onChange={(e) =>
+                handleInvoiceNumberSeqBeforeYearChange(e.target.checked)
+              }
+              disabled={previewing || issuing}
+              className="rounded border-input"
+            />
+            {t("invoices.invoiceNumberSeqBeforeYear")}
           </label>
 
           <label className={`flex max-w-xs flex-col gap-1 ${fieldLabelClass}`}>

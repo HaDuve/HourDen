@@ -104,6 +104,14 @@ describe("migration definitions", () => {
     expect(migration?.sql).toContain("'sequential', 'from_last'");
   });
 
+  it("stores per-client sequence-before-year invoice format preference", () => {
+    const migration = MIGRATIONS.find(
+      (m) => m.id === "015_client_invoice_number_seq_before_year",
+    );
+    expect(migration).toBeDefined();
+    expect(migration?.sql).toContain("invoice_number_seq_before_year");
+  });
+
   it("adds auth tables, workspace sender settings, and operator seeding", () => {
     const migration = MIGRATIONS.find((m) => m.id === "012_auth");
     expect(migration).toBeDefined();

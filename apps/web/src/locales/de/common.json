@@ -91,6 +91,7 @@
     "exportOutgoing": "Outgoing.zip exportieren",
     "exporting": "Export läuft…",
     "usePrefix": "Präfix verwenden",
+    "invoiceNumberSeqBeforeYear": "Laufnummer vor Jahr",
     "invoicePrefix": "Rechnungspräfix",
     "invoiceNumber": "Rechnungsnummer",
     "invoiceNumberExists": "Rechnungsnummer existiert bereits in diesem Workspace.",

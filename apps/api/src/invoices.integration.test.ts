@@ -1425,6 +1425,82 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
     expect(issued.headers.get("x-invoice-number")).toBe("BAN-2026-010");
   });
 
+  it("suggests sequence-before-year Invoice Numbers and persists the Client preference", async () => {
+    const bandao = await createClient(getWorkspace().app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
+
+    await getWorkspace().app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "Billable work",
+        startedAt: "2026-06-18T10:00:00.000Z",
+        endedAt: "2026-06-18T11:00:00.000Z",
+      }),
+    });
+
+    const preview = await getWorkspace().app.request("/api/invoices/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+        invoiceNumberSeqBeforeYear: true,
+      }),
+    });
+
+    expect(preview.status).toBe(200);
+    expect(preview.headers.get("x-suggested-invoice-number")).toBe("BAN-001-2026");
+    expect(preview.headers.get("x-invoice-number")).toBe("BAN-001-2026");
+
+    const issued = await getWorkspace().app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+        invoiceNumberSeqBeforeYear: true,
+      }),
+    });
+
+    expect(issued.status).toBe(201);
+    expect(issued.headers.get("x-invoice-number")).toBe("BAN-001-2026");
+
+    const client = await getWorkspace().app.request(`/api/clients/${bandao.id}`);
+    expect((await client.json()).client.invoiceNumberSeqBeforeYear).toBe(true);
+
+    await getWorkspace().app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "More work",
+        startedAt: "2026-07-18T10:00:00.000Z",
+        endedAt: "2026-07-18T11:00:00.000Z",
+      }),
+    });
+
+    const nextPreview = await getWorkspace().app.request("/api/invoices/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-07-01",
+        to: "2026-07-31",
+      }),
+    });
+
+    expect(nextPreview.headers.get("x-suggested-invoice-number")).toBe("BAN-002-2026");
+  });
+
   it("issues with an edited Invoice Number and persists the chosen numbering strategy", async () => {
     const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
