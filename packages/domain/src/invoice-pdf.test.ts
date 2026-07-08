@@ -33,6 +33,21 @@ describe("generateInvoicePdf layout", () => {
     expect(lines).toContain("Steuernummer: 06044/47008");
   });
 
+  it("omits the §19 UStG text when Kleinunternehmerregelung is not used", async () => {
+    const lines = normalizeLines(
+      await extractPdfText(
+        await generateInvoicePdf({
+          ...bandaoFixture,
+          usesSmallBusinessRule: false,
+        }),
+      ),
+    );
+
+    expect(
+      lines.some((line) => line.startsWith("Gemäß § 19 UStG")),
+    ).toBe(false);
+  });
+
   it("keeps payment terms and §19 UStG text on single lines like the Python PDF", async () => {
     const lines = normalizeLines(
       await extractPdfText(await generateInvoicePdf(bandaoFixture)),

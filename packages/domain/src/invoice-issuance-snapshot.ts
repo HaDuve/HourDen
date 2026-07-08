@@ -8,4 +8,5 @@ export type InvoiceIssuanceSnapshot = {
     totalAmount: number;
     totalDurationMinutes: number;
   };
+  usesSmallBusinessRule?: boolean;
 };

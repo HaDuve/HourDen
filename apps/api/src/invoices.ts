@@ -51,6 +51,7 @@ type InvoiceRequestBody = {
   invoicePrefix?: string;
   numberingStrategy?: InvoiceNumberingStrategy;
   usePrefix?: boolean;
+  usesSmallBusinessRule?: boolean;
 };
 
 type InvoiceClient = {
@@ -271,6 +272,23 @@ function parseUsePrefix(value: unknown): boolean {
   return value !== false;
 }
 
+function parseUsesSmallBusinessRule(value: unknown): boolean {
+  return value !== false;
+}
+
+function withInvoiceOptions(
+  prepared: PreparedInvoice,
+  body: InvoiceRequestBody,
+): PreparedInvoice {
+  return {
+    ...prepared,
+    snapshot: {
+      ...prepared.snapshot,
+      usesSmallBusinessRule: parseUsesSmallBusinessRule(body.usesSmallBusinessRule),
+    },
+  };
+}
+
 function parseNumberingStrategy(
   value: string | undefined,
 ): InvoiceNumberingStrategy | "invalid" {
@@ -320,6 +338,7 @@ async function renderInvoicePdf(
     recipient: prepared.snapshot.recipient,
     lines: prepared.snapshot.lines,
     operator: prepared.snapshot.operator,
+    usesSmallBusinessRule: prepared.snapshot.usesSmallBusinessRule,
   });
 }
 
@@ -335,6 +354,7 @@ async function renderInvoicePdfFromSnapshot(
     recipient: invoice.snapshot.recipient,
     lines: invoice.snapshot.lines,
     operator: invoice.snapshot.operator,
+    usesSmallBusinessRule: invoice.snapshot.usesSmallBusinessRule,
   });
 }
 
@@ -513,15 +533,17 @@ export function createInvoicesRouter(pool: Pool) {
       return c.json({ error: "Invalid JSON body" }, 400);
     }
 
-    const prepared = await prepareInvoice(pool, body);
-    if ("error" in prepared) {
+    const preparedOrError = await prepareInvoice(pool, body);
+    if ("error" in preparedOrError) {
       return c.json(
-        prepared.code
-          ? { error: prepared.error, code: prepared.code }
-          : { error: prepared.error },
-        prepared.status,
+        preparedOrError.code
+          ? { error: preparedOrError.error, code: preparedOrError.code }
+          : { error: preparedOrError.error },
+        preparedOrError.status,
       );
     }
+
+    const prepared = withInvoiceOptions(preparedOrError, body);
 
     const usePrefix = parseUsePrefix(body.usePrefix);
     const prefix = usePrefix ? resolveRequestInvoicePrefix(body, prepared.client) : "";
@@ -576,15 +598,17 @@ export function createInvoicesRouter(pool: Pool) {
       return c.json({ error: "Invalid JSON body" }, 400);
     }
 
-    const prepared = await prepareInvoice(pool, body);
-    if ("error" in prepared) {
+    const preparedOrError = await prepareInvoice(pool, body);
+    if ("error" in preparedOrError) {
       return c.json(
-        prepared.code
-          ? { error: prepared.error, code: prepared.code }
-          : { error: prepared.error },
-        prepared.status,
+        preparedOrError.code
+          ? { error: preparedOrError.error, code: preparedOrError.code }
+          : { error: preparedOrError.error },
+        preparedOrError.status,
       );
     }
+
+    const prepared = withInvoiceOptions(preparedOrError, body);
 
     const client = prepared.client;
 
