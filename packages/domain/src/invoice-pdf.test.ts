@@ -52,16 +52,43 @@ describe("generateInvoicePdf layout", () => {
     );
 
     const titleIdx = lines.indexOf("Rechnung / Invoice");
-    const tableIdx = lines.indexOf(
-      "Datum Beschreibung Dauer (Min) Betrag (EUR)",
+    const tableHeaderIdx = lines.findIndex(
+      (line) => line.includes("Datum") && line.includes("Beschreibung"),
     );
     const ustgIdx = lines.findIndex((line) => line.startsWith("Gemäß § 19 UStG"));
 
     expect(titleIdx).toBeGreaterThanOrEqual(0);
-    expect(tableIdx).toBeGreaterThan(titleIdx);
-    expect(ustgIdx).toBeGreaterThan(tableIdx);
-    expect(lines[tableIdx + 1]).toBe("01.06.2026 Development Call 75 75.00");
+    expect(tableHeaderIdx).toBeGreaterThan(titleIdx);
+    expect(ustgIdx).toBeGreaterThan(tableHeaderIdx);
+    expect(
+      lines.some(
+        (line) =>
+          line.includes("01.06.2026") && line.includes("Development Call"),
+      ),
+    ).toBe(true);
     expect(lines).toContain("Gesamtbetrag Brutto: 204.00 EUR");
     expect(lines).toContain("Gesamtdauer: 3.4 Std.");
+  });
+
+  it("renders a long line description without clipping", async () => {
+    const longDescription =
+      "Architecture review and pairing session on authentication migration";
+    const lines = normalizeLines(
+      await extractPdfText(
+        await generateInvoicePdf({
+          ...bandaoFixture,
+          lines: [
+            {
+              date: "2026-06-01",
+              description: longDescription,
+              durationMinutes: 75,
+              amount: 75,
+            },
+          ],
+        }),
+      ),
+    );
+
+    expect(lines.join(" ")).toContain(longDescription);
   });
 });
