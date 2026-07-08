@@ -913,9 +913,12 @@ describe("InvoicesPage", () => {
       }
       return undefined;
     });
-    global.fetch = fetchMock;
+    vi.stubGlobal("fetch", fetchMock);
 
     renderInvoicesPage();
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
