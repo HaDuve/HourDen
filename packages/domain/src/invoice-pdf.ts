@@ -213,6 +213,24 @@ export function generateInvoicePdf(input: GenerateInvoicePdfInput): Promise<Buff
       `Steuernummer: ${input.operator.taxNumber}`,
       { fontSize: 9 },
     );
+    y = drawFullLine(
+      doc,
+      margin,
+      y,
+      halfWidth,
+      mm(5),
+      `Mail: ${input.operator.email}`,
+      { fontSize: 9 },
+    );
+    y = drawFullLine(
+      doc,
+      margin,
+      y,
+      halfWidth,
+      mm(5),
+      `Tel.: ${input.operator.phone}`,
+      { fontSize: 9 },
+    );
     y += mm(3);
 
     y = drawFullLine(
@@ -307,26 +325,6 @@ export function generateInvoicePdf(input: GenerateInvoicePdfInput): Promise<Buff
       contentWidth,
       mm(5),
       "Zahlungsbedingungen: Zahlbar innerhalb von 14 Tagen ohne Abzug.",
-      { fontSize: 10 },
-    );
-    y += mm(3);
-
-    y = drawFullLine(
-      doc,
-      margin,
-      y,
-      contentWidth,
-      mm(5),
-      `Mail: ${input.operator.email}`,
-      { fontSize: 10 },
-    );
-    y = drawFullLine(
-      doc,
-      margin,
-      y,
-      contentWidth,
-      mm(5),
-      `Tel.: ${input.operator.phone}`,
       { fontSize: 10 },
     );
     y += mm(5);
