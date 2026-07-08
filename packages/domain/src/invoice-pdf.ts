@@ -42,6 +42,8 @@ function mm(value: number): number {
   return value * MM;
 }
 
+const TABLE_CELL_PADDING = mm(1.5);
+
 function formatInvoiceDate(isoDate: string): string {
   const [year, month, day] = isoDate.split("-");
   return `${day}.${month}.${year}`;
@@ -113,15 +115,35 @@ function drawTableCell(
   height: number,
   text: string,
   bold = false,
+  align: "left" | "center" | "right" = "center",
 ): void {
   doc.rect(x, y, width, height).stroke();
   setFont(doc, 9, bold);
-  const textY = y + (height - doc.currentLineHeight()) / 2;
-  doc.text(text, x, textY, {
-    width,
-    align: "center",
-    lineBreak: false,
+  const textWidth = width - TABLE_CELL_PADDING * 2;
+  const textHeight = doc.heightOfString(text, { width: textWidth });
+  const textY = y + Math.max(TABLE_CELL_PADDING, (height - textHeight) / 2);
+  doc.text(text, x + TABLE_CELL_PADDING, textY, {
+    width: textWidth,
+    align,
+    lineBreak: true,
   });
+}
+
+function measureTableRowHeight(
+  doc: PdfDoc,
+  columns: number[],
+  cells: string[],
+  minHeight: number,
+  bold = false,
+): number {
+  setFont(doc, 9, bold);
+  const heights = cells.map((text, index) =>
+    doc.heightOfString(text, {
+      width: columns[index]! - TABLE_CELL_PADDING * 2,
+    }) +
+    TABLE_CELL_PADDING * 2,
+  );
+  return Math.max(minHeight, ...heights);
 }
 
 export function generateInvoicePdf(input: GenerateInvoicePdfInput): Promise<Buffer> {
@@ -135,7 +157,7 @@ export function generateInvoicePdf(input: GenerateInvoicePdfInput): Promise<Buff
   const margin = mm(10);
   const contentWidth = mm(190);
   const halfWidth = mm(95);
-  const tableColumns = [mm(30), mm(60), mm(30), mm(30)];
+  const tableColumns = [mm(22), mm(90), mm(22), mm(22)];
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
@@ -344,19 +366,26 @@ export function generateInvoicePdf(input: GenerateInvoicePdfInput): Promise<Buff
 
     let tableX = margin;
     const headerLabels = ["Datum", "Beschreibung", "Dauer (Min)", "Betrag (EUR)"];
+    const headerHeight = measureTableRowHeight(
+      doc,
+      tableColumns,
+      headerLabels,
+      mm(6),
+      true,
+    );
     for (let i = 0; i < headerLabels.length; i++) {
       drawTableCell(
         doc,
         tableX,
         y,
         tableColumns[i]!,
-        mm(6),
+        headerHeight,
         headerLabels[i]!,
         true,
       );
       tableX += tableColumns[i]!;
     }
-    y += mm(6);
+    y += headerHeight;
 
     for (const line of input.lines) {
       tableX = margin;
@@ -366,11 +395,21 @@ export function generateInvoicePdf(input: GenerateInvoicePdfInput): Promise<Buff
         String(line.durationMinutes),
         line.amount.toFixed(2),
       ];
+      const rowHeight = measureTableRowHeight(doc, tableColumns, cells, mm(8));
       for (let i = 0; i < cells.length; i++) {
-        drawTableCell(doc, tableX, y, tableColumns[i]!, mm(8), cells[i]!);
+        drawTableCell(
+          doc,
+          tableX,
+          y,
+          tableColumns[i]!,
+          rowHeight,
+          cells[i]!,
+          false,
+          i === 1 ? "left" : "center",
+        );
         tableX += tableColumns[i]!;
       }
-      y += mm(8);
+      y += rowHeight;
     }
 
     y += mm(3);
