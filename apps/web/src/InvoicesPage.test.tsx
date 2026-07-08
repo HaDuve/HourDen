@@ -669,6 +669,30 @@ describe("InvoicesPage", () => {
     });
   });
 
+  it("disables invoice prefix and number fields until the first preview succeeds", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        return Promise.resolve(previewPdfResponse("BAN2026001"));
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderInvoicesPage();
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+
+    expect(screen.getByLabelText(/^invoice prefix$/i)).toBeDisabled();
+    expect(screen.getByLabelText(/^invoice number$/i)).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^invoice prefix$/i)).toBeEnabled();
+      expect(screen.getByLabelText(/^invoice number$/i)).toBeEnabled();
+    });
+  });
+
   it("keeps Issue Invoice disabled until preview succeeds for the current selection", async () => {
     vi.stubGlobal(
       "fetch",

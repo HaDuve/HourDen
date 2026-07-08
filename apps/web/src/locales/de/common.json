@@ -93,7 +93,7 @@
     "usePrefix": "Präfix verwenden",
     "invoiceNumberSeqBeforeYear": "Laufnummer vor Jahr",
     "invoiceNumberSettingsTitle": "Rechnungsnummer-Einstellungen",
-    "invoiceNumberSettingsHelpLine1": "Wählen Sie Präfix, Reihenfolge (Laufnummer vor oder nach Jahr) und ob die Nummer kompakt oder mit Bindestrichen erscheint — die Vorschau schlägt die nächste freie Nummer vor.",
+    "invoiceNumberSettingsHelpLine1": "Wählen Sie Präfix und Reihenfolge (Laufnummer vor oder nach Jahr) — die Vorschau schlägt die nächste freie Nummer vor. Nach der Vorschau können Sie die Nummer anpassen, auch mit Bindestrichen als Trennzeichen.",
     "invoiceNumberSettingsHelpLine2": "Sie können die Nummer vor dem Ausstellen ändern und festlegen, wie künftige Rechnungen weiterzählen. Präfix und Laufnummer-Reihenfolge gelten danach für diesen Kunden.",
     "invoiceNumberAfterPreview": "Nach Vorschau",
     "usesSmallBusinessRule": "Nehmen Sie die Kleinunternehmerregelung in Anspruch?",

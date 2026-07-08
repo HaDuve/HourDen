@@ -93,7 +93,7 @@
     "usePrefix": "Use prefix",
     "invoiceNumberSeqBeforeYear": "Sequence before year",
     "invoiceNumberSettingsTitle": "Invoice number settings",
-    "invoiceNumberSettingsHelpLine1": "Choose prefix, order (sequence before or after year), and whether the number is compact or hyphen-separated — preview suggests the next free number.",
+    "invoiceNumberSettingsHelpLine1": "Choose prefix and order (sequence before or after year) — preview suggests the next free number. After preview you can edit the number, including hyphen separators.",
     "invoiceNumberSettingsHelpLine2": "You can edit the number before issuing and choose how future invoices continue. Prefix and sequence order apply to this Client after you issue.",
     "invoiceNumberAfterPreview": "After preview",
     "usesSmallBusinessRule": "Uses Kleinunternehmerregelung (§19 UStG)",
