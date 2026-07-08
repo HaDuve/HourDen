@@ -1569,7 +1569,7 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
     expect(issued.headers.get("x-invoice-number")).toBe("BAN-001-2026");
 
     const client = await getWorkspace().app.request(`/api/clients/${bandao.id}`);
-    expect((await client.json()).client.invoiceNumberSeqBeforeYear).toBe(true);
+    expect((await client.json()).invoiceNumberSeqBeforeYear).toBe(true);
 
     await getWorkspace().app.request("/api/time-entries", {
       method: "POST",

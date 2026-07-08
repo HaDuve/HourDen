@@ -872,7 +872,7 @@ export default function InvoicesPage() {
         />
       </div>
 
-      <div className={`mb-8 ${panelClass}`}>
+      <div className={`mb-8 space-y-3 ${panelClass}`}>
         <label className={`flex items-center gap-2 ${fieldLabelClass}`}>
           <input
             type="checkbox"
@@ -883,6 +883,20 @@ export default function InvoicesPage() {
             className="rounded border-input"
           />
           {t("invoices.usesSmallBusinessRule")}
+        </label>
+
+        <label className={`flex items-center gap-2 ${fieldLabelClass}`}>
+          <input
+            type="checkbox"
+            aria-label={t("invoices.invoiceNumberSeqBeforeYear")}
+            checked={invoiceNumberSeqBeforeYear}
+            onChange={(e) =>
+              handleInvoiceNumberSeqBeforeYearChange(e.target.checked)
+            }
+            disabled={previewing || issuing || !clientId}
+            className="rounded border-input"
+          />
+          {t("invoices.invoiceNumberSeqBeforeYear")}
         </label>
       </div>
 
@@ -902,20 +916,6 @@ export default function InvoicesPage() {
               className="rounded border-input"
             />
             {t("invoices.usePrefix")}
-          </label>
-
-          <label className={`flex items-center gap-2 ${fieldLabelClass}`}>
-            <input
-              type="checkbox"
-              aria-label={t("invoices.invoiceNumberSeqBeforeYear")}
-              checked={invoiceNumberSeqBeforeYear}
-              onChange={(e) =>
-                handleInvoiceNumberSeqBeforeYearChange(e.target.checked)
-              }
-              disabled={previewing || issuing}
-              className="rounded border-input"
-            />
-            {t("invoices.invoiceNumberSeqBeforeYear")}
           </label>
 
           <label className={`flex max-w-xs flex-col gap-1 ${fieldLabelClass}`}>
