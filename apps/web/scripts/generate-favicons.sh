@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Regenerate favicon PNGs from apps/web/public/favicon-source.png (issue #110).
+# Requires ImageMagick (`magick`). JPEG sources are keyed to transparent RGBA.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+PUBLIC="$ROOT/public"
+SOURCE="$PUBLIC/favicon-source.png"
+PNG_OPTS=(-define "png:exclude-chunk=bKGD")
+
+if ! command -v magick >/dev/null 2>&1; then
+  echo "generate-favicons.sh: ImageMagick (magick) is required" >&2
+  exit 1
+fi
+
+if [[ ! -f "$SOURCE" ]]; then
+  echo "generate-favicons.sh: missing $SOURCE" >&2
+  exit 1
+fi
+
+has_alpha="$(magick identify -format '%[channels]' "$SOURCE" | grep -c Alpha || true)"
+tmp="$(mktemp "${TMPDIR:-/tmp}/favicon-source.XXXXXX.png")"
+trap 'rm -f "$tmp"' EXIT
+
+if [[ "$has_alpha" -eq 0 ]]; then
+  magick "$SOURCE" -fuzz 18% -transparent white "${PNG_OPTS[@]}" PNG32:"$tmp"
+else
+  magick "$SOURCE" "${PNG_OPTS[@]}" PNG32:"$tmp"
+fi
+
+mv "$tmp" "$SOURCE"
+trap - EXIT
+
+magick "$SOURCE" -resize 32x32 "${PNG_OPTS[@]}" PNG32:"$PUBLIC/favicon-32x32.png"
+magick "$SOURCE" -resize 180x180 "${PNG_OPTS[@]}" PNG32:"$PUBLIC/apple-touch-icon.png"
+
+echo "Wrote $SOURCE, $PUBLIC/favicon-32x32.png, $PUBLIC/apple-touch-icon.png"
