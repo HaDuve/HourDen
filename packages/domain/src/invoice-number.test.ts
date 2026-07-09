@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   deriveDefaultInvoicePrefix,
+  detectSeparatorStyle,
   invoiceNumberExists,
   isValidAnyInvoiceNumber,
   nextInvoiceNumber,
   nextPrefixedInvoiceNumber,
   previewNextInvoiceNumbers,
   previewNextPrefixedInvoiceNumbers,
+  resolveSeparatorStyle,
 } from "./invoice-number.js";
 
 describe("deriveDefaultInvoicePrefix", () => {
@@ -30,9 +32,16 @@ describe("nextPrefixedInvoiceNumber", () => {
     expect(nextPrefixedInvoiceNumber([], "BAN", 2026)).toBe("BAN2026001");
   });
 
-  it("returns PREFIX-###-YYYY when sequence comes before the year", () => {
+  it("returns PREFIX-###-YYYY when sequence comes before the year with hyphens", () => {
     expect(
-      nextPrefixedInvoiceNumber([], "BAN", 2026, "sequential", "sequence_first"),
+      nextPrefixedInvoiceNumber(
+        [],
+        "BAN",
+        2026,
+        "sequential",
+        "sequence_first",
+        "hyphenated",
+      ),
     ).toBe("BAN-001-2026");
   });
 
@@ -65,10 +74,10 @@ describe("nextInvoiceNumber", () => {
     expect(nextInvoiceNumber([], 2026)).toBe("2026001");
   });
 
-  it("returns ###-YYYY when sequence comes before the year", () => {
-    expect(nextInvoiceNumber([], 2026, "sequential", "sequence_first")).toBe(
-      "001-2026",
-    );
+  it("returns ###-YYYY when sequence comes before the year with hyphens", () => {
+    expect(
+      nextInvoiceNumber([], 2026, "sequential", "sequence_first", "hyphenated"),
+    ).toBe("001-2026");
   });
 
   it("increments the sequence for the same Recipient year", () => {
@@ -132,12 +141,102 @@ describe("isValidAnyInvoiceNumber", () => {
 });
 
 describe("previewNextPrefixedInvoiceNumbers", () => {
-  it("returns correct next numbers when the issued number used separator hyphens", () => {
+  it("returns hyphenated next numbers when the issued number used separator hyphens", () => {
     expect(
       previewNextPrefixedInvoiceNumbers([], "BAN", 2026, "BAN-2026-010"),
+    ).toEqual({
+      sequential: "BAN-2026-002",
+      fromLast: "BAN-2026-011",
+    });
+  });
+
+  it("returns compact next numbers when the issued number was compact", () => {
+    expect(
+      previewNextPrefixedInvoiceNumbers([], "BAN", 2026, "BAN2026010"),
     ).toEqual({
       sequential: "BAN2026002",
       fromLast: "BAN2026011",
     });
+  });
+});
+
+describe("resolveSeparatorStyle", () => {
+  it("defaults to compact for year-first when the Client has no invoices", () => {
+    expect(resolveSeparatorStyle(null, "year_first")).toBe("compact");
+  });
+
+  it("defaults to hyphenated for sequence-first when the Client has no invoices", () => {
+    expect(resolveSeparatorStyle(null, "sequence_first")).toBe("hyphenated");
+  });
+
+  it("follows the most recent issued Invoice Number when present", () => {
+    expect(detectSeparatorStyle("BAN-2026-003")).toBe("hyphenated");
+    expect(detectSeparatorStyle("BAN2026003")).toBe("compact");
+    expect(resolveSeparatorStyle("BAN-2026-003", "year_first")).toBe(
+      "hyphenated",
+    );
+    expect(resolveSeparatorStyle("BAN0012026", "sequence_first")).toBe(
+      "compact",
+    );
+  });
+});
+
+describe("compact sequence-first Invoice Numbers", () => {
+  it("builds and parses compact prefixed sequence-first numbers", () => {
+    expect(
+      nextPrefixedInvoiceNumber(
+        [],
+        "BAN",
+        2026,
+        "sequential",
+        "sequence_first",
+        "compact",
+      ),
+    ).toBe("BAN0012026");
+    expect(isValidAnyInvoiceNumber("BAN0012026", 2026)).toBe(true);
+    expect(
+      nextPrefixedInvoiceNumber(
+        ["BAN0012026"],
+        "BAN",
+        2026,
+        "sequential",
+        "sequence_first",
+        "compact",
+      ),
+    ).toBe("BAN0022026");
+  });
+
+  it("builds and parses compact plain sequence-first numbers", () => {
+    expect(
+      nextInvoiceNumber([], 2026, "sequential", "sequence_first", "compact"),
+    ).toBe("0012026");
+    expect(isValidAnyInvoiceNumber("0012026", 2026)).toBe(true);
+  });
+});
+
+describe("hyphenated year-first Invoice Numbers", () => {
+  it("builds hyphenated prefixed year-first numbers when requested", () => {
+    expect(
+      nextPrefixedInvoiceNumber(
+        ["BAN-2026-001"],
+        "BAN",
+        2026,
+        "sequential",
+        "year_first",
+        "hyphenated",
+      ),
+    ).toBe("BAN-2026-002");
+  });
+
+  it("builds hyphenated plain year-first numbers when requested", () => {
+    expect(
+      nextInvoiceNumber(
+        ["2026-001"],
+        2026,
+        "sequential",
+        "year_first",
+        "hyphenated",
+      ),
+    ).toBe("2026-002");
   });
 });

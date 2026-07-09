@@ -8,18 +8,50 @@ import {
   normalizeInvoicePrefix,
   previewNextInvoiceNumbers,
   previewNextPrefixedInvoiceNumbers,
+  resolveSeparatorStyle,
   toLocalDateKey,
   type Client,
   type GroupedReportLine,
   type InvoiceIssuanceSnapshot,
   type InvoiceNumberingStrategy,
   type InvoiceNumberFormat,
+  type InvoiceNumberSeparatorStyle,
 } from "@hourden/domain";
 import type { DatabaseError, Pool, PoolClient } from "pg";
 import { reportTimeZone } from "./reports.js";
 
 function invoiceNumberFormat(seqBeforeYear: boolean): InvoiceNumberFormat {
   return seqBeforeYear ? "sequence_first" : "year_first";
+}
+
+async function getMostRecentInvoiceNumberForClient(
+  executor: Pool | PoolClient,
+  clientId: string,
+): Promise<string | null> {
+  const result = await executor.query<{ invoice_number: string }>(
+    `
+      SELECT invoice_number
+      FROM invoices
+      WHERE client_id = $1
+      ORDER BY period_end DESC, invoice_date DESC, invoice_number DESC
+      LIMIT 1
+    `,
+    [clientId],
+  );
+
+  return result.rows[0]?.invoice_number ?? null;
+}
+
+async function resolveInvoiceNumberSeparatorStyle(
+  executor: Pool | PoolClient,
+  clientId: string,
+  format: InvoiceNumberFormat,
+): Promise<InvoiceNumberSeparatorStyle> {
+  const lastIssuedInvoiceNumber = await getMostRecentInvoiceNumberForClient(
+    executor,
+    clientId,
+  );
+  return resolveSeparatorStyle(lastIssuedInvoiceNumber, format);
 }
 
 type InvoiceableEntryRow = {
@@ -164,6 +196,11 @@ export async function peekNextInvoiceNumber(
   invoiceNumberSeqBeforeYear = false,
 ): Promise<string> {
   const format = invoiceNumberFormat(invoiceNumberSeqBeforeYear);
+  const separatorStyle = await resolveInvoiceNumberSeparatorStyle(
+    pool,
+    client.id,
+    format,
+  );
 
   if (!usePrefix) {
     const existingNumbers = await listPlainInvoiceNumbersForWorkspaceYear(
@@ -176,7 +213,13 @@ export async function peekNextInvoiceNumber(
       workspaceId,
       year,
     );
-    return nextInvoiceNumber(existingNumbers, year, strategy, format);
+    return nextInvoiceNumber(
+      existingNumbers,
+      year,
+      strategy,
+      format,
+      separatorStyle,
+    );
   }
 
   const prefix = prefixOverride
@@ -195,6 +238,7 @@ export async function peekNextInvoiceNumber(
     year,
     strategy,
     format,
+    separatorStyle,
   );
 }
 
@@ -299,6 +343,11 @@ export async function getInvoiceNumberingPreview(
   nextIfIssued: { sequential: string; fromLast: string };
 }> {
   const format = invoiceNumberFormat(invoiceNumberSeqBeforeYear);
+  const separatorStyle = await resolveInvoiceNumberSeparatorStyle(
+    pool,
+    client.id,
+    format,
+  );
   const exists = await invoiceNumberExistsInWorkspace(
     pool,
     workspaceId,
@@ -314,7 +363,13 @@ export async function getInvoiceNumberingPreview(
 
     return {
       exists,
-      suggestedNumber: nextInvoiceNumber(plainNumbers, year, "sequential", format),
+      suggestedNumber: nextInvoiceNumber(
+        plainNumbers,
+        year,
+        "sequential",
+        format,
+        separatorStyle,
+      ),
       nextIfIssued: previewNextInvoiceNumbers(
         plainNumbers,
         year,
@@ -338,6 +393,7 @@ export async function getInvoiceNumberingPreview(
       year,
       "sequential",
       format,
+      separatorStyle,
     ),
     nextIfIssued: previewNextPrefixedInvoiceNumbers(
       existingNumbers,
@@ -601,6 +657,11 @@ export async function createInvoice(
     const usePrefix = input.usePrefix ?? true;
     const invoiceNumberSeqBeforeYear = input.invoiceNumberSeqBeforeYear ?? false;
     const format = invoiceNumberFormat(invoiceNumberSeqBeforeYear);
+    const separatorStyle = await resolveInvoiceNumberSeparatorStyle(
+      client,
+      input.clientId,
+      format,
+    );
     const existingNumbers = await listInvoiceNumbersForClientYear(
       client,
       input.clientId,
@@ -624,6 +685,7 @@ export async function createInvoice(
           input.invoiceYear,
           strategy,
           format,
+          separatorStyle,
         );
       } else {
         const strategy = await getInvoiceNumberingStrategy(
@@ -637,6 +699,7 @@ export async function createInvoice(
           input.invoiceYear,
           strategy,
           format,
+          separatorStyle,
         );
       }
     }

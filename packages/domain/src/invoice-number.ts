@@ -1,5 +1,6 @@
 export type InvoiceNumberingStrategy = "sequential" | "from_last";
 export type InvoiceNumberFormat = "year_first" | "sequence_first";
+export type InvoiceNumberSeparatorStyle = "compact" | "hyphenated";
 
 const INVOICE_PREFIX_RE = /^[A-Z0-9]{1,6}$/;
 const SEQUENCE_RE = /^\d{3,}$/;
@@ -18,6 +19,23 @@ export function normalizeInvoicePrefix(prefix: string): string {
 
 export function isValidInvoicePrefix(prefix: string): boolean {
   return INVOICE_PREFIX_RE.test(prefix);
+}
+
+export function detectSeparatorStyle(
+  invoiceNumber: string,
+): InvoiceNumberSeparatorStyle {
+  return invoiceNumber.includes("-") ? "hyphenated" : "compact";
+}
+
+export function resolveSeparatorStyle(
+  lastIssuedInvoiceNumber: string | null,
+  format: InvoiceNumberFormat,
+): InvoiceNumberSeparatorStyle {
+  if (lastIssuedInvoiceNumber) {
+    return detectSeparatorStyle(lastIssuedInvoiceNumber);
+  }
+
+  return format === "sequence_first" ? "hyphenated" : "compact";
 }
 
 function formatInvoiceSuffix(sequence: number): string {
@@ -49,13 +67,17 @@ function parseYearFirstPlain(invoiceNumber: string, year: number): number | null
 
 function parseSeqFirstPlain(invoiceNumber: string, year: number): number | null {
   const yearText = String(year);
-  const suffix = `-${yearText}`;
+  const hyphenSuffix = `-${yearText}`;
 
-  if (!invoiceNumber.endsWith(suffix)) {
-    return null;
+  if (invoiceNumber.endsWith(hyphenSuffix)) {
+    return parseSequencePart(invoiceNumber.slice(0, -hyphenSuffix.length));
   }
 
-  return parseSequencePart(invoiceNumber.slice(0, -suffix.length));
+  if (invoiceNumber.endsWith(yearText) && !invoiceNumber.includes("-")) {
+    return parseSequencePart(invoiceNumber.slice(0, -yearText.length));
+  }
+
+  return null;
 }
 
 function parsePlainInvoiceNumber(
@@ -91,29 +113,86 @@ export function buildPlainSeqFirstInvoiceNumber(
   return `${formatInvoiceSuffix(sequence)}-${year}`;
 }
 
+function buildPrefixedYearFirstInvoiceNumber(
+  prefix: string,
+  year: number,
+  sequence: number,
+  separatorStyle: InvoiceNumberSeparatorStyle,
+): string {
+  if (separatorStyle === "hyphenated") {
+    return `${prefix}-${year}-${formatInvoiceSuffix(sequence)}`;
+  }
+
+  return buildPrefixedInvoiceNumber(prefix, year, sequence);
+}
+
+function buildPrefixedSeqFirstNumber(
+  prefix: string,
+  year: number,
+  sequence: number,
+  separatorStyle: InvoiceNumberSeparatorStyle,
+): string {
+  if (separatorStyle === "hyphenated") {
+    return buildPrefixedSeqFirstInvoiceNumber(prefix, year, sequence);
+  }
+
+  return `${prefix}${formatInvoiceSuffix(sequence)}${year}`;
+}
+
+function buildPlainYearFirstInvoiceNumber(
+  year: number,
+  sequence: number,
+  separatorStyle: InvoiceNumberSeparatorStyle,
+): string {
+  if (separatorStyle === "hyphenated") {
+    return `${year}-${formatInvoiceSuffix(sequence)}`;
+  }
+
+  return `${year}${formatInvoiceSuffix(sequence)}`;
+}
+
+function buildPlainSeqFirstNumber(
+  year: number,
+  sequence: number,
+  separatorStyle: InvoiceNumberSeparatorStyle,
+): string {
+  if (separatorStyle === "hyphenated") {
+    return buildPlainSeqFirstInvoiceNumber(year, sequence);
+  }
+
+  return `${formatInvoiceSuffix(sequence)}${year}`;
+}
+
 function buildPrefixedNumberForFormat(
   prefix: string,
   year: number,
   sequence: number,
   format: InvoiceNumberFormat,
+  separatorStyle: InvoiceNumberSeparatorStyle,
 ): string {
   if (format === "sequence_first") {
-    return buildPrefixedSeqFirstInvoiceNumber(prefix, year, sequence);
+    return buildPrefixedSeqFirstNumber(prefix, year, sequence, separatorStyle);
   }
 
-  return buildPrefixedInvoiceNumber(prefix, year, sequence);
+  return buildPrefixedYearFirstInvoiceNumber(
+    prefix,
+    year,
+    sequence,
+    separatorStyle,
+  );
 }
 
 function buildPlainNumberForFormat(
   year: number,
   sequence: number,
   format: InvoiceNumberFormat,
+  separatorStyle: InvoiceNumberSeparatorStyle,
 ): string {
   if (format === "sequence_first") {
-    return buildPlainSeqFirstInvoiceNumber(year, sequence);
+    return buildPlainSeqFirstNumber(year, sequence, separatorStyle);
   }
 
-  return `${year}${formatInvoiceSuffix(sequence)}`;
+  return buildPlainYearFirstInvoiceNumber(year, sequence, separatorStyle);
 }
 
 export function parsePrefixedInvoiceNumber(
@@ -145,6 +224,15 @@ export function parsePrefixedInvoiceNumber(
     return parseSequencePart(sequencePart);
   }
 
+  if (
+    invoiceNumber.startsWith(prefix) &&
+    invoiceNumber.endsWith(yearText) &&
+    !invoiceNumber.includes("-")
+  ) {
+    const sequencePart = invoiceNumber.slice(prefix.length, -yearText.length);
+    return parseSequencePart(sequencePart);
+  }
+
   return null;
 }
 
@@ -162,6 +250,7 @@ export function nextPrefixedInvoiceNumber(
   year: number,
   strategy: InvoiceNumberingStrategy = "sequential",
   format: InvoiceNumberFormat = "year_first",
+  separatorStyle: InvoiceNumberSeparatorStyle = "compact",
 ): string {
   const suffixes = existingNumbers
     .map((number) => parsePrefixedInvoiceNumber(number, prefix, year))
@@ -169,7 +258,13 @@ export function nextPrefixedInvoiceNumber(
 
   if (strategy === "from_last") {
     const nextSuffix = suffixes.length === 0 ? 1 : Math.max(...suffixes) + 1;
-    return buildPrefixedNumberForFormat(prefix, year, nextSuffix, format);
+    return buildPrefixedNumberForFormat(
+      prefix,
+      year,
+      nextSuffix,
+      format,
+      separatorStyle,
+    );
   }
 
   return buildPrefixedNumberForFormat(
@@ -177,6 +272,7 @@ export function nextPrefixedInvoiceNumber(
     year,
     existingNumbers.length + 1,
     format,
+    separatorStyle,
   );
 }
 
@@ -186,12 +282,29 @@ export function previewNextPrefixedInvoiceNumbers(
   year: number,
   issuedNumber: string,
   format: InvoiceNumberFormat = "year_first",
+  separatorStyle: InvoiceNumberSeparatorStyle = detectSeparatorStyle(
+    issuedNumber,
+  ),
 ): { sequential: string; fromLast: string } {
   const withIssued = [...existingNumbers, issuedNumber];
 
   return {
-    sequential: nextPrefixedInvoiceNumber(withIssued, prefix, year, "sequential", format),
-    fromLast: nextPrefixedInvoiceNumber(withIssued, prefix, year, "from_last", format),
+    sequential: nextPrefixedInvoiceNumber(
+      withIssued,
+      prefix,
+      year,
+      "sequential",
+      format,
+      separatorStyle,
+    ),
+    fromLast: nextPrefixedInvoiceNumber(
+      withIssued,
+      prefix,
+      year,
+      "from_last",
+      format,
+      separatorStyle,
+    ),
   };
 }
 
@@ -220,6 +333,17 @@ export function isValidAnyInvoiceNumber(
     return INVOICE_PREFIX_RE.test(seqFirstMatch[1]!);
   }
 
+  if (invoiceNumber.endsWith(yearText) && !invoiceNumber.includes("-")) {
+    const withoutYear = invoiceNumber.slice(0, -yearText.length);
+    for (let prefixLength = 1; prefixLength <= 6; prefixLength++) {
+      const prefix = withoutYear.slice(0, prefixLength);
+      const sequence = withoutYear.slice(prefixLength);
+      if (INVOICE_PREFIX_RE.test(prefix) && SEQUENCE_RE.test(sequence)) {
+        return true;
+      }
+    }
+  }
+
   const yearIndex = invoiceNumber.indexOf(yearText);
   if (yearIndex < 1 || invoiceNumber.includes("-")) {
     return false;
@@ -235,21 +359,32 @@ export function nextInvoiceNumber(
   year: number,
   strategy: InvoiceNumberingStrategy = "sequential",
   format: InvoiceNumberFormat = "year_first",
+  separatorStyle: InvoiceNumberSeparatorStyle = "compact",
 ): string {
   const suffixes = existingNumbers
     .map((number) => parsePlainInvoiceNumber(number, year))
     .filter((suffix): suffix is number => suffix !== null);
 
   if (suffixes.length === 0) {
-    return buildPlainNumberForFormat(year, 1, format);
+    return buildPlainNumberForFormat(year, 1, format, separatorStyle);
   }
 
   if (strategy === "from_last") {
     const maxSuffix = Math.max(...suffixes);
-    return buildPlainNumberForFormat(year, maxSuffix + 1, format);
+    return buildPlainNumberForFormat(
+      year,
+      maxSuffix + 1,
+      format,
+      separatorStyle,
+    );
   }
 
-  return buildPlainNumberForFormat(year, suffixes.length + 1, format);
+  return buildPlainNumberForFormat(
+    year,
+    suffixes.length + 1,
+    format,
+    separatorStyle,
+  );
 }
 
 export function previewNextInvoiceNumbers(
@@ -257,12 +392,27 @@ export function previewNextInvoiceNumbers(
   year: number,
   issuedNumber: string,
   format: InvoiceNumberFormat = "year_first",
+  separatorStyle: InvoiceNumberSeparatorStyle = detectSeparatorStyle(
+    issuedNumber,
+  ),
 ): { sequential: string; fromLast: string } {
   const withIssued = [...existingNumbers, issuedNumber];
 
   return {
-    sequential: nextInvoiceNumber(withIssued, year, "sequential", format),
-    fromLast: nextInvoiceNumber(withIssued, year, "from_last", format),
+    sequential: nextInvoiceNumber(
+      withIssued,
+      year,
+      "sequential",
+      format,
+      separatorStyle,
+    ),
+    fromLast: nextInvoiceNumber(
+      withIssued,
+      year,
+      "from_last",
+      format,
+      separatorStyle,
+    ),
   };
 }
 

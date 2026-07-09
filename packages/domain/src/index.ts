@@ -52,6 +52,8 @@ export {
   parsePrefixedInvoiceNumber,
   isValidPrefixedInvoiceNumber,
   isValidAnyInvoiceNumber,
+  detectSeparatorStyle,
+  resolveSeparatorStyle,
   nextPrefixedInvoiceNumber,
   previewNextPrefixedInvoiceNumbers,
   nextInvoiceNumber,
@@ -60,6 +62,7 @@ export {
   isValidInvoiceNumber,
   type InvoiceNumberingStrategy,
   type InvoiceNumberFormat,
+  type InvoiceNumberSeparatorStyle,
 } from "./invoice-number.js";
 export type { InvoiceIssuanceSnapshot } from "./invoice-issuance-snapshot.js";
 export {

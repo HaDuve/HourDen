@@ -321,7 +321,7 @@ function invalidInvoiceNumberMessage(
   prefix: string,
   year: number,
 ): string {
-  return `Invoice Number must be ${prefix}${year} followed by at least three digits, or ${year} followed by at least three digits for plain format`;
+  return `Invoice Number must match ${prefix}${year}### or ${year}### (plain), with optional hyphen separators`;
 }
 
 function isValidIssuedInvoiceNumber(
