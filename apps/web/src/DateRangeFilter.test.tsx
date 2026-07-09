@@ -142,4 +142,67 @@ describe("DateRangeFilter", () => {
       to: "2026-07-31",
     });
   });
+
+  it("marks this month as pressed when the range is the full current month", () => {
+    vi.setSystemTime(new Date(2026, 5, 18));
+
+    render(
+      <DateRangeFilter
+        from="2026-06-01"
+        to="2026-06-30"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /^this month$/i })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: /^last month$/i })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("marks last month as pressed when the range is the full previous month", () => {
+    vi.setSystemTime(new Date(2026, 5, 18));
+
+    render(
+      <DateRangeFilter
+        from="2026-05-01"
+        to="2026-05-31"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /^last month$/i })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: /^this month$/i })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("marks neither quick control as pressed for a partial month range", () => {
+    vi.setSystemTime(new Date(2026, 5, 18));
+
+    render(
+      <DateRangeFilter
+        from="2026-06-15"
+        to="2026-06-30"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /^this month$/i })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(screen.getByRole("button", { name: /^last month$/i })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
 });

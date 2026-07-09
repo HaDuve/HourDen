@@ -1,5 +1,7 @@
 import {
   currentMonthRange,
+  isLastMonthRange,
+  isThisMonthRange,
   lastMonthRange,
   shiftMonthRange,
   type DateRange,
@@ -19,9 +21,10 @@ type DateRangeFilterProps = {
   periodLabel?: string;
 };
 
-const quickButtonBase =
-  "rounded-md border border-secondary-border bg-secondary text-secondary-content hover:bg-secondary-hover";
-const navButtonBase = quickButtonBase;
+const quickButtonShared = "rounded-md border border-secondary-border text-sm";
+const quickButtonInactive = `${quickButtonShared} bg-secondary text-secondary-content hover:bg-secondary-hover`;
+const quickButtonActive = `${quickButtonShared} bg-surface-active font-medium text-content`;
+const navButtonBase = `${quickButtonShared} bg-secondary text-secondary-content hover:bg-secondary-hover`;
 
 export function DateRangeFilter({
   from,
@@ -32,9 +35,12 @@ export function DateRangeFilter({
   const { t } = useTranslation();
   const range = { from, to };
   const isMobile = useIsMobile();
-  const quickButtonClass = isMobile
-    ? `min-h-11 ${quickButtonBase} px-3 text-sm`
-    : `${quickButtonBase} px-2 py-1 text-sm`;
+  const thisMonthActive = isThisMonthRange(range);
+  const lastMonthActive = isLastMonthRange(range);
+  const quickButtonClass = (active: boolean) =>
+    isMobile
+      ? `min-h-11 px-3 ${active ? quickButtonActive : quickButtonInactive}`
+      : `px-2 py-1 ${active ? quickButtonActive : quickButtonInactive}`;
   const navButtonClass = isMobile
     ? `min-h-11 min-w-11 ${navButtonBase} px-3 text-sm`
     : `${navButtonBase} px-2 py-1 text-sm`;
@@ -56,14 +62,16 @@ export function DateRangeFilter({
         </button>
         <button
           type="button"
-          className={quickButtonClass}
+          className={quickButtonClass(lastMonthActive)}
+          aria-pressed={lastMonthActive}
           onClick={() => onChange(lastMonthRange())}
         >
           {t("dateRange.lastMonth")}
         </button>
         <button
           type="button"
-          className={quickButtonClass}
+          className={quickButtonClass(thisMonthActive)}
+          aria-pressed={thisMonthActive}
           onClick={() => onChange(currentMonthRange())}
         >
           {t("dateRange.thisMonth")}
