@@ -28,3 +28,33 @@ export function shiftMonthRange(range: DateRange, deltaMonths: number): DateRang
   const shifted = new Date(year, month - 1 + deltaMonths, 1);
   return calendarMonthRange(shifted.getFullYear(), shifted.getMonth() + 1);
 }
+
+export function isFullCalendarMonth(range: DateRange): boolean {
+  const [year, month, fromDay] = range.from.split("-").map(Number);
+  if (fromDay !== 1) {
+    return false;
+  }
+  return range.to === calendarMonthRange(year, month).to;
+}
+
+export function isThisMonthRange(
+  range: DateRange,
+  reference = new Date(),
+): boolean {
+  if (!isFullCalendarMonth(range)) {
+    return false;
+  }
+  const thisMonth = currentMonthRange(reference);
+  return range.from === thisMonth.from && range.to === thisMonth.to;
+}
+
+export function isLastMonthRange(
+  range: DateRange,
+  reference = new Date(),
+): boolean {
+  if (!isFullCalendarMonth(range)) {
+    return false;
+  }
+  const lastMonth = lastMonthRange(reference);
+  return range.from === lastMonth.from && range.to === lastMonth.to;
+}

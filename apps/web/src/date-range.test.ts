@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   calendarMonthRange,
   currentMonthRange,
+  isFullCalendarMonth,
+  isLastMonthRange,
+  isThisMonthRange,
   lastMonthRange,
   shiftMonthRange,
 } from "./date-range.js";
@@ -64,5 +67,72 @@ describe("shiftMonthRange", () => {
       from: "2026-07-01",
       to: "2026-07-31",
     });
+  });
+});
+
+describe("isFullCalendarMonth", () => {
+  it("returns true for a complete calendar month", () => {
+    expect(
+      isFullCalendarMonth({ from: "2026-06-01", to: "2026-06-30" }),
+    ).toBe(true);
+  });
+
+  it("returns false when the range does not start on the first", () => {
+    expect(
+      isFullCalendarMonth({ from: "2026-06-15", to: "2026-06-30" }),
+    ).toBe(false);
+  });
+
+  it("returns false when the range does not end on the last day", () => {
+    expect(
+      isFullCalendarMonth({ from: "2026-06-01", to: "2026-06-29" }),
+    ).toBe(false);
+  });
+});
+
+describe("isThisMonthRange", () => {
+  const reference = new Date(2026, 5, 18);
+
+  it("returns true for the current calendar month", () => {
+    expect(
+      isThisMonthRange({ from: "2026-06-01", to: "2026-06-30" }, reference),
+    ).toBe(true);
+  });
+
+  it("returns false for last month even when it is a full calendar month", () => {
+    expect(
+      isThisMonthRange({ from: "2026-05-01", to: "2026-05-31" }, reference),
+    ).toBe(false);
+  });
+
+  it("returns false for a partial range in the current month", () => {
+    expect(
+      isThisMonthRange({ from: "2026-06-15", to: "2026-06-30" }, reference),
+    ).toBe(false);
+  });
+});
+
+describe("isLastMonthRange", () => {
+  const reference = new Date(2026, 5, 18);
+
+  it("returns true for the previous calendar month", () => {
+    expect(
+      isLastMonthRange({ from: "2026-05-01", to: "2026-05-31" }, reference),
+    ).toBe(true);
+  });
+
+  it("returns false for the current month", () => {
+    expect(
+      isLastMonthRange({ from: "2026-06-01", to: "2026-06-30" }, reference),
+    ).toBe(false);
+  });
+
+  it("returns false for another full calendar month", () => {
+    expect(
+      isThisMonthRange({ from: "2026-04-01", to: "2026-04-30" }, reference),
+    ).toBe(false);
+    expect(
+      isLastMonthRange({ from: "2026-04-01", to: "2026-04-30" }, reference),
+    ).toBe(false);
   });
 });
