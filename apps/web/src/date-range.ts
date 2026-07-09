@@ -30,11 +30,10 @@ export function shiftMonthRange(range: DateRange, deltaMonths: number): DateRang
 }
 
 export function isFullCalendarMonth(range: DateRange): boolean {
-  const [, , fromDay] = range.from.split("-").map(Number);
+  const [year, month, fromDay] = range.from.split("-").map(Number);
   if (fromDay !== 1) {
     return false;
   }
-  const [year, month] = range.from.split("-").map(Number);
   return range.to === calendarMonthRange(year, month).to;
 }
 

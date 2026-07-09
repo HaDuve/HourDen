@@ -154,14 +154,13 @@ describe("DateRangeFilter", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: /^this month$/i })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    expect(screen.getByRole("button", { name: /^last month$/i })).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
+    const thisMonthButton = screen.getByRole("button", { name: /^this month$/i });
+    const lastMonthButton = screen.getByRole("button", { name: /^last month$/i });
+
+    expect(thisMonthButton).toHaveAttribute("aria-pressed", "true");
+    expect(thisMonthButton).toHaveClass("bg-surface-active");
+    expect(lastMonthButton).toHaveAttribute("aria-pressed", "false");
+    expect(lastMonthButton).not.toHaveClass("bg-surface-active");
   });
 
   it("marks last month as pressed when the range is the full previous month", () => {
@@ -175,14 +174,13 @@ describe("DateRangeFilter", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: /^last month$/i })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    expect(screen.getByRole("button", { name: /^this month$/i })).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
+    const lastMonthButton = screen.getByRole("button", { name: /^last month$/i });
+    const thisMonthButton = screen.getByRole("button", { name: /^this month$/i });
+
+    expect(lastMonthButton).toHaveAttribute("aria-pressed", "true");
+    expect(lastMonthButton).toHaveClass("bg-surface-active");
+    expect(thisMonthButton).toHaveAttribute("aria-pressed", "false");
+    expect(thisMonthButton).not.toHaveClass("bg-surface-active");
   });
 
   it("marks neither quick control as pressed for a partial month range", () => {
@@ -204,5 +202,25 @@ describe("DateRangeFilter", () => {
       "aria-pressed",
       "false",
     );
+  });
+
+  it("marks neither quick control as pressed for another full calendar month", () => {
+    vi.setSystemTime(new Date(2026, 5, 18));
+
+    render(
+      <DateRangeFilter
+        from="2026-04-01"
+        to="2026-04-30"
+        onChange={vi.fn()}
+      />,
+    );
+
+    const thisMonthButton = screen.getByRole("button", { name: /^this month$/i });
+    const lastMonthButton = screen.getByRole("button", { name: /^last month$/i });
+
+    expect(thisMonthButton).toHaveAttribute("aria-pressed", "false");
+    expect(thisMonthButton).not.toHaveClass("bg-surface-active");
+    expect(lastMonthButton).toHaveAttribute("aria-pressed", "false");
+    expect(lastMonthButton).not.toHaveClass("bg-surface-active");
   });
 });

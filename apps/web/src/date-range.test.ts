@@ -126,4 +126,13 @@ describe("isLastMonthRange", () => {
       isLastMonthRange({ from: "2026-06-01", to: "2026-06-30" }, reference),
     ).toBe(false);
   });
+
+  it("returns false for another full calendar month", () => {
+    expect(
+      isThisMonthRange({ from: "2026-04-01", to: "2026-04-30" }, reference),
+    ).toBe(false);
+    expect(
+      isLastMonthRange({ from: "2026-04-01", to: "2026-04-30" }, reference),
+    ).toBe(false);
+  });
 });
