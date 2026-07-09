@@ -1,10 +1,9 @@
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { readPngInfoFromFile } from "../../scripts/favicon-png.mjs";
 
-const webRoot = fileURLToPath(new URL("../..", import.meta.url));
-const publicDir = join(webRoot, "public");
+const publicDir = join(dirname(fileURLToPath(import.meta.url)), "../../public");
 
 const FAVICON_ASSETS = ["favicon-source.png", "favicon-32x32.png", "apple-touch-icon.png"];
 
