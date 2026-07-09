@@ -1696,6 +1696,7 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
         to: "2026-06-30",
         invoiceNumberSeqBeforeYear: true,
         invoiceNumber: "BAN0012026",
+        numberingStrategy: "sequential",
       }),
     });
     expect(issued.status).toBe(201);
@@ -1753,6 +1754,7 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
         from: "2026-06-01",
         to: "2026-06-30",
         invoiceNumber: "BAN2026010",
+        numberingStrategy: "sequential",
       }),
     });
     expect(issued.status).toBe(201);
