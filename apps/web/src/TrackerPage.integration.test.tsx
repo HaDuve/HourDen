@@ -120,6 +120,7 @@ describeWithAuthenticatedWorkspace("TrackerPage with live API", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/incomplete/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /start timer/i })).toBeInTheDocument();
     });
 
     const incompleteRow = screen.getByText(/incomplete/i).closest("li");
@@ -129,9 +130,15 @@ describeWithAuthenticatedWorkspace("TrackerPage with live API", () => {
         name: /no description/i,
       }),
     );
+    await waitFor(() => {
+      expect(editEntryDialog()).toBeInTheDocument();
+    });
     const editDialog = editEntryDialog();
     fireEvent.change(within(editDialog).getByLabelText(/^description$/i), {
       target: { value: "Wrapped up design review" },
+    });
+    await waitFor(() => {
+      expect(within(editDialog).getByRole("button", { name: /^save$/i })).toBeEnabled();
     });
     fireEvent.click(within(editDialog).getByRole("button", { name: /^save$/i }));
 
