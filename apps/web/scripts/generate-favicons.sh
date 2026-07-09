@@ -4,6 +4,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
 PUBLIC="$ROOT/public"
 SOURCE="$PUBLIC/favicon-source.png"
 PNG_OPTS=(-define "png:exclude-chunk=bKGD")
@@ -31,7 +32,21 @@ fi
 mv "$tmp" "$SOURCE"
 trap - EXIT
 
-magick "$SOURCE" -resize 32x32 "${PNG_OPTS[@]}" PNG32:"$PUBLIC/favicon-32x32.png"
-magick "$SOURCE" -resize 180x180 "${PNG_OPTS[@]}" PNG32:"$PUBLIC/apple-touch-icon.png"
+TAB_CROP_PERCENT="$(
+  node --input-type=module -e "import { TAB_FAVICON_CROP_HEIGHT_PERCENT } from './scripts/favicon-png.mjs'; console.log(TAB_FAVICON_CROP_HEIGHT_PERCENT)"
+)"
+
+# Tab icon: trim transparent margins, drop wordmark band, scale shield to fill 32×32.
+magick "$SOURCE" -fuzz 5% -trim +repage \
+  -crop "100%x${TAB_CROP_PERCENT}%+0+0" +repage \
+  -resize 32x32^ \
+  -gravity center -background none -extent 32x32 \
+  "${PNG_OPTS[@]}" PNG32:"$PUBLIC/favicon-32x32.png"
+
+# Touch icon: full trimmed badge including wordmark.
+magick "$SOURCE" -fuzz 5% -trim +repage \
+  -resize 180x180^ \
+  -gravity center -background none -extent 180x180 \
+  "${PNG_OPTS[@]}" PNG32:"$PUBLIC/apple-touch-icon.png"
 
 echo "Wrote $SOURCE, $PUBLIC/favicon-32x32.png, $PUBLIC/apple-touch-icon.png"
