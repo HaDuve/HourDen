@@ -7,6 +7,7 @@ import { LocaleProvider } from "./LocaleProvider.js";
 import { authenticatedAppRoutes } from "./routes.js";
 import { createMatchMedia } from "./test/match-media.js";
 import { resetMockEventSources } from "./test/mock-event-source.js";
+import { resetWorkspaceEventsConnectionForTests } from "./workspace-events-connection.js";
 
 function routesWithLocale(userLocale: SupportedLocale | null = "en") {
   return [
@@ -36,6 +37,7 @@ function renderApp(initialPath = "/", userLocale: SupportedLocale | null = "en")
 afterEach(async () => {
   cleanup();
   resetMockEventSources();
+  resetWorkspaceEventsConnectionForTests();
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
   });

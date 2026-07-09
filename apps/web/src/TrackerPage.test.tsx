@@ -4,6 +4,8 @@ import i18n from "./i18n/i18n.js";
 import TrackerPage from "./TrackerPage.js";
 import { createMatchMedia } from "./test/match-media.js";
 import { MockEventSource, resetMockEventSources } from "./test/mock-event-source.js";
+import { renderWithRunningTimer } from "./test/render-with-running-timer.js";
+import { resetWorkspaceEventsConnectionForTests } from "./workspace-events-connection.js";
 import { localDatetimeValue } from "./tracker/localDatetimeValue.js";
 
 vi.mock("./today-date.js", () => ({
@@ -109,10 +111,15 @@ describe("TrackerPage", () => {
   beforeEach(async () => {
     localStorage.clear();
     resetMockEventSources();
+    resetWorkspaceEventsConnectionForTests();
     await i18n.changeLanguage("en");
   });
 
-  it("refetches running timer and entries when timer-changed is received", async () => {
+  function renderTrackerPage() {
+    return renderWithRunningTimer(<TrackerPage />);
+  }
+
+  it("refetches entries when timer-changed is received", async () => {
     let runningFetches = 0;
     let entryFetches = 0;
     const fetchMock = vi.fn((url: string) => {
@@ -153,20 +160,18 @@ describe("TrackerPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<TrackerPage />);
+    renderTrackerPage();
 
     await waitFor(() => {
       expect(runningFetches).toBeGreaterThanOrEqual(1);
       expect(entryFetches).toBeGreaterThanOrEqual(1);
     });
 
-    const runningBefore = runningFetches;
     const entriesBefore = entryFetches;
 
     MockEventSource.instances[0]?.emit("timer-changed");
 
     await waitFor(() => {
-      expect(runningFetches).toBeGreaterThan(runningBefore);
       expect(entryFetches).toBeGreaterThan(entriesBefore);
     });
   });
@@ -174,7 +179,7 @@ describe("TrackerPage", () => {
   it("renders a unified sticky timer bar with start control when idle", async () => {
     vi.stubGlobal("fetch", createFetchMock([]));
 
-    render(<TrackerPage />);
+    renderTrackerPage();
 
     await waitFor(() => {
       const bar = screen.getByRole("region", { name: /timer bar/i });
@@ -187,7 +192,7 @@ describe("TrackerPage", () => {
   it("renders the page title from the message catalog", async () => {
     vi.stubGlobal("fetch", createFetchMock([]));
 
-    render(<TrackerPage />);
+    renderTrackerPage();
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "Tracker" })).toBeInTheDocument();
@@ -198,7 +203,7 @@ describe("TrackerPage", () => {
     await i18n.changeLanguage("de");
     vi.stubGlobal("fetch", createFetchMock([]));
 
-    render(<TrackerPage />);
+    renderTrackerPage();
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "Tracker" })).toBeInTheDocument();
@@ -209,7 +214,7 @@ describe("TrackerPage", () => {
     const fetchMock = createFetchMock([morningEntry]);
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<TrackerPage />);
+    renderTrackerPage();
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith("/api/time-entries?limit=50");
@@ -219,7 +224,7 @@ describe("TrackerPage", () => {
   it("groups entries by month and day", async () => {
     vi.stubGlobal("fetch", createFetchMock([morningEntry, lastMonthEntry]));
 
-    render(<TrackerPage />);
+    renderTrackerPage();
 
     await waitFor(() => {
       expect(screen.getByText("This month")).toBeInTheDocument();
@@ -242,7 +247,7 @@ describe("TrackerPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<TrackerPage />);
+    renderTrackerPage();
 
     await waitFor(() => {
       expect(screen.getByText("Morning work")).toBeInTheDocument();
@@ -344,7 +349,7 @@ describe("TrackerPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<TrackerPage />);
+    renderTrackerPage();
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /stop timer/i })).toBeInTheDocument();
@@ -414,7 +419,7 @@ describe("TrackerPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<TrackerPage />);
+    renderTrackerPage();
     await waitFor(() => {
       expect(screen.getByText("Afternoon work")).toBeInTheDocument();
     });
@@ -458,7 +463,7 @@ describe("TrackerPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<TrackerPage />);
+    renderTrackerPage();
 
     await waitFor(() => {
       expect(screen.getByText("Morning work")).toBeInTheDocument();
@@ -503,7 +508,7 @@ describe("TrackerPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<TrackerPage />);
+    renderTrackerPage();
 
     await waitFor(() => {
       expect(screen.getByText("This month")).toBeInTheDocument();
@@ -546,7 +551,7 @@ describe("TrackerPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<TrackerPage />);
+    renderTrackerPage();
 
     await waitFor(() => {
       expect(screen.getByText("Morning work")).toBeInTheDocument();
@@ -580,7 +585,7 @@ describe("TrackerPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<TrackerPage />);
+    renderTrackerPage();
 
     await waitFor(() => {
       expect(screen.getByText("Morning work")).toBeInTheDocument();
@@ -615,7 +620,7 @@ describe("TrackerPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<TrackerPage />);
+    renderTrackerPage();
 
     await waitFor(() => {
       expect(screen.getByText("Morning work")).toBeInTheDocument();
@@ -653,7 +658,7 @@ describe("TrackerPage", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<TrackerPage />);
+    renderTrackerPage();
 
     await waitFor(() => {
       expect(screen.getByText("Morning work")).toBeInTheDocument();

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
+import { renderWithRunningTimer } from "../test/render-with-running-timer.js";
 import i18n from "../i18n/i18n.js";
 import TrackerPage from "../TrackerPage.js";
 import { resetMockEventSources } from "../test/mock-event-source.js";
@@ -62,7 +63,7 @@ describe("TrackerPage entry list styling", () => {
     vi.stubGlobal("fetch", createFetchMock());
     await i18n.changeLanguage("en");
 
-    render(<TrackerPage />);
+    renderWithRunningTimer(<TrackerPage />);
 
     await screen.findByText("Morning work");
     const row = screen.getByText("Morning work").closest("li");

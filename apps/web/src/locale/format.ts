@@ -44,3 +44,21 @@ export function formatDurationMinutes(minutes: number, locale: SupportedLocale):
   }
   return mins > 0 ? `${hours} h ${mins} min` : `${hours} h`;
 }
+
+export function formatAbbreviatedElapsed(totalSeconds: number, locale: SupportedLocale): string {
+  if (totalSeconds < 60) {
+    return locale === "de" ? `${totalSeconds} Sek.` : `${totalSeconds} sec`;
+  }
+
+  if (totalSeconds < 3600) {
+    const minutes = Math.floor(totalSeconds / 60);
+    return locale === "de" ? `${minutes} Min.` : `${minutes} min`;
+  }
+
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  if (locale === "de") {
+    return minutes > 0 ? `${hours} Std. ${minutes} Min.` : `${hours} Std.`;
+  }
+  return minutes > 0 ? `${hours} h ${minutes} min` : `${hours} h`;
+}

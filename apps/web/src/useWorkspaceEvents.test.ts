@@ -1,5 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { resetWorkspaceEventsConnectionForTests } from "./workspace-events-connection.js";
 import { useWorkspaceEvents } from "./useWorkspaceEvents.js";
 
 type Listener = (event: MessageEvent) => void;
@@ -75,8 +76,25 @@ describe("useWorkspaceEvents", () => {
   });
 
   afterEach(() => {
+    resetWorkspaceEventsConnectionForTests();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it("shares one EventSource across multiple subscribers", async () => {
+    renderHook(() =>
+      useWorkspaceEvents({
+        "timer-changed": vi.fn(),
+      }),
+    );
+    renderHook(() =>
+      useWorkspaceEvents({
+        "today-changed": vi.fn(),
+      }),
+    );
+
+    await flushPromises();
+    expect(MockEventSource.instances).toHaveLength(1);
   });
 
   it("reconnects after the stream drops when the session is still valid", async () => {

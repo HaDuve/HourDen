@@ -42,6 +42,7 @@ import { TrackerTimerBar } from "./tracker/TrackerTimerBar.js";
 import { useLiveCounter } from "./tracker/useLiveCounter.js";
 import { todayDateInTimeZone } from "./today-date.js";
 import { useDeleteDialog } from "./useDeleteDialog.js";
+import { useRunningTimer } from "./running-timer/RunningTimerContext.js";
 import { useWorkspaceEvents } from "./useWorkspaceEvents.js";
 import { DescriptionAutocomplete } from "./DescriptionAutocomplete.js";
 
@@ -88,15 +89,6 @@ async function fetchTrackerEntries(limit: TrackerEntryLimit): Promise<TimeEntry[
   return data.entries;
 }
 
-async function fetchRunningTimer(): Promise<TimeEntry | null> {
-  const res = await fetch("/api/time-entries/running");
-  if (!res.ok) {
-    throw new Error(`Failed to load running timer (${res.status})`);
-  }
-  const data = (await res.json()) as { entry: TimeEntry | null };
-  return data.entry;
-}
-
 async function fetchCalendarTimezone(): Promise<string> {
   const res = await fetch("/api/auth/me", { credentials: "include" });
   if (!res.ok) {
@@ -127,9 +119,9 @@ async function fetchClients(): Promise<Client[]> {
 export default function TrackerPage() {
   const { t } = useTranslation();
   const { locale, formatCurrency, formatDurationMinutes } = useLocaleFormat();
+  const { running, refresh: refreshRunningTimer, replaceRunning } = useRunningTimer();
   const [calendarTimezone, setCalendarTimezone] = useState<string | null>(null);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
-  const [running, setRunning] = useState<TimeEntry | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [entryLimit, setEntryLimit] = useState<TrackerEntryLimit>(
@@ -198,15 +190,12 @@ export default function TrackerPage() {
     setLoading(true);
     setError(null);
     try {
-      const [loadedEntries, loadedRunning, loadedProjects, loadedClients] =
-        await Promise.all([
+      const [loadedEntries, loadedProjects, loadedClients] = await Promise.all([
           fetchTrackerEntries(entryLimit),
-          fetchRunningTimer(),
           fetchProjects(),
           fetchClients(),
         ]);
       setEntries(loadedEntries);
-      setRunning(loadedRunning);
       setProjects(loadedProjects);
       setClients(loadedClients);
     } catch {
@@ -215,15 +204,6 @@ export default function TrackerPage() {
       setLoading(false);
     }
   }, [calendarTimezone, entryLimit, t]);
-
-  const refreshRunningTimer = useCallback(async () => {
-    try {
-      const loadedRunning = await fetchRunningTimer();
-      setRunning(loadedRunning);
-    } catch {
-      setError(t("tracker.loadFailed"));
-    }
-  }, [t]);
 
   const refreshEntries = useCallback(async () => {
     try {
@@ -236,7 +216,6 @@ export default function TrackerPage() {
 
   useWorkspaceEvents({
     "timer-changed": () => {
-      void refreshRunningTimer();
       void refreshEntries();
     },
     "today-changed": () => {
@@ -303,7 +282,7 @@ export default function TrackerPage() {
         throw new Error(`Update failed (${res.status})`);
       }
       const updated = (await res.json()) as TimeEntry;
-      setRunning(updated);
+      replaceRunning(updated);
       setBarForm((current) => ({
         description:
           patch.description !== undefined ? patch.description : current.description,
@@ -335,6 +314,7 @@ export default function TrackerPage() {
         throw new Error(`Start failed (${res.status})`);
       }
       await load();
+      await refreshRunningTimer();
     } catch {
       setError(t("tracker.startFailed"));
     } finally {
@@ -359,6 +339,7 @@ export default function TrackerPage() {
         throw new Error(`Stop failed (${res.status})`);
       }
       await load();
+      await refreshRunningTimer();
     } catch {
       setError(t("tracker.stopFailed"));
     } finally {

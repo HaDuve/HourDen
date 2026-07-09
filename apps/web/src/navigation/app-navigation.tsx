@@ -3,14 +3,16 @@ import { useTranslation } from "react-i18next";
 import { NavLink } from "react-router-dom";
 import { LanguageSwitcher } from "../layout/LanguageSwitcher.js";
 import { navLinkClass } from "./nav-link-class.js";
-import { TrackerNavLink } from "./tracker-nav-link.js";
+import {
+  moreNavIcon,
+  NAV_ICON_SIZE,
+  NAV_ICON_STROKE_WIDTH,
+  primaryNavDestinations,
+  secondaryNavDestinations,
+} from "./nav-destinations.js";
+import { NavDestinationLink, TrackerNavLink } from "./tracker-nav-link.js";
 
-const secondaryDestinationKeys = [
-  { to: "clients", labelKey: "nav.clients" },
-  { to: "projects", labelKey: "nav.projects" },
-  { to: "report", labelKey: "nav.report" },
-  { to: "import", labelKey: "nav.import" },
-] as const;
+const MoreIcon = moreNavIcon;
 
 type AppNavigationProps = {
   isDesktop: boolean;
@@ -53,20 +55,23 @@ function DesktopNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
       <div className="mx-auto flex max-w-3xl items-center gap-1 px-8 py-3">
         <div className="flex flex-1 gap-1">
           <TrackerNavLink />
-          <NavLink to="dashboard" className={navLinkClass}>
-            {t("nav.dashboard")}
-          </NavLink>
-          <NavLink to="invoices" className={navLinkClass}>
-            {t("nav.invoices")}
-          </NavLink>
+          {primaryNavDestinations.map(({ to, labelKey, icon }) => (
+            <NavDestinationLink key={to} to={to} labelKey={labelKey} icon={icon} />
+          ))}
           <div className="relative" ref={moreMenuRef}>
             <button
               type="button"
               aria-expanded={isMoreOpen}
               aria-haspopup="menu"
               onClick={() => setIsMoreOpen((open) => !open)}
-              className="rounded-md px-3 py-1.5 text-sm font-medium text-muted hover:bg-surface-hover hover:text-content"
+              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-muted hover:bg-surface-hover hover:text-content"
             >
+              <MoreIcon
+                size={NAV_ICON_SIZE}
+                strokeWidth={NAV_ICON_STROKE_WIDTH}
+                aria-hidden
+                className="shrink-0"
+              />
               {t("nav.more")}
             </button>
             {isMoreOpen ? (
@@ -74,20 +79,22 @@ function DesktopNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
                 role="menu"
                 className="absolute right-0 z-10 mt-1 min-w-48 rounded-md border border-divider bg-surface py-1 shadow-lg"
               >
-                {secondaryDestinationKeys.map(({ to, labelKey }) => (
-                  <NavLink
+                {secondaryNavDestinations.map(({ to, labelKey, icon }) => (
+                  <NavDestinationLink
                     key={to}
                     to={to}
+                    labelKey={labelKey}
+                    icon={icon}
                     role="menuitem"
                     className={({ isActive }) =>
                       `block px-3 py-2 text-sm ${
-                        isActive ? "bg-surface-active font-medium text-content" : "text-muted hover:bg-surface-hover hover:text-content"
+                        isActive
+                          ? "bg-surface-active font-medium text-content"
+                          : "text-muted hover:bg-surface-hover hover:text-content"
                       }`
                     }
                     onClick={() => setIsMoreOpen(false)}
-                  >
-                    {t(labelKey)}
-                  </NavLink>
+                  />
                 ))}
                 <LanguageSwitcher />
                 <button
@@ -124,24 +131,25 @@ function MobileNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
           <div className="flex flex-1 justify-center">
             <TrackerNavLink />
           </div>
-          <div className="flex flex-1 justify-center">
-            <NavLink to="dashboard" className={navLinkClass}>
-              {t("nav.dashboard")}
-            </NavLink>
-          </div>
-          <div className="flex flex-1 justify-center">
-            <NavLink to="invoices" className={navLinkClass}>
-              {t("nav.invoices")}
-            </NavLink>
-          </div>
+          {primaryNavDestinations.map(({ to, labelKey, icon }) => (
+            <div key={to} className="flex flex-1 justify-center">
+              <NavDestinationLink to={to} labelKey={labelKey} icon={icon} iconOnly />
+            </div>
+          ))}
           <div className="flex flex-1 justify-center">
             <button
               type="button"
               aria-expanded={isMoreOpen}
+              aria-label={t("nav.more")}
               onClick={() => setIsMoreOpen((open) => !open)}
               className="rounded-md px-3 py-1.5 text-sm font-medium text-muted hover:bg-surface-hover hover:text-content"
             >
-              {t("nav.more")}
+              <MoreIcon
+                size={NAV_ICON_SIZE}
+                strokeWidth={NAV_ICON_STROKE_WIDTH}
+                aria-hidden
+                className="mx-auto shrink-0"
+              />
             </button>
           </div>
         </div>
@@ -169,19 +177,21 @@ function MobileNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
               </button>
             </div>
             <div className="flex flex-col gap-1">
-              {secondaryDestinationKeys.map(({ to, labelKey }) => (
-                <NavLink
+              {secondaryNavDestinations.map(({ to, labelKey, icon }) => (
+                <NavDestinationLink
                   key={to}
                   to={to}
+                  labelKey={labelKey}
+                  icon={icon}
                   className={({ isActive }) =>
                     `rounded-md px-3 py-2 text-sm ${
-                      isActive ? "bg-surface-active font-medium text-content" : "text-muted hover:bg-surface-hover hover:text-content"
+                      isActive
+                        ? "bg-surface-active font-medium text-content"
+                        : "text-muted hover:bg-surface-hover hover:text-content"
                     }`
                   }
                   onClick={() => setIsMoreOpen(false)}
-                >
-                  {t(labelKey)}
-                </NavLink>
+                />
               ))}
               <LanguageSwitcher />
               <button

@@ -1,8 +1,9 @@
 import "./test/load-env.js";
 
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { expect, it } from "vitest";
 import { describeWithAuthenticatedWorkspace } from "./test/describe-with-live-api.js";
+import { renderWithRunningTimer } from "./test/render-with-running-timer.js";
 import TrackerPage from "./TrackerPage.js";
 import { todayDateInTimeZone } from "./today-date.js";
 
@@ -40,7 +41,7 @@ describeWithAuthenticatedWorkspace("TrackerPage with live API", () => {
     });
     expect(postRes.status).toBe(201);
 
-    render(<TrackerPage />);
+    renderWithRunningTimer(<TrackerPage />);
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
@@ -94,7 +95,7 @@ describeWithAuthenticatedWorkspace("TrackerPage with live API", () => {
   });
 
   it("lets the Operator add a description to an incomplete stopped entry", async () => {
-    render(<TrackerPage />);
+    renderWithRunningTimer(<TrackerPage />);
 
     await waitFor(() => {
       expect(screen.getByText(/track time with a running timer/i)).toBeInTheDocument();
@@ -168,7 +169,7 @@ describeWithAuthenticatedWorkspace("TrackerPage with live API", () => {
       }),
     });
 
-    render(<TrackerPage />);
+    renderWithRunningTimer(<TrackerPage />);
 
     await waitFor(() => {
       expect(screen.getByText("Past planning session")).toBeInTheDocument();
@@ -229,7 +230,7 @@ describeWithAuthenticatedWorkspace("TrackerPage with live API", () => {
       }),
     });
 
-    render(<TrackerPage />);
+    renderWithRunningTimer(<TrackerPage />);
 
     await waitFor(() => {
       expect(screen.getByText("Original entry")).toBeInTheDocument();
@@ -299,7 +300,7 @@ describeWithAuthenticatedWorkspace("TrackerPage with live API", () => {
       }),
     });
 
-    render(<TrackerPage />);
+    renderWithRunningTimer(<TrackerPage />);
 
     await waitFor(() => {
       expect(screen.getByText("Past planning session")).toBeInTheDocument();
