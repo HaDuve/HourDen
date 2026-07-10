@@ -1,28 +1,31 @@
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 
-const RESET_WORKSPACE_SQL = `
-  WITH
-    deleted_time_entries AS (
-      DELETE FROM time_entries WHERE workspace_id = $1
-    ),
-    deleted_invoices AS (
-      DELETE FROM invoices WHERE workspace_id = $1
-    ),
-    deleted_client_numbering AS (
-      DELETE FROM client_invoice_numbering
-      WHERE client_id IN (SELECT id FROM clients WHERE workspace_id = $1)
-    ),
-    deleted_workspace_numbering AS (
-      DELETE FROM workspace_invoice_numbering WHERE workspace_id = $1
-    ),
-    deleted_projects AS (
-      DELETE FROM projects WHERE workspace_id = $1
-    )
-  DELETE FROM clients WHERE workspace_id = $1
-`;
+const WORKSPACE_RESET_STATEMENTS = [
+  "DELETE FROM time_entries WHERE workspace_id = $1",
+  "DELETE FROM invoices WHERE workspace_id = $1",
+  `
+    DELETE FROM client_invoice_numbering
+    WHERE client_id IN (SELECT id FROM clients WHERE workspace_id = $1)
+  `,
+  "DELETE FROM workspace_invoice_numbering WHERE workspace_id = $1",
+  "DELETE FROM projects WHERE workspace_id = $1",
+  "DELETE FROM clients WHERE workspace_id = $1",
+] as const;
 
 export async function resetWorkspace(pool: Pool, workspaceId: string): Promise<void> {
-  await pool.query(RESET_WORKSPACE_SQL, [workspaceId]);
+  const client: PoolClient = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    for (const sql of WORKSPACE_RESET_STATEMENTS) {
+      await client.query(sql, [workspaceId]);
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 /** Restores migration 010 index after schema-mutation tests. Serial-only; see migrate.integration.test.ts. */

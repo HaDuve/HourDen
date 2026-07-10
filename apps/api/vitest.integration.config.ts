@@ -8,6 +8,7 @@ export default defineConfig({
     globalSetup: ["./src/test/global-setup.ts"],
     include: ["src/**/*.integration.test.ts"],
     fileParallelism: false,
+    maxWorkers: 1,
     sequence: {
       groupOrder: 1,
     },

@@ -21,6 +21,7 @@ export default defineConfig({
     globals: true,
     include: ["src/**/*.integration.test.{ts,tsx}"],
     fileParallelism: false,
+    maxWorkers: 1,
     sequence: {
       groupOrder: 2,
     },
