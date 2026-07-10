@@ -22,7 +22,7 @@ export default defineConfig({
     include: ["src/**/*.integration.test.{ts,tsx}"],
     fileParallelism: false,
     sequence: {
-      groupOrder: 1,
+      groupOrder: 2,
     },
   },
 });
