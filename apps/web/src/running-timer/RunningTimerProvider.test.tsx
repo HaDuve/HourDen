@@ -96,4 +96,119 @@ describe("RunningTimerProvider", () => {
       expect(result.current.running).toBeNull();
     });
   });
+
+  it("shows a remote stop notice when another device replaces the running timer", async () => {
+    const { result } = renderHook(() => useRunningTimer(), {
+      wrapper: RunningTimerProvider,
+    });
+
+    await waitFor(() => {
+      expect(result.current.running?.id).toBe("e0000000-0000-4000-8000-000000000099");
+    });
+
+    fetchMock.mockImplementation((url: string) => {
+      if (url === "/api/auth/me") {
+        return Promise.resolve({ status: 200 });
+      }
+      if (url === "/api/time-entries/running") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            entry: {
+              id: "e0000000-0000-4000-8000-000000000888",
+              projectId: null,
+              startedAt: "2026-07-02T09:00:00.000Z",
+              endedAt: null,
+              description: null,
+              tags: [],
+              billable: true,
+              amount: 0,
+              billableComplete: false,
+              isRunning: true,
+              durationMinutes: 0,
+              invoiced: false,
+            },
+          }),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+
+    act(() => {
+      MockEventSource.instances[0]?.emit("timer-changed");
+    });
+
+    await waitFor(() => {
+      expect(result.current.running?.id).toBe("e0000000-0000-4000-8000-000000000888");
+      expect(result.current.remoteStopNotice).toBe(true);
+    });
+  });
+
+  it("suppresses the remote stop notice after a local timer mutation", async () => {
+    const { result } = renderHook(() => useRunningTimer(), {
+      wrapper: RunningTimerProvider,
+    });
+
+    await waitFor(() => {
+      expect(result.current.running).not.toBeNull();
+    });
+
+    act(() => {
+      result.current.suppressRemoteStopNotice();
+    });
+
+    fetchMock.mockImplementation((url: string) => {
+      if (url === "/api/auth/me") {
+        return Promise.resolve({ status: 200 });
+      }
+      if (url === "/api/time-entries/running") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ entry: null }),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+
+    act(() => {
+      MockEventSource.instances[0]?.emit("timer-changed");
+    });
+
+    await waitFor(() => {
+      expect(result.current.running).toBeNull();
+      expect(result.current.remoteStopNotice).toBe(false);
+    });
+  });
+
+  it("does not show a remote stop notice when the timer is stopped without a replacement", async () => {
+    const { result } = renderHook(() => useRunningTimer(), {
+      wrapper: RunningTimerProvider,
+    });
+
+    await waitFor(() => {
+      expect(result.current.running?.id).toBe("e0000000-0000-4000-8000-000000000099");
+    });
+
+    fetchMock.mockImplementation((url: string) => {
+      if (url === "/api/auth/me") {
+        return Promise.resolve({ status: 200 });
+      }
+      if (url === "/api/time-entries/running") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ entry: null }),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+
+    act(() => {
+      MockEventSource.instances[0]?.emit("timer-changed");
+    });
+
+    await waitFor(() => {
+      expect(result.current.running).toBeNull();
+      expect(result.current.remoteStopNotice).toBe(false);
+    });
+  });
 });

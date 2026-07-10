@@ -183,7 +183,9 @@
     "saveFailed": "Eintrag konnte nicht gespeichert werden",
     "deleteFailed": "Eintrag konnte nicht gelöscht werden",
     "startFailed": "Timer konnte nicht gestartet werden",
-    "stopFailed": "Timer konnte nicht gestoppt werden"
+    "stopFailed": "Timer konnte nicht gestoppt werden",
+    "remoteStopNotice": "Timer gestoppt — auf einem anderen Gerät wurde ein neuer gestartet",
+    "dismissNotice": "Schließen"
   },
   "login": {
     "email": "E-Mail",

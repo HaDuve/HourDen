@@ -119,7 +119,7 @@ async function fetchClients(): Promise<Client[]> {
 export default function TrackerPage() {
   const { t } = useTranslation();
   const { locale, formatCurrency, formatDurationMinutes } = useLocaleFormat();
-  const { running, refresh: refreshRunningTimer, replaceRunning } = useRunningTimer();
+  const { running, refresh: refreshRunningTimer, replaceRunning, suppressRemoteStopNotice } = useRunningTimer();
   const [calendarTimezone, setCalendarTimezone] = useState<string | null>(null);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -301,6 +301,7 @@ export default function TrackerPage() {
   const startTimer = async () => {
     setSaving(true);
     setError(null);
+    suppressRemoteStopNotice();
     try {
       const res = await fetch("/api/time-entries/timer", {
         method: "POST",
@@ -327,6 +328,7 @@ export default function TrackerPage() {
 
     setSaving(true);
     setError(null);
+    suppressRemoteStopNotice();
     try {
       const res = await fetch(`/api/time-entries/${running.id}/stop`, {
         method: "POST",

@@ -6,6 +6,9 @@ export type RunningTimerContextValue = {
   startedAt: string | null;
   refresh: () => Promise<void>;
   replaceRunning: (entry: TimeEntry | null) => void;
+  remoteStopNotice: boolean;
+  dismissRemoteStopNotice: () => void;
+  suppressRemoteStopNotice: () => void;
 };
 
 export const RunningTimerContext = createContext<RunningTimerContextValue | null>(null);

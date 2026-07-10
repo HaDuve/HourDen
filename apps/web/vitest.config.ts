@@ -1,7 +1,7 @@
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -13,13 +13,15 @@ export default defineConfig({
       ),
     },
   },
-  server: {
-    port: 5173,
-    proxy: {
-      "/api": {
-        target: "http://localhost:3001",
-        changeOrigin: true,
-      },
+  test: {
+    name: "web-unit",
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"],
+    globals: true,
+    include: ["src/**/*.test.{ts,tsx,mjs}"],
+    exclude: ["src/**/*.integration.test.{ts,tsx}"],
+    sequence: {
+      groupOrder: 0,
     },
   },
 });

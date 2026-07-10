@@ -183,7 +183,9 @@
     "saveFailed": "Failed to save entry",
     "deleteFailed": "Failed to delete entry",
     "startFailed": "Failed to start timer",
-    "stopFailed": "Failed to stop timer"
+    "stopFailed": "Failed to stop timer",
+    "remoteStopNotice": "Timer stopped — a new one was started on another device",
+    "dismissNotice": "Dismiss"
   },
   "login": {
     "email": "Email",

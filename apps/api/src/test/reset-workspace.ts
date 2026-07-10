@@ -1,24 +1,22 @@
 import type { Pool } from "pg";
 
-const WORKSPACE_RESET_STATEMENTS = [
-  "DELETE FROM time_entries WHERE workspace_id = $1",
-  "DELETE FROM invoices WHERE workspace_id = $1",
-  `
-    DELETE FROM client_invoice_numbering
-    WHERE client_id IN (SELECT id FROM clients WHERE workspace_id = $1)
-  `,
-  "DELETE FROM workspace_invoice_numbering WHERE workspace_id = $1",
-  "DELETE FROM projects WHERE workspace_id = $1",
-  "DELETE FROM clients WHERE workspace_id = $1",
-] as const;
+const RESET_WORKSPACE_SQL = `
+  BEGIN;
+  DELETE FROM time_entries WHERE workspace_id = $1;
+  DELETE FROM invoices WHERE workspace_id = $1;
+  DELETE FROM client_invoice_numbering
+    WHERE client_id IN (SELECT id FROM clients WHERE workspace_id = $1);
+  DELETE FROM workspace_invoice_numbering WHERE workspace_id = $1;
+  DELETE FROM projects WHERE workspace_id = $1;
+  DELETE FROM clients WHERE workspace_id = $1;
+  COMMIT;
+`;
 
 export async function resetWorkspace(pool: Pool, workspaceId: string): Promise<void> {
-  for (const sql of WORKSPACE_RESET_STATEMENTS) {
-    await pool.query(sql, [workspaceId]);
-  }
+  await pool.query(RESET_WORKSPACE_SQL, [workspaceId]);
 }
 
-/** Restores migration 010 index after schema-mutation tests. Serial-only; see migrate.test.ts. */
+/** Restores migration 010 index after schema-mutation tests. Serial-only; see migrate.integration.test.ts. */
 export async function ensureInvoicesWorkspaceInvoiceNumberUniqueIndex(
   pool: Pool,
 ): Promise<void> {
