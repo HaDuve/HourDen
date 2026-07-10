@@ -1,15 +1,24 @@
 import type { Pool } from "pg";
 
 const RESET_WORKSPACE_SQL = `
-  BEGIN;
-  DELETE FROM time_entries WHERE workspace_id = $1;
-  DELETE FROM invoices WHERE workspace_id = $1;
-  DELETE FROM client_invoice_numbering
-    WHERE client_id IN (SELECT id FROM clients WHERE workspace_id = $1);
-  DELETE FROM workspace_invoice_numbering WHERE workspace_id = $1;
-  DELETE FROM projects WHERE workspace_id = $1;
-  DELETE FROM clients WHERE workspace_id = $1;
-  COMMIT;
+  WITH
+    deleted_time_entries AS (
+      DELETE FROM time_entries WHERE workspace_id = $1
+    ),
+    deleted_invoices AS (
+      DELETE FROM invoices WHERE workspace_id = $1
+    ),
+    deleted_client_numbering AS (
+      DELETE FROM client_invoice_numbering
+      WHERE client_id IN (SELECT id FROM clients WHERE workspace_id = $1)
+    ),
+    deleted_workspace_numbering AS (
+      DELETE FROM workspace_invoice_numbering WHERE workspace_id = $1
+    ),
+    deleted_projects AS (
+      DELETE FROM projects WHERE workspace_id = $1
+    )
+  DELETE FROM clients WHERE workspace_id = $1
 `;
 
 export async function resetWorkspace(pool: Pool, workspaceId: string): Promise<void> {
