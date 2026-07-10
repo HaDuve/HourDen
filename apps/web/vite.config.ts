@@ -22,4 +22,11 @@ export default defineConfig({
       },
     },
   },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"],
+    globalSetup: ["../api/src/test/global-setup.ts"],
+    globals: true,
+    fileParallelism: false,
+  },
 });

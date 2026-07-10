@@ -2,11 +2,8 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    name: "scripts",
     environment: "node",
+    fileParallelism: false,
     include: ["**/*.test.mjs"],
-    sequence: {
-      groupOrder: 0,
-    },
   },
 });
