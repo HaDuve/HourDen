@@ -1,5 +1,4 @@
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   MIN_TAB_FAVICON_BOUNDS_FILL,
@@ -8,7 +7,7 @@ import {
   readPngInfoFromFile,
 } from "./favicon-png.mjs";
 
-const publicDir = join(fileURLToPath(new URL("..", import.meta.url)), "public");
+const publicDir = join(import.meta.dirname, "..", "public");
 
 describe("favicon-png", () => {
   it("tab crop percent omits the wordmark band while keeping shield + clock", () => {
