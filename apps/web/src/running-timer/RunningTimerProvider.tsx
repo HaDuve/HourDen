@@ -19,14 +19,23 @@ export function RunningTimerProvider({ children }: RunningTimerProviderProps) {
   }, [running]);
 
   const refresh = useCallback(async () => {
-    const entry = await fetchRunningTimer();
-    setRunning(entry);
+    try {
+      const entry = await fetchRunningTimer();
+      setRunning(entry);
+    } catch {
+      // Ignore fetch failures during teardown or transient API errors.
+    }
   }, []);
 
   const refreshAfterRemoteChange = useCallback(async () => {
     const previousRunningId = runningRef.current?.id ?? null;
-    const entry = await fetchRunningTimer();
-    setRunning(entry);
+    let entry: TimeEntry | null = null;
+    try {
+      entry = await fetchRunningTimer();
+      setRunning(entry);
+    } catch {
+      return;
+    }
 
     if (suppressRemoteStopNoticeRef.current) {
       suppressRemoteStopNoticeRef.current = false;
