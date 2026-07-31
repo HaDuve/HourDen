@@ -1102,7 +1102,7 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
     const zip = await JSZip.loadAsync(await res.arrayBuffer());
     const paths = Object.keys(zip.files).filter((path) => !zip.files[path]!.dir);
     expect(paths).toEqual([
-      "BANDAO/2026/BAN2026001_30_06_26_Invoice_Hannes_Duve_BANDAO.pdf",
+      "BANDAO/2026/BAN2026001_30_06_26_Invoice_Hannes_Duve_Bandao.pdf",
     ]);
 
     const pdf = await zip.file(paths[0]!)!.async("nodebuffer");
@@ -1198,8 +1198,8 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
       (path) => !clientZip.files[path]!.dir,
     );
     expect(clientPaths).toEqual([
-      "BANDAO/2026/BAN2026001_31_05_26_Invoice_Hannes_Duve_BANDAO.pdf",
-      "BANDAO/2026/BAN2026002_30_06_26_Invoice_Hannes_Duve_BANDAO.pdf",
+      "BANDAO/2026/BAN2026001_31_05_26_Invoice_Hannes_Duve_Bandao.pdf",
+      "BANDAO/2026/BAN2026002_30_06_26_Invoice_Hannes_Duve_Bandao.pdf",
     ]);
 
     const yearFiltered = await getWorkspace().app.request("/api/invoices/export.zip?year=2026");
@@ -1209,7 +1209,7 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
     );
     expect(yearPaths).toHaveLength(3);
     expect(yearPaths).toContain(
-      "ACMECORP/2026/ACM2026001_30_06_26_Invoice_Hannes_Duve_ACMECORP.pdf",
+      "ACMECORP/2026/ACM2026001_30_06_26_Invoice_Hannes_Duve_Acme Corp.pdf",
     );
 
     const bothFiltered = await getWorkspace().app.request(
@@ -1220,7 +1220,7 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
       (path) => !bothZip.files[path]!.dir,
     );
     expect(bothPaths).toEqual([
-      "ACMECORP/2026/ACM2026001_30_06_26_Invoice_Hannes_Duve_ACMECORP.pdf",
+      "ACMECORP/2026/ACM2026001_30_06_26_Invoice_Hannes_Duve_Acme Corp.pdf",
     ]);
   });
 
