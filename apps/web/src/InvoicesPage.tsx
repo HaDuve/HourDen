@@ -200,6 +200,54 @@ function previewIframeSrc(blobUrl: string): string {
   return `${blobUrl}#toolbar=0`;
 }
 
+function InvoicePreviewToolbar({
+  className = "flex justify-end gap-2",
+  buttonClass,
+  onDownload,
+  onFullscreen,
+  onClose,
+}: {
+  className?: string;
+  buttonClass: string;
+  onDownload: () => void;
+  onFullscreen?: () => void;
+  onClose?: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className={className}>
+      {onFullscreen ? (
+        <button
+          type="button"
+          onClick={onFullscreen}
+          className={buttonClass}
+          aria-label={t("invoices.fullscreenPreview")}
+        >
+          {t("invoices.fullscreen")}
+        </button>
+      ) : null}
+      <button
+        type="button"
+        onClick={onDownload}
+        className={buttonClass}
+        aria-label={t("invoices.downloadPreviewPdf")}
+      >
+        {t("invoices.download")}
+      </button>
+      {onClose ? (
+        <button
+          type="button"
+          onClick={onClose}
+          className={buttonClass}
+          aria-label={t("invoices.closeFullscreenPreview")}
+        >
+          {t("nav.close")}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export default function InvoicesPage() {
   const { t } = useTranslation();
   const { formatCurrency, formatIsoDate } = useLocaleFormat();
@@ -235,7 +283,6 @@ export default function InvoicesPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewSheetOpen, setPreviewSheetOpen] = useState(false);
   const [previewFullscreenOpen, setPreviewFullscreenOpen] = useState(false);
-  const [previewFilename, setPreviewFilename] = useState<string | null>(null);
   const [issuedInvoices, setIssuedInvoices] = useState<IssuedInvoice[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [exportClientId, setExportClientId] = useState("");
@@ -286,7 +333,6 @@ export default function InvoicesPage() {
     }
     previewBlobRef.current = null;
     previewFilenameRef.current = null;
-    setPreviewFilename(null);
     setPreviewUrl(null);
     setPreviewSheetOpen(false);
     setPreviewFullscreenOpen(false);
@@ -508,7 +554,6 @@ export default function InvoicesPage() {
         previewUrlRef.current = url;
         previewBlobRef.current = blob;
         previewFilenameRef.current = filename;
-        setPreviewFilename(filename);
         setPreviewUrl(url);
         setPreviewSheetOpen(true);
         setInvoiceNumber(nextInvoiceNumber);
@@ -608,20 +653,25 @@ export default function InvoicesPage() {
 
   function handleDownloadPreview() {
     const blob = previewBlobRef.current;
-    const filename = previewFilenameRef.current ?? previewFilename;
+    const filename = previewFilenameRef.current;
     if (!blob || !filename) {
       return;
     }
     downloadAttachmentBlob(blob, `attachment; filename="${filename}"`);
   }
 
-  function openPreviewFullscreen() {
-    setPreviewFullscreenOpen(true);
-  }
-
-  function closePreviewFullscreen() {
-    setPreviewFullscreenOpen(false);
-  }
+  useEffect(() => {
+    if (!previewFullscreenOpen) {
+      return;
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setPreviewFullscreenOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [previewFullscreenOpen]);
 
   function handleInvoiceNumberChange(nextValue: string) {
     setInvoiceNumber(nextValue);
@@ -1053,24 +1103,11 @@ export default function InvoicesPage() {
 
       {previewUrl && !isMobile ? (
         <div className="space-y-3">
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={openPreviewFullscreen}
-              className={secondaryButtonClass}
-              aria-label={t("invoices.fullscreenPreview")}
-            >
-              {t("invoices.fullscreen")}
-            </button>
-            <button
-              type="button"
-              onClick={handleDownloadPreview}
-              className={secondaryButtonClass}
-              aria-label={t("invoices.downloadPreviewPdf")}
-            >
-              {t("invoices.download")}
-            </button>
-          </div>
+          <InvoicePreviewToolbar
+            buttonClass={secondaryButtonClass}
+            onFullscreen={() => setPreviewFullscreenOpen(true)}
+            onDownload={handleDownloadPreview}
+          />
           <iframe
             title={t("invoices.invoicePreview")}
             src={previewIframeSrc(previewUrl)}
@@ -1085,24 +1122,11 @@ export default function InvoicesPage() {
           onBackdropClick={() => setPreviewSheetOpen(false)}
         >
           <div className="space-y-3">
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={openPreviewFullscreen}
-                className={secondaryButtonClass}
-                aria-label={t("invoices.fullscreenPreview")}
-              >
-                {t("invoices.fullscreen")}
-              </button>
-              <button
-                type="button"
-                onClick={handleDownloadPreview}
-                className={secondaryButtonClass}
-                aria-label={t("invoices.downloadPreviewPdf")}
-              >
-                {t("invoices.download")}
-              </button>
-            </div>
+            <InvoicePreviewToolbar
+              buttonClass={secondaryButtonClass}
+              onFullscreen={() => setPreviewFullscreenOpen(true)}
+              onDownload={handleDownloadPreview}
+            />
             <iframe
               title={t("invoices.invoicePreview")}
               src={previewIframeSrc(previewUrl)}
@@ -1119,24 +1143,12 @@ export default function InvoicesPage() {
           aria-label={t("invoices.fullscreenPreview")}
           className="fixed inset-0 z-50 flex flex-col bg-background"
         >
-          <div className="flex items-center justify-end gap-2 border-b border-divider px-4 py-3">
-            <button
-              type="button"
-              onClick={handleDownloadPreview}
-              className={secondaryButtonClass}
-              aria-label={t("invoices.downloadPreviewPdf")}
-            >
-              {t("invoices.download")}
-            </button>
-            <button
-              type="button"
-              onClick={closePreviewFullscreen}
-              className={secondaryButtonClass}
-              aria-label={t("invoices.closeFullscreenPreview")}
-            >
-              {t("nav.close")}
-            </button>
-          </div>
+          <InvoicePreviewToolbar
+            className="flex items-center justify-end gap-2 border-b border-divider px-4 py-3"
+            buttonClass={secondaryButtonClass}
+            onDownload={handleDownloadPreview}
+            onClose={() => setPreviewFullscreenOpen(false)}
+          />
           <iframe
             title={t("invoices.fullscreenPreview")}
             src={previewIframeSrc(previewUrl)}

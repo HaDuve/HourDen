@@ -7,7 +7,7 @@ Migrating from `generate_invoice.py` (which writes PDFs to `Outgoing/{RECIPIENT}
 - Do **not** store PDF bytes. Reconstruct on demand from stored metadata plus an **issuance snapshot**.
 - On creation, persist a snapshot (recipient block, operator identity, grouped lines, totals) as `jsonb` on the `invoices` row; reconstruction renders from the snapshot, not from live Clients/entries/env.
 - **Forward-only ownership:** HourDen reconstructs/exports only invoices it issued. Pre-switch history stays in the parent `Invoices/` repo's `Outgoing/` archive (the legal record of what was sent).
-- The folder layout (`Outgoing/{RECIPIENT}/{year}/{number}_{dd_mm_yy}_Invoice_Hannes_Duve_{RECIPIENT}.pdf`) is a server-side convention; export yields a single PDF or the whole tree zipped.
+- The folder layout (`Outgoing/{RECIPIENT}/{year}/{number}_{dd_mm_yy}_Invoice_{InvoiceSender}_{Client}.pdf`) is a server-side convention (`Invoice Sender` name with spaces → `_`, Client name casing preserved; quotes/path separators sanitized); export yields a single PDF or the whole tree zipped.
 
 **Considered options:**
 

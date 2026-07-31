@@ -692,6 +692,46 @@ describe("InvoicesPage", () => {
     });
   });
 
+  it("closes the fullscreen preview when Escape is pressed", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        return Promise.resolve(previewPdfResponse("BAN2026001"));
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderInvoicesPage();
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /fullscreen preview/i }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /fullscreen preview/i }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("dialog", { name: /fullscreen preview/i }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: /fullscreen preview/i }),
+      ).not.toBeInTheDocument();
+    });
+  });
+
   it("sends invoiceNumberSeqBeforeYear when sequence-before-year is enabled", async () => {
     const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
       if (url === "/api/invoices/preview" && init?.method === "POST") {
