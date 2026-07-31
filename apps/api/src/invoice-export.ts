@@ -2,12 +2,21 @@ import { ZipArchive } from "archiver";
 import type { IssuedInvoiceDetail } from "./db/invoices.js";
 import { invoiceExportPath } from "./invoice-path.js";
 
+function exportPathFor(invoice: IssuedInvoiceDetail): string {
+  return invoiceExportPath({
+    clientName: invoice.clientName,
+    invoiceNumber: invoice.invoiceNumber,
+    periodEnd: invoice.periodEnd,
+    senderName: invoice.snapshot.operator.name,
+  });
+}
+
 export async function buildIssuedInvoicesZip(
   invoices: IssuedInvoiceDetail[],
   renderPdf: (invoice: IssuedInvoiceDetail) => Promise<Buffer>,
 ): Promise<Buffer> {
   const sorted = [...invoices].sort((left, right) =>
-    invoiceExportPath(left).localeCompare(invoiceExportPath(right)),
+    exportPathFor(left).localeCompare(exportPathFor(right)),
   );
 
   return new Promise((resolve, reject) => {
@@ -26,7 +35,7 @@ export async function buildIssuedInvoicesZip(
       try {
         for (const invoice of sorted) {
           const pdf = await renderPdf(invoice);
-          archive.append(pdf, { name: invoiceExportPath(invoice) });
+          archive.append(pdf, { name: exportPathFor(invoice) });
         }
         await archive.finalize();
       } catch (error) {

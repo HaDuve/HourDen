@@ -178,15 +178,74 @@ async function fetchNumberingPreview(
   return res.json() as Promise<NumberingPreview>;
 }
 
-function downloadAttachmentBlob(blob: Blob, disposition: string) {
+function parseContentDispositionFilename(disposition: string): string | null {
   const match = disposition.match(/filename="([^"]+)"/);
-  const filename = match?.[1] ?? "invoice.pdf";
+  const filename = match?.[1];
+  return filename ? filename : null;
+}
+
+function downloadAttachmentBlob(blob: Blob, disposition: string) {
+  const filename =
+    parseContentDispositionFilename(disposition) ?? "invoice.pdf";
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+/** Chrome's PDF viewer names blob: downloads after the UUID; hide its toolbar. */
+function previewIframeSrc(blobUrl: string): string {
+  return `${blobUrl}#toolbar=0`;
+}
+
+function InvoicePreviewToolbar({
+  className = "flex justify-end gap-2",
+  buttonClass,
+  onDownload,
+  onFullscreen,
+  onClose,
+}: {
+  className?: string;
+  buttonClass: string;
+  onDownload: () => void;
+  onFullscreen?: () => void;
+  onClose?: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className={className}>
+      {onFullscreen ? (
+        <button
+          type="button"
+          onClick={onFullscreen}
+          className={buttonClass}
+          aria-label={t("invoices.fullscreenPreview")}
+        >
+          {t("invoices.fullscreen")}
+        </button>
+      ) : null}
+      <button
+        type="button"
+        onClick={onDownload}
+        className={buttonClass}
+        aria-label={t("invoices.downloadPreviewPdf")}
+      >
+        {t("invoices.download")}
+      </button>
+      {onClose ? (
+        <button
+          type="button"
+          onClick={onClose}
+          className={buttonClass}
+          aria-label={t("invoices.closeFullscreenPreview")}
+        >
+          {t("nav.close")}
+        </button>
+      ) : null}
+    </div>
+  );
 }
 
 export default function InvoicesPage() {
@@ -223,6 +282,7 @@ export default function InvoicesPage() {
   const [usesSmallBusinessRule, setUsesSmallBusinessRule] = useState(true);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewSheetOpen, setPreviewSheetOpen] = useState(false);
+  const [previewFullscreenOpen, setPreviewFullscreenOpen] = useState(false);
   const [issuedInvoices, setIssuedInvoices] = useState<IssuedInvoice[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [exportClientId, setExportClientId] = useState("");
@@ -236,6 +296,8 @@ export default function InvoicesPage() {
   const [savingSender, setSavingSender] = useState(false);
   const [invoiceSenderConfigured, setInvoiceSenderConfigured] = useState(true);
   const previewUrlRef = useRef<string | null>(null);
+  const previewBlobRef = useRef<Blob | null>(null);
+  const previewFilenameRef = useRef<string | null>(null);
   const previewRequestIdRef = useRef(0);
   const invoiceNumberDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -269,8 +331,11 @@ export default function InvoicesPage() {
       URL.revokeObjectURL(previewUrlRef.current);
       previewUrlRef.current = null;
     }
+    previewBlobRef.current = null;
+    previewFilenameRef.current = null;
     setPreviewUrl(null);
     setPreviewSheetOpen(false);
+    setPreviewFullscreenOpen(false);
   }, []);
 
   const clearPreview = useCallback(() => {
@@ -480,9 +545,15 @@ export default function InvoicesPage() {
           return;
         }
 
+        const disposition = res.headers.get("Content-Disposition") ?? "";
+        const filename =
+          parseContentDispositionFilename(disposition) ?? "invoice.pdf";
+
         clearPreviewBlob();
         const url = URL.createObjectURL(blob);
         previewUrlRef.current = url;
+        previewBlobRef.current = blob;
+        previewFilenameRef.current = filename;
         setPreviewUrl(url);
         setPreviewSheetOpen(true);
         setInvoiceNumber(nextInvoiceNumber);
@@ -579,6 +650,28 @@ export default function InvoicesPage() {
   async function handlePreview() {
     await requestPreview();
   }
+
+  function handleDownloadPreview() {
+    const blob = previewBlobRef.current;
+    const filename = previewFilenameRef.current;
+    if (!blob || !filename) {
+      return;
+    }
+    downloadAttachmentBlob(blob, `attachment; filename="${filename}"`);
+  }
+
+  useEffect(() => {
+    if (!previewFullscreenOpen) {
+      return;
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setPreviewFullscreenOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [previewFullscreenOpen]);
 
   function handleInvoiceNumberChange(nextValue: string) {
     setInvoiceNumber(nextValue);
@@ -1009,11 +1102,18 @@ export default function InvoicesPage() {
       </fieldset>
 
       {previewUrl && !isMobile ? (
-        <iframe
-          title={t("invoices.invoicePreview")}
-          src={previewUrl}
-          className="h-[70vh] w-full rounded-md border border-divider"
-        />
+        <div className="space-y-3">
+          <InvoicePreviewToolbar
+            buttonClass={secondaryButtonClass}
+            onFullscreen={() => setPreviewFullscreenOpen(true)}
+            onDownload={handleDownloadPreview}
+          />
+          <iframe
+            title={t("invoices.invoicePreview")}
+            src={previewIframeSrc(previewUrl)}
+            className="h-[70vh] w-full rounded-md border border-divider"
+          />
+        </div>
       ) : null}
 
       {previewUrl && isMobile && previewSheetOpen ? (
@@ -1021,12 +1121,40 @@ export default function InvoicesPage() {
           ariaLabel={t("invoices.invoicePreview")}
           onBackdropClick={() => setPreviewSheetOpen(false)}
         >
-          <iframe
-            title={t("invoices.invoicePreview")}
-            src={previewUrl}
-            className="h-[70vh] w-full rounded-md border border-divider"
-          />
+          <div className="space-y-3">
+            <InvoicePreviewToolbar
+              buttonClass={secondaryButtonClass}
+              onFullscreen={() => setPreviewFullscreenOpen(true)}
+              onDownload={handleDownloadPreview}
+            />
+            <iframe
+              title={t("invoices.invoicePreview")}
+              src={previewIframeSrc(previewUrl)}
+              className="h-[70vh] w-full rounded-md border border-divider"
+            />
+          </div>
         </ResponsiveOverlay>
+      ) : null}
+
+      {previewUrl && previewFullscreenOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("invoices.fullscreenPreview")}
+          className="fixed inset-0 z-50 flex flex-col bg-background"
+        >
+          <InvoicePreviewToolbar
+            className="flex items-center justify-end gap-2 border-b border-divider px-4 py-3"
+            buttonClass={secondaryButtonClass}
+            onDownload={handleDownloadPreview}
+            onClose={() => setPreviewFullscreenOpen(false)}
+          />
+          <iframe
+            title={t("invoices.fullscreenPreview")}
+            src={previewIframeSrc(previewUrl)}
+            className="min-h-0 w-full flex-1 border-0"
+          />
+        </div>
       ) : null}
 
       <section className="mt-10">
