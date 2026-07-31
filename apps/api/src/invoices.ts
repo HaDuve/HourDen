@@ -32,10 +32,7 @@ import {
   type IssuedInvoiceDetail,
 } from "./db/invoices.js";
 import { buildIssuedInvoicesZip } from "./invoice-export.js";
-import {
-  invoiceFilename,
-  invoiceRecipientCode,
-} from "./invoice-path.js";
+import { invoiceFilename } from "./invoice-path.js";
 import { getWorkspaceCalendarTimezone, getWorkspaceInvoiceOperator } from "./db/workspaces.js";
 import { getCurrentWorkspaceId } from "./workspace.js";
 
@@ -377,12 +374,12 @@ async function renderInvoicePdfFromSnapshot(
 function invoicePdfHeadersFromSnapshot(
   invoice: IssuedInvoiceDetail,
 ): Record<string, string> {
-  const recipientCode = invoiceRecipientCode(invoice.clientName);
-  const filename = invoiceFilename(
-    invoice.invoiceNumber,
-    invoice.periodEnd,
-    recipientCode,
-  );
+  const filename = invoiceFilename({
+    invoiceNumber: invoice.invoiceNumber,
+    periodEnd: invoice.periodEnd,
+    senderName: invoice.snapshot.operator.name,
+    clientName: invoice.clientName,
+  });
 
   return {
     "Content-Type": "application/pdf",
@@ -395,12 +392,12 @@ function invoicePdfHeaders(
   invoiceNumber: string,
   prepared: PreparedInvoice,
 ): Record<string, string> {
-  const recipientCode = invoiceRecipientCode(prepared.client.name);
-  const filename = invoiceFilename(
+  const filename = invoiceFilename({
     invoiceNumber,
-    prepared.range.to,
-    recipientCode,
-  );
+    periodEnd: prepared.range.to,
+    senderName: prepared.operator.name,
+    clientName: prepared.client.name,
+  });
 
   return {
     "Content-Type": "application/pdf",

@@ -125,6 +125,8 @@ function previewPdfResponse(invoiceNumber: string, invoicePrefix = "BAN") {
       "X-Suggested-Invoice-Number": invoiceNumber,
       "X-Suggested-Invoice-Prefix": invoicePrefix,
       "X-Invoice-Number-Exists": "false",
+      "Content-Disposition":
+        'attachment; filename="BAN2026001_30_06_26_Invoice_Hannes_Duve_BANDAO.pdf"',
     },
   });
 }
@@ -579,7 +581,10 @@ describe("InvoicesPage", () => {
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
       expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
-      expect(screen.getByTitle(/invoice preview/i)).toHaveAttribute("src", "blob:test");
+      expect(screen.getByTitle(/invoice preview/i)).toHaveAttribute(
+        "src",
+        "blob:test#toolbar=0",
+      );
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -597,6 +602,94 @@ describe("InvoicesPage", () => {
       "/api/invoices",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  it("downloads the preview PDF using the Content-Disposition filename, not a blob UUID", async () => {
+    const expectedFilename =
+      "BAN2026001_30_06_26_Invoice_Hannes_Duve_BANDAO.pdf";
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        return Promise.resolve(previewPdfResponse("BAN2026001"));
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    let downloadedAs: string | undefined;
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        downloadedAs = this.download;
+      });
+
+    renderInvoicesPage();
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /download preview pdf/i }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /download preview pdf/i }),
+    );
+
+    await waitFor(() => {
+      expect(downloadedAs).toBe(expectedFilename);
+    });
+    expect(downloadedAs).not.toMatch(
+      /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}){1,2}(\.pdf)?$/i,
+    );
+
+    clickSpy.mockRestore();
+  });
+
+  it("opens the preview PDF in a fullscreen dialog", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        return Promise.resolve(previewPdfResponse("BAN2026001"));
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderInvoicesPage();
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /fullscreen preview/i }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /fullscreen preview/i }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("dialog", { name: /fullscreen preview/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTitle(/^fullscreen preview$/i),
+      ).toHaveAttribute("src", "blob:test#toolbar=0");
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /close fullscreen preview/i }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: /fullscreen preview/i }),
+      ).not.toBeInTheDocument();
+    });
   });
 
   it("sends invoiceNumberSeqBeforeYear when sequence-before-year is enabled", async () => {
