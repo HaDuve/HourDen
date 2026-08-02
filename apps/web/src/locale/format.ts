@@ -29,6 +29,19 @@ export function formatIsoDate(isoDate: string, locale: SupportedLocale): string 
   return formatDate(new Date(Date.UTC(year!, month! - 1, day!)), locale);
 }
 
+/** Month + year of a billing period day (ISO date), for invoice email copy. */
+export function formatBillingMonth(
+  isoDate: string,
+  locale: SupportedLocale,
+): string {
+  const [year, month] = isoDate.split("-").map(Number);
+  return new Intl.DateTimeFormat(intlLocale(locale), {
+    timeZone: "UTC",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(Date.UTC(year!, month! - 1, 1)));
+}
+
 export function formatHourlyRate(amount: number, locale: SupportedLocale): string {
   return `${formatCurrency(amount, locale)}/h`;
 }

@@ -22,6 +22,10 @@ import {
   type ArchiveWriteResult,
 } from "./invoices/archive-directory.js";
 import {
+  fillInvoiceEmailTemplate,
+  invoiceEmailPlaceholderVars,
+} from "./invoices/invoice-email-template.js";
+import {
   readApiErrorBody,
   readApiErrorMessage,
 } from "./invoices/read-api-error.js";
@@ -201,15 +205,6 @@ function downloadAttachmentBlob(blob: Blob, disposition: string) {
   URL.revokeObjectURL(url);
 }
 
-function fillInvoiceEmailTemplate(
-  template: string,
-  vars: Record<string, string>,
-): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
-    return vars[key] ?? "";
-  });
-}
-
 /** Chrome's PDF viewer names blob: downloads after the UUID; hide its toolbar. */
 function previewIframeSrc(blobUrl: string): string {
   return `${blobUrl}#toolbar=0`;
@@ -217,7 +212,7 @@ function previewIframeSrc(blobUrl: string): string {
 
 export default function InvoicesPage() {
   const { t } = useTranslation();
-  const { formatCurrency, formatIsoDate } = useLocaleFormat();
+  const { formatCurrency, formatIsoDate, locale } = useLocaleFormat();
   const formatBillingPeriod = (periodStart: string, periodEnd: string) =>
     `${formatIsoDate(periodStart)} – ${formatIsoDate(periodEnd)}`;
   const initialRange = currentMonthRange();
@@ -1011,20 +1006,29 @@ export default function InvoicesPage() {
       return;
     }
 
-    const vars = {
+    const vars = invoiceEmailPlaceholderVars({
       greetingName: clientMail.emailGreetingName?.trim() || invoice.recipient,
       invoiceNumber: invoice.invoiceNumber,
-      period: formatBillingPeriod(invoice.periodStart, invoice.periodEnd),
+      periodStart: invoice.periodStart,
+      periodEnd: invoice.periodEnd,
       operatorName: senderStatus.invoiceSender.name,
+      locale,
+    });
+    const placeholderLiterals = {
+      greetingName: "{{greetingName}}",
+      invoiceNumber: "{{invoiceNumber}}",
+      period: "{{period}}",
+      billingMonth: "{{billingMonth}}",
+      operatorName: "{{operatorName}}",
     };
     const subjectTemplate =
       clientMail.invoiceEmailSubject ||
       workspaceTemplate.invoiceEmailSubject ||
-      `Invoice ${invoice.invoiceNumber}`;
+      t("clients.invoiceEmailSubjectPlaceholder", placeholderLiterals);
     const bodyTemplate =
       clientMail.invoiceEmailBody ||
       workspaceTemplate.invoiceEmailBody ||
-      "";
+      t("clients.invoiceEmailBodyPlaceholder", placeholderLiterals);
     const subject = fillInvoiceEmailTemplate(subjectTemplate, vars);
     const body = fillInvoiceEmailTemplate(bodyTemplate, vars);
     window.open(

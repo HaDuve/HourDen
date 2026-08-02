@@ -213,6 +213,20 @@ describe("IssuedInvoicesList", () => {
     });
   });
 
+  it("email tab shows locale default month-based template when none is saved", async () => {
+    mockDesktopViewport();
+    renderList([issuedInvoice]);
+
+    fireEvent.click(screen.getByRole("button", { name: /^email$/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/Invoice \{\{billingMonth\}\}/)).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(/invoice for \{\{billingMonth\}\}/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/no email template/i)).not.toBeInTheDocument();
+  });
+
   it("Void & replace on a Sent invoice calls onVoid after confirm", async () => {
     mockDesktopViewport();
     const onVoid = vi.fn(async () => undefined);

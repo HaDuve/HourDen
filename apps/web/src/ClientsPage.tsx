@@ -446,7 +446,7 @@ export default function ClientsPage() {
                       }))
                     }
                     placeholder={t("clients.invoiceEmailSubjectPlaceholder", {
-                      invoiceNumber: "{{invoiceNumber}}",
+                      billingMonth: "{{billingMonth}}",
                     })}
                     className={inputClass}
                   />
@@ -463,8 +463,7 @@ export default function ClientsPage() {
                     }
                     placeholder={t("clients.invoiceEmailBodyPlaceholder", {
                       greetingName: "{{greetingName}}",
-                      invoiceNumber: "{{invoiceNumber}}",
-                      period: "{{period}}",
+                      billingMonth: "{{billingMonth}}",
                       operatorName: "{{operatorName}}",
                     })}
                     rows={4}
@@ -474,6 +473,7 @@ export default function ClientsPage() {
                 <p className={metaTextClass}>
                   {t("clients.invoiceEmailPlaceholders", {
                     greetingName: "{{greetingName}}",
+                    billingMonth: "{{billingMonth}}",
                     invoiceNumber: "{{invoiceNumber}}",
                     period: "{{period}}",
                     operatorName: "{{operatorName}}",

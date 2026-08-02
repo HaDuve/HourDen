@@ -185,12 +185,21 @@ export function IssuedInvoicesList({
 
   const issued = selected?.status === "issued";
   const sent = selected?.status === "sent";
+  const placeholderLiterals = {
+    greetingName: "{{greetingName}}",
+    invoiceNumber: "{{invoiceNumber}}",
+    period: "{{period}}",
+    billingMonth: "{{billingMonth}}",
+    operatorName: "{{operatorName}}",
+  };
   const subject =
     mail?.invoiceEmailSubject ||
     workspaceTemplate?.invoiceEmailSubject ||
-    "";
+    t("clients.invoiceEmailSubjectPlaceholder", placeholderLiterals);
   const body =
-    mail?.invoiceEmailBody || workspaceTemplate?.invoiceEmailBody || "";
+    mail?.invoiceEmailBody ||
+    workspaceTemplate?.invoiceEmailBody ||
+    t("clients.invoiceEmailBodyPlaceholder", placeholderLiterals);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,18rem)_1fr]">
@@ -419,7 +428,7 @@ export function IssuedInvoicesList({
                     </div>
                   </dl>
                   <pre className="whitespace-pre-wrap rounded-md border border-divider p-3 text-xs text-muted">
-                    {subject || t("invoices.noEmailTemplate")}
+                    {subject}
                     {"\n\n"}
                     {body}
                   </pre>
