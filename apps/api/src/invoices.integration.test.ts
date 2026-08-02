@@ -928,6 +928,8 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
     const reconstructed = await getWorkspace().app.request(`/api/invoices/${invoiceId}/pdf`);
     expect(reconstructed.status).toBe(200);
     expect(reconstructed.headers.get("content-type")).toContain("application/pdf");
+    expect(reconstructed.headers.get("content-disposition")).toMatch(/^inline;/);
+    expect(reconstructed.headers.get("content-disposition")).toContain('filename="');
 
     const reconstructedBody = await reconstructed.arrayBuffer();
     const reconstructedText = normalizeInvoicePdfText(await pdfText(reconstructedBody), {

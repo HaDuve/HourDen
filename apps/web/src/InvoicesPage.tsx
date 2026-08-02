@@ -1015,11 +1015,6 @@ export default function InvoicesPage() {
     }>;
   }, []);
 
-  const issuedPdfUrl = useCallback(
-    (id: string) => `/api/invoices/${id}/pdf`,
-    [],
-  );
-
   async function refreshIssuedInvoices() {
     await loadIssuedInvoices();
   }
@@ -1507,7 +1502,7 @@ export default function InvoicesPage() {
             loadWorkspaceTemplate={loadWorkspaceTemplate}
             formatBillingPeriod={formatBillingPeriod}
             formatAmount={formatCurrency}
-            pdfUrl={issuedPdfUrl}
+            pdfUrl={(id) => `/api/invoices/${id}/pdf`}
           />
         )}
       </section>

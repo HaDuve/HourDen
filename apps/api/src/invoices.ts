@@ -400,7 +400,7 @@ function invoicePdfHeadersFromSnapshot(
 
   return {
     "Content-Type": "application/pdf",
-    "Content-Disposition": `attachment; filename="${filename}"`,
+    "Content-Disposition": `inline; filename="${filename}"`,
     "X-Invoice-Number": invoice.invoiceNumber,
     "X-Invoice-Export-Path": exportPath,
   };

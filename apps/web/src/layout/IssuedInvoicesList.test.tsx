@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { IssuedInvoicesList } from "./IssuedInvoicesList.js";
@@ -39,31 +39,6 @@ const mailLoaders = {
   })),
 };
 
-function stubPdfFetch() {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url.includes("/pdf")) {
-        return new Response(new Blob(["%PDF-reader"], { type: "application/pdf" }), {
-          status: 200,
-          headers: {
-            "Content-Type": "application/pdf",
-            "Content-Disposition":
-              'attachment; filename="BAN2026001_30_06_26_Invoice.pdf"',
-          },
-        });
-      }
-      throw new Error(`unexpected fetch: ${url}`);
-    }),
-  );
-  URL.createObjectURL = vi.fn((blob: Blob) => {
-    void blob;
-    return "blob:http://localhost/reader-pdf";
-  }) as typeof URL.createObjectURL;
-  URL.revokeObjectURL = vi.fn() as typeof URL.revokeObjectURL;
-}
-
 function renderList(
   invoices: typeof issuedInvoice[],
   overrides: Partial<Parameters<typeof IssuedInvoicesList>[0]> = {},
@@ -90,16 +65,7 @@ function renderList(
 }
 
 describe("IssuedInvoicesList", () => {
-  beforeEach(() => {
-    stubPdfFetch();
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
-  });
-
-  it("renders a master list grouped by year/month and a PDF reader for the selection", async () => {
+  it("renders a master list grouped by year/month and a PDF reader for the selection", () => {
     mockDesktopViewport();
     renderList([issuedInvoice]);
 
@@ -110,15 +76,13 @@ describe("IssuedInvoicesList", () => {
     expect(screen.getByRole("button", { name: /^pdf$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^edit$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^email$/i })).toBeInTheDocument();
-    await waitFor(() => {
-      expect(screen.getByTitle(/invoice BAN2026001/i)).toHaveAttribute(
-        "src",
-        "blob:http://localhost/reader-pdf#toolbar=0",
-      );
-    });
+    expect(screen.getByTitle(/invoice BAN2026001/i)).toHaveAttribute(
+      "src",
+      `/api/invoices/${issuedInvoice.id}/pdf#toolbar=0`,
+    );
   });
 
-  it("selecting an issued invoice does not download; Download button does", async () => {
+  it("selecting an issued invoice shows Reader PDF and does not call Download", async () => {
     mockDesktopViewport();
     const onDownload = vi.fn();
 
@@ -146,23 +110,17 @@ describe("IssuedInvoicesList", () => {
 
     render(<Controlled />);
 
-    await waitFor(() => {
-      expect(screen.getByTitle(/invoice BAN2026001/i)).toHaveAttribute(
-        "src",
-        expect.stringContaining("blob:"),
-      );
-    });
+    expect(screen.getByTitle(/invoice BAN2026001/i)).toHaveAttribute(
+      "src",
+      `/api/invoices/${issuedInvoice.id}/pdf#toolbar=0`,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: /BAN2026002/i }));
     expect(onDownload).not.toHaveBeenCalled();
-
-    await waitFor(() => {
-      expect(screen.getByTitle(/invoice BAN2026002/i)).toHaveAttribute(
-        "src",
-        expect.stringContaining("blob:"),
-      );
-    });
-    expect(onDownload).not.toHaveBeenCalled();
+    expect(screen.getByTitle(/invoice BAN2026002/i)).toHaveAttribute(
+      "src",
+      `/api/invoices/${sentInvoice.id}/pdf#toolbar=0`,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: /^download$/i }));
     expect(onDownload).toHaveBeenCalledWith(sentInvoice);
