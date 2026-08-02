@@ -935,18 +935,15 @@ describe("InvoicesPage", () => {
     clickSpy.mockRestore();
   });
 
-  it("after Issue without an archive folder, shows choose-folder retry when archive is supported", async () => {
-    archiveMocks.isLocalArchiveSupported.mockReturnValue(true);
-    archiveMocks.tryArchiveIssuedPdf.mockResolvedValue({ kind: "needs-folder" });
-
+  async function previewAndIssue(invoiceNumber = "BAN2026001") {
     vi.stubGlobal(
       "fetch",
       createInvoicesPageFetchMock([bandaoClient], (url, init) => {
         if (url === "/api/invoices/preview" && init?.method === "POST") {
-          return Promise.resolve(previewPdfResponse("BAN2026001"));
+          return Promise.resolve(previewPdfResponse(invoiceNumber));
         }
         if (url === "/api/invoices" && init?.method === "POST") {
-          return Promise.resolve(issuePdfResponse("BAN2026001"));
+          return Promise.resolve(issuePdfResponse(invoiceNumber));
         }
         return undefined;
       }),
@@ -961,15 +958,144 @@ describe("InvoicesPage", () => {
       expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeEnabled();
     });
     fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
+  }
+
+  it("after Issue without an archive folder, shows choose-folder retry when archive is supported", async () => {
+    archiveMocks.isLocalArchiveSupported.mockReturnValue(true);
+    archiveMocks.tryArchiveIssuedPdf.mockResolvedValue({ kind: "needs-folder" });
+
+    await previewAndIssue();
 
     await waitFor(() => {
-      expect(archiveMocks.tryArchiveIssuedPdf).toHaveBeenCalled();
+      expect(archiveMocks.tryArchiveIssuedPdf).toHaveBeenCalledWith(
+        expect.objectContaining({
+          relativePath:
+            "BANDAO/2026/BAN2026001_30_06_26_Invoice_Hannes_Duve_BANDAO.pdf",
+          supported: true,
+        }),
+      );
       expect(
         screen.getByText(/no archive folder is set/i),
       ).toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: /choose folder & file pdf/i }),
       ).toBeInTheDocument();
+    });
+  });
+
+  it("after Issue collision, warns without overwrite and does not offer retry", async () => {
+    archiveMocks.isLocalArchiveSupported.mockReturnValue(true);
+    archiveMocks.tryArchiveIssuedPdf.mockResolvedValue({
+      kind: "collision",
+      filename: "BAN2026001_30_06_26_Invoice_Hannes_Duve_BANDAO.pdf",
+    });
+
+    await previewAndIssue();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          /archive skipped — “BAN2026001_30_06_26_Invoice_Hannes_Duve_BANDAO\.pdf” already exists/i,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /choose folder & file pdf/i }),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it("after Issue needs-permission, grant-and-retry re-attempts archive", async () => {
+    archiveMocks.isLocalArchiveSupported.mockReturnValue(true);
+    archiveMocks.tryArchiveIssuedPdf
+      .mockResolvedValueOnce({ kind: "needs-permission" })
+      .mockResolvedValue({
+        kind: "archived",
+        relativePath:
+          "BANDAO/2026/BAN2026001_30_06_26_Invoice_Hannes_Duve_BANDAO.pdf",
+      });
+
+    await previewAndIssue();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /grant access & file pdf/i }),
+      ).toBeInTheDocument();
+    });
+
+    const callsBeforeRetry = archiveMocks.tryArchiveIssuedPdf.mock.calls.length;
+    fireEvent.click(
+      screen.getByRole("button", { name: /grant access & file pdf/i }),
+    );
+
+    await waitFor(() => {
+      expect(archiveMocks.tryArchiveIssuedPdf.mock.calls.length).toBeGreaterThan(
+        callsBeforeRetry,
+      );
+      expect(
+        screen.getByText(/pdf saved to the archive folder/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("choose-folder retry files the pending PDF after the Operator picks a folder", async () => {
+    archiveMocks.isLocalArchiveSupported.mockReturnValue(true);
+    archiveMocks.tryArchiveIssuedPdf
+      .mockResolvedValueOnce({ kind: "needs-folder" })
+      .mockResolvedValue({
+        kind: "archived",
+        relativePath:
+          "BANDAO/2026/BAN2026001_30_06_26_Invoice_Hannes_Duve_BANDAO.pdf",
+      });
+    archiveMocks.pickAndStoreArchiveRoot.mockResolvedValue({
+      name: "Outgoing",
+    } as never);
+    archiveMocks.loadArchiveFolderLabel.mockResolvedValue({
+      status: "set",
+      name: "Outgoing",
+    });
+
+    await previewAndIssue();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /choose folder & file pdf/i }),
+      ).toBeInTheDocument();
+    });
+
+    const callsBeforeRetry = archiveMocks.tryArchiveIssuedPdf.mock.calls.length;
+    fireEvent.click(
+      screen.getByRole("button", { name: /choose folder & file pdf/i }),
+    );
+
+    await waitFor(() => {
+      expect(archiveMocks.pickAndStoreArchiveRoot).toHaveBeenCalled();
+      expect(archiveMocks.tryArchiveIssuedPdf.mock.calls.length).toBeGreaterThan(
+        callsBeforeRetry,
+      );
+      expect(
+        screen.getByText(/pdf saved to the archive folder/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("shows unsupported archive copy and demoted zip export when picker is missing", async () => {
+    archiveMocks.isLocalArchiveSupported.mockReturnValue(false);
+    vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
+
+    renderInvoicesPage();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/local archive filing needs chrome or edge/i),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", {
+          name: /download all outgoing invoices/i,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /choose archive folder/i }),
+      ).not.toBeInTheDocument();
     });
   });
 
