@@ -182,7 +182,7 @@ describe("IssuedInvoicesList", () => {
     expect(onDownload).toHaveBeenCalledWith(sentInvoice);
   });
 
-  it("Prepare Email opens Did you send?; Yes marks Sent and No dismisses", async () => {
+  it("Prepare Email asks whether the mail app opened before Did you send", async () => {
     mockDesktopViewport();
     const onPrepareEmail = vi.fn(async () => undefined);
     const onMarkSent = vi.fn(async () => undefined);
@@ -198,8 +198,30 @@ describe("IssuedInvoicesList", () => {
     fireEvent.click(screen.getByRole("button", { name: /prepare email/i }));
     await waitFor(() => {
       expect(onPrepareEmail).toHaveBeenCalledWith(issuedInvoice);
-      expect(screen.getByText(/did you send it/i)).toBeInTheDocument();
+      expect(screen.getByText(/did your mail app open/i)).toBeInTheDocument();
     });
+    expect(screen.queryByText(/did you send it/i)).not.toBeInTheDocument();
+    expect(onMarkSent).not.toHaveBeenCalled();
+  });
+
+  it("mail opened Yes then Did you send Yes marks Sent; No keeps Issued", async () => {
+    mockDesktopViewport();
+    const onMarkSent = vi.fn(async () => undefined);
+    renderList([issuedInvoice], { onMarkSent });
+
+    fireEvent.click(screen.getByRole("button", { name: /^email$/i }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /prepare email/i }),
+      ).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /prepare email/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/did your mail app open/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /yes — mail opened/i }));
+    expect(screen.getByText(/did you send it/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /no — keep issued/i }));
     expect(onMarkSent).not.toHaveBeenCalled();
@@ -207,12 +229,110 @@ describe("IssuedInvoicesList", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /prepare email/i }));
     await waitFor(() => {
-      expect(screen.getByText(/did you send it/i)).toBeInTheDocument();
+      expect(screen.getByText(/did your mail app open/i)).toBeInTheDocument();
     });
+    fireEvent.click(screen.getByRole("button", { name: /yes — mail opened/i }));
     fireEvent.click(screen.getByRole("button", { name: /yes — mark sent/i }));
     await waitFor(() => {
       expect(onMarkSent).toHaveBeenCalledWith(issuedInvoice);
     });
+  });
+
+  it("mail did not open shows Default email reader tip and keeps Issued", async () => {
+    mockDesktopViewport();
+    const onMarkSent = vi.fn(async () => undefined);
+    renderList([issuedInvoice], { onMarkSent });
+
+    fireEvent.click(screen.getByRole("button", { name: /^email$/i }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /prepare email/i }),
+      ).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /prepare email/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/did your mail app open/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /no — mail didn’t open/i }),
+    );
+    expect(screen.getByText(/default email reader/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^dismiss$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /no — keep issued/i }),
+    ).not.toBeInTheDocument();
+    expect(onMarkSent).not.toHaveBeenCalled();
+    expect(screen.queryByText(/did you send it/i)).not.toBeInTheDocument();
+  });
+
+  it("mail did not open can continue to Did you send without Prepare Email again", async () => {
+    mockDesktopViewport();
+    const onPrepareEmail = vi.fn(async () => undefined);
+    const onMarkSent = vi.fn(async () => undefined);
+    renderList([issuedInvoice], { onPrepareEmail, onMarkSent });
+
+    fireEvent.click(screen.getByRole("button", { name: /^email$/i }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /prepare email/i }),
+      ).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /prepare email/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/did your mail app open/i)).toBeInTheDocument();
+    });
+    expect(onPrepareEmail).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /no — mail didn’t open/i }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /mail opened now — continue/i }),
+    );
+    expect(screen.getByText(/did you send it/i)).toBeInTheDocument();
+    expect(onPrepareEmail).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: /yes — mark sent/i }));
+    await waitFor(() => {
+      expect(onMarkSent).toHaveBeenCalledWith(issuedInvoice);
+    });
+  });
+
+  it("email tab offers Copy draft and Open mail app mailto link", async () => {
+    mockDesktopViewport();
+    const writeText = vi.fn<(text: string) => Promise<void>>(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    renderList([issuedInvoice], { operatorName: "Hannes" });
+
+    fireEvent.click(screen.getByRole("button", { name: /^email$/i }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("link", { name: /open mail app/i }),
+      ).toBeInTheDocument();
+    });
+
+    const openLink = screen.getByRole("link", { name: /open mail app/i });
+    expect(openLink).toHaveAttribute(
+      "href",
+      expect.stringMatching(/^mailto:billing%40bandao\.example\?/),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /copy draft/i }));
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalled();
+    });
+    expect(writeText).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /To:\s*billing@bandao\.example[\s\S]*Invoice June 2026[\s\S]*Hello Anna,[\s\S]*Hannes/,
+      ),
+    );
   });
 
   it("email tab shows filled locale default draft when none is saved", async () => {

@@ -97,10 +97,10 @@ _Avoid_: Preview (pre-issue dry-run only)
 **Issue** — persist an **Invoice** row with status `issued`, save the working **Issuance Snapshot**, assign the **Invoice Number**, link covered Time Entries, and return downloadable PDF bytes. Does not freeze the invoice — **Sent** does.
 _Avoid_: send (server-side email delivery is out of scope; see **Prepare Email** / **Sent**)
 
-**Prepare Email** — open the Operator’s default mail client with **Recipient email**, subject/body from the **Invoice Email Template** (Client, else Workspace default, with **Email Greeting Name** and other placeholders filled), and trigger a PDF download so the Operator attaches it manually (`mailto:` cannot attach files). Confirms that marking **Sent** will lock the invoice.
+**Prepare Email** — open the Operator’s default mail client with **Recipient email**, subject/body from the **Invoice Email Template** (Client, else Workspace default, with **Email Greeting Name** and other placeholders filled), and trigger a PDF download so the Operator attaches it manually (`mailto:` cannot attach files). The Email tab also offers **Copy draft** and an **Open mail app** `mailto:` link (user-gesture fallback). After prepare, ask **Did your mail app open?** — **No** keeps `issued` and shows how to fix the OS default email reader (browsers must not own `mailto:`); **Yes** then asks **Did you send it?** Confirms that marking **Sent** will lock the invoice.
 _Avoid_: send email (HourDen does not transmit mail), SMTP
 
-**Sent** — status (and act of confirming delivery intent) that freezes an **Invoice**: **Issuance Snapshot** and number no longer change; covered **Invoiced Entries** lock. Reached when **Prepare Email** runs and the Operator answers **Yes** to “Did you send it?”; **No** leaves/returns status `issued` (editable again). Not undone after a confirmed send — post-delivery fixes use **Voided** + replacement **Issue**. Existing rows created under the old “immutable at Issue” rule migrate to `sent`.
+**Sent** — status (and act of confirming delivery intent) that freezes an **Invoice**: **Issuance Snapshot** and number no longer change; covered **Invoiced Entries** lock. Reached when **Prepare Email** runs, the Operator confirms the mail app opened, and answers **Yes** to “Did you send it?”; **No** (or mail did not open) leaves/returns status `issued` (editable again). Not undone after a confirmed send — post-delivery fixes use **Voided** + replacement **Issue**. Existing rows created under the old “immutable at Issue” rule migrate to `sent`.
 _Avoid_: Unsent (not a status), delivered (no proof from the mail app)
 
 **Billing Period** — the date range of work included on an Invoice (typically one calendar month). On the Invoices tab, month quick controls (`< last this >`) above the date pickers set this/last calendar month or step one month from the current filter.
@@ -134,4 +134,4 @@ _Avoid_: server-side write into the Operator’s Mac filesystem; silent overwrit
 >
 > **Operator**: Prepare Email.
 >
-> **System**: Opens mail client (Recipient email + template). Downloads PDF to attach. “Did you send it?” → Yes marks **Sent** (frozen); No keeps it issued.
+> **System**: Opens mail client (Recipient email + template). Downloads PDF to attach. Copy draft / Open mail app as fallback. “Did your mail app open?” → Yes → “Did you send it?” → Yes marks **Sent** (frozen); No (or mail didn’t open) keeps it issued.

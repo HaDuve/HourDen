@@ -6,7 +6,7 @@ HourDen previously treated **Issue** as the freeze point: snapshot once, invoice
 
 - Statuses: `issued` (persisted, editable) → `sent` (frozen) → `voided` (superseded; number reserved forever).
 - **Issue** creates `issued`, writes a working **Issuance Snapshot**, assigns the number, links entries. Snapshot is **rewritten on every successful edit** while `issued`.
-- **Prepare Email** opens the default mail client (`mailto:` with Recipient email + **Invoice Email Template**), downloads the PDF for manual attach, and asks “Did you send it?” — **Yes** → `sent` (freeze snapshot + lock entries); **No** → remain/return `issued`.
+- **Prepare Email** opens the default mail client (`mailto:` with Recipient email + **Invoice Email Template**), downloads the PDF for manual attach, offers copy/open-mail fallbacks, asks “Did your mail app open?” then (if yes) “Did you send it?” — **Yes** → `sent` (freeze snapshot + lock entries); **No** / mail did not open → remain/return `issued`.
 - No server-side SMTP. No OS auto-attach.
 - Post-delivery correction: **Void** the `sent` row (number stays reserved; entries freed) and **Issue** a replacement for the same billing month (allowed because the prior is voided), then Prepare Email again. Do not unlock a confirmed `sent` invoice in place.
 - Migrate existing `issued` rows (created under immutable-at-issue) to `sent` in one shot.
