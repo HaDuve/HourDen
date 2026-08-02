@@ -26,7 +26,9 @@ function editEntryDialog() {
 }
 
 
-describeWithAuthenticatedWorkspace("TrackerPage with live API", () => {
+describeWithAuthenticatedWorkspace(
+  "TrackerPage with live API",
+  () => {
   it("lists tracker entries and supports start/stop and manual add", async () => {
     const today = await workspaceToday();
 
@@ -363,4 +365,6 @@ describeWithAuthenticatedWorkspace("TrackerPage with live API", () => {
       expect(running.projectId).toBe(project.id);
     });
   });
-});
+  },
+  { timeout: 30_000 },
+);

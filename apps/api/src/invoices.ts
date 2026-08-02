@@ -37,7 +37,7 @@ import {
   voidInvoice,
 } from "./db/invoice-writes.js";
 import { buildIssuedInvoicesZip } from "./invoice-export.js";
-import { invoiceFilename } from "./invoice-path.js";
+import { invoiceExportPath, invoiceFilename } from "./invoice-path.js";
 import { getWorkspaceCalendarTimezone, getWorkspaceInvoiceOperator } from "./db/workspaces.js";
 import { getCurrentWorkspaceId } from "./workspace.js";
 
@@ -389,17 +389,20 @@ async function renderInvoicePdfFromSnapshot(
 function invoicePdfHeadersFromSnapshot(
   invoice: IssuedInvoiceDetail,
 ): Record<string, string> {
-  const filename = invoiceFilename({
+  const pathInput = {
     invoiceNumber: invoice.invoiceNumber,
     periodEnd: invoice.periodEnd,
     senderName: invoice.snapshot.operator.name,
     clientName: invoice.clientName,
-  });
+  };
+  const filename = invoiceFilename(pathInput);
+  const exportPath = invoiceExportPath(pathInput);
 
   return {
     "Content-Type": "application/pdf",
     "Content-Disposition": `attachment; filename="${filename}"`,
     "X-Invoice-Number": invoice.invoiceNumber,
+    "X-Invoice-Export-Path": exportPath,
   };
 }
 
@@ -407,17 +410,20 @@ function invoicePdfHeaders(
   invoiceNumber: string,
   prepared: PreparedInvoice,
 ): Record<string, string> {
-  const filename = invoiceFilename({
+  const pathInput = {
     invoiceNumber,
     periodEnd: prepared.range.to,
     senderName: prepared.operator.name,
     clientName: prepared.client.name,
-  });
+  };
+  const filename = invoiceFilename(pathInput);
+  const exportPath = invoiceExportPath(pathInput);
 
   return {
     "Content-Type": "application/pdf",
     "Content-Disposition": `attachment; filename="${filename}"`,
     "X-Invoice-Number": invoiceNumber,
+    "X-Invoice-Export-Path": exportPath,
   };
 }
 

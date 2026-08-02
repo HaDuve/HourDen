@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { invoiceFilename } from "./invoice-path.js";
+import { invoiceExportPath, invoiceFilename } from "./invoice-path.js";
 
 describe("invoiceFilename", () => {
   it("builds rechnungsnummer_date_Invoice_sender_client.pdf from periodEnd and Invoice Sender", () => {
@@ -33,5 +33,20 @@ describe("invoiceFilename", () => {
         clientName: 'Ban"dao/Corp',
       }),
     ).toBe("2026002_28_02_26_Invoice_Han_nes__Duve__Ban_dao_Corp.pdf");
+  });
+});
+
+describe("invoiceExportPath", () => {
+  it("nests Recipient code and year under the archive root", () => {
+    expect(
+      invoiceExportPath({
+        clientName: "Bandao GmbH",
+        invoiceNumber: "BAN2026001",
+        periodEnd: "2026-06-30",
+        senderName: "Hannes Duve",
+      }),
+    ).toBe(
+      "BANDAOGMBH/2026/BAN2026001_30_06_26_Invoice_Hannes_Duve_Bandao GmbH.pdf",
+    );
   });
 });

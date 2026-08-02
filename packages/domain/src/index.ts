@@ -66,6 +66,11 @@ export {
 } from "./invoice-number.js";
 export type { InvoiceIssuanceSnapshot } from "./invoice-issuance-snapshot.js";
 export {
+  invoiceRecipientCode,
+  invoiceFilename,
+  invoiceExportPath,
+} from "./invoice-path.js";
+export {
   INVOICE_BLOCKER_CODES,
   isInvoiceBlockerCode,
   type InvoiceBlockerCode,
