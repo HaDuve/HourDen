@@ -445,7 +445,7 @@ export default function ClientsPage() {
                         invoiceEmailSubject: e.target.value,
                       }))
                     }
-                    placeholder={t("clients.invoiceEmailSubjectPlaceholder", {
+                    placeholder={t("clients.invoiceEmailSubjectDefault", {
                       billingMonth: "{{billingMonth}}",
                     })}
                     className={inputClass}
@@ -461,7 +461,7 @@ export default function ClientsPage() {
                         invoiceEmailBody: e.target.value,
                       }))
                     }
-                    placeholder={t("clients.invoiceEmailBodyPlaceholder", {
+                    placeholder={t("clients.invoiceEmailBodyDefault", {
                       greetingName: "{{greetingName}}",
                       billingMonth: "{{billingMonth}}",
                       operatorName: "{{operatorName}}",

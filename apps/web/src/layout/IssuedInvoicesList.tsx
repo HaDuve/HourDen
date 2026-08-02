@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  fillInvoiceEmailTemplate,
+  invoiceEmailPlaceholderLiterals,
+  invoiceEmailPlaceholderVars,
+  resolveInvoiceEmailTemplates,
+} from "../invoices/invoice-email-template.js";
+import { useLocaleFormat } from "../locale/use-locale-format.js";
 import { InvoicePdfToolbar } from "./InvoicePdfToolbar.js";
 import {
   destructiveButtonClass,
@@ -58,6 +65,7 @@ type IssuedInvoicesListProps = {
   onVoid: (invoice: IssuedInvoice) => Promise<void>;
   loadClientMail: (clientId: string) => Promise<ClientMailSettings>;
   loadWorkspaceTemplate: () => Promise<WorkspaceMailTemplate>;
+  operatorName: string;
   formatBillingPeriod: (start: string, end: string) => string;
   formatAmount: (amount: number) => string;
   pdfUrl: (invoiceId: string) => string;
@@ -109,11 +117,13 @@ export function IssuedInvoicesList({
   onVoid,
   loadClientMail,
   loadWorkspaceTemplate,
+  operatorName,
   formatBillingPeriod,
   formatAmount,
   pdfUrl,
 }: IssuedInvoicesListProps) {
   const { t, i18n } = useTranslation();
+  const { locale } = useLocaleFormat();
   const [tab, setTab] = useState<Tab>("pdf");
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [didSendOpen, setDidSendOpen] = useState(false);
@@ -185,21 +195,37 @@ export function IssuedInvoicesList({
 
   const issued = selected?.status === "issued";
   const sent = selected?.status === "sent";
-  const placeholderLiterals = {
-    greetingName: "{{greetingName}}",
-    invoiceNumber: "{{invoiceNumber}}",
-    period: "{{period}}",
-    billingMonth: "{{billingMonth}}",
-    operatorName: "{{operatorName}}",
-  };
-  const subject =
-    mail?.invoiceEmailSubject ||
-    workspaceTemplate?.invoiceEmailSubject ||
-    t("clients.invoiceEmailSubjectPlaceholder", placeholderLiterals);
-  const body =
-    mail?.invoiceEmailBody ||
-    workspaceTemplate?.invoiceEmailBody ||
-    t("clients.invoiceEmailBodyPlaceholder", placeholderLiterals);
+  const { subjectTemplate, bodyTemplate } = resolveInvoiceEmailTemplates({
+    clientSubject: mail?.invoiceEmailSubject,
+    clientBody: mail?.invoiceEmailBody,
+    workspaceSubject: workspaceTemplate?.invoiceEmailSubject,
+    workspaceBody: workspaceTemplate?.invoiceEmailBody,
+    defaultSubject: t(
+      "clients.invoiceEmailSubjectDefault",
+      invoiceEmailPlaceholderLiterals,
+    ),
+    defaultBody: t(
+      "clients.invoiceEmailBodyDefault",
+      invoiceEmailPlaceholderLiterals,
+    ),
+  });
+  const previewVars = selected
+    ? invoiceEmailPlaceholderVars({
+        greetingName:
+          mail?.emailGreetingName?.trim() || selected.recipient,
+        invoiceNumber: selected.invoiceNumber,
+        periodStart: selected.periodStart,
+        periodEnd: selected.periodEnd,
+        operatorName,
+        locale,
+      })
+    : null;
+  const subject = previewVars
+    ? fillInvoiceEmailTemplate(subjectTemplate, previewVars)
+    : subjectTemplate;
+  const body = previewVars
+    ? fillInvoiceEmailTemplate(bodyTemplate, previewVars)
+    : bodyTemplate;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,18rem)_1fr]">

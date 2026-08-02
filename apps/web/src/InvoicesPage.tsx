@@ -23,7 +23,9 @@ import {
 } from "./invoices/archive-directory.js";
 import {
   fillInvoiceEmailTemplate,
+  invoiceEmailPlaceholderLiterals,
   invoiceEmailPlaceholderVars,
+  resolveInvoiceEmailTemplates,
 } from "./invoices/invoice-email-template.js";
 import {
   readApiErrorBody,
@@ -272,6 +274,7 @@ export default function InvoicesPage() {
   const [loadingSender, setLoadingSender] = useState(false);
   const [savingSender, setSavingSender] = useState(false);
   const [invoiceSenderConfigured, setInvoiceSenderConfigured] = useState(true);
+  const [invoiceSenderName, setInvoiceSenderName] = useState("");
   const previewUrlRef = useRef<string | null>(null);
   const previewBlobRef = useRef<Blob | null>(null);
   const previewFilenameRef = useRef<string | null>(null);
@@ -344,6 +347,7 @@ export default function InvoicesPage() {
     try {
       const status = await fetchInvoiceSenderStatus();
       setInvoiceSenderConfigured(status.configured);
+      setInvoiceSenderName(status.invoiceSender.name);
     } catch (err) {
       setPlainAlert(t("invoices.loadInvoiceSenderFailed"));
     }
@@ -1014,21 +1018,20 @@ export default function InvoicesPage() {
       operatorName: senderStatus.invoiceSender.name,
       locale,
     });
-    const placeholderLiterals = {
-      greetingName: "{{greetingName}}",
-      invoiceNumber: "{{invoiceNumber}}",
-      period: "{{period}}",
-      billingMonth: "{{billingMonth}}",
-      operatorName: "{{operatorName}}",
-    };
-    const subjectTemplate =
-      clientMail.invoiceEmailSubject ||
-      workspaceTemplate.invoiceEmailSubject ||
-      t("clients.invoiceEmailSubjectPlaceholder", placeholderLiterals);
-    const bodyTemplate =
-      clientMail.invoiceEmailBody ||
-      workspaceTemplate.invoiceEmailBody ||
-      t("clients.invoiceEmailBodyPlaceholder", placeholderLiterals);
+    const { subjectTemplate, bodyTemplate } = resolveInvoiceEmailTemplates({
+      clientSubject: clientMail.invoiceEmailSubject,
+      clientBody: clientMail.invoiceEmailBody,
+      workspaceSubject: workspaceTemplate.invoiceEmailSubject,
+      workspaceBody: workspaceTemplate.invoiceEmailBody,
+      defaultSubject: t(
+        "clients.invoiceEmailSubjectDefault",
+        invoiceEmailPlaceholderLiterals,
+      ),
+      defaultBody: t(
+        "clients.invoiceEmailBodyDefault",
+        invoiceEmailPlaceholderLiterals,
+      ),
+    });
     const subject = fillInvoiceEmailTemplate(subjectTemplate, vars);
     const body = fillInvoiceEmailTemplate(bodyTemplate, vars);
     window.open(
@@ -1075,6 +1078,7 @@ export default function InvoicesPage() {
     try {
       const status = await saveInvoiceSender(senderForm);
       setInvoiceSenderConfigured(status.configured);
+      setInvoiceSenderName(status.invoiceSender.name);
       closeSenderEditor();
       if (previewUrl) {
         await requestPreview({
@@ -1463,6 +1467,7 @@ export default function InvoicesPage() {
             onVoid={(invoice) => handleVoid(invoice)}
             loadClientMail={loadClientMail}
             loadWorkspaceTemplate={loadWorkspaceTemplate}
+            operatorName={invoiceSenderName}
             formatBillingPeriod={formatBillingPeriod}
             formatAmount={formatCurrency}
             pdfUrl={(id) => `/api/invoices/${id}/pdf`}
