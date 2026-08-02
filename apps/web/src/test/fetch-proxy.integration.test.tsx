@@ -1,9 +1,13 @@
 import "./load-env.js";
 
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeAll, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
+import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import InvoicesPage from "../InvoicesPage.js";
 import { describeWithAuthenticatedWorkspace } from "./describe-with-live-api.js";
+
+/** July so “last month” quick control selects June (fixture entry month). */
+const JULY_2026 = new Date("2026-07-15T12:00:00.000Z");
 
 async function waitForClientReady(clientName: string, clientId: string) {
   await waitFor(() => {
@@ -16,12 +20,30 @@ async function waitForClientReady(clientName: string, clientId: string) {
   });
 }
 
+function renderInvoicesPage() {
+  return render(
+    <MemoryRouter>
+      <InvoicesPage />
+    </MemoryRouter>,
+  );
+}
+
 describeWithAuthenticatedWorkspace(
   "authenticated fetch proxy in jsdom",
   () => {
     beforeAll(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(JULY_2026);
+    });
+
+    beforeEach(() => {
+      vi.setSystemTime(JULY_2026);
       URL.createObjectURL = vi.fn(() => "blob:test") as typeof URL.createObjectURL;
       URL.revokeObjectURL = vi.fn() as typeof URL.revokeObjectURL;
+    });
+
+    afterAll(() => {
+      vi.useRealTimers();
     });
 
     it("reads preview errors and PDF blobs through proxied fetch", async () => {
@@ -125,7 +147,7 @@ describeWithAuthenticatedWorkspace(
         }),
       });
 
-      render(<InvoicesPage />);
+      renderInvoicesPage();
       await waitForClientReady("Bandao", bandao.id);
       fireEvent.click(screen.getByRole("button", { name: /last month/i }));
 

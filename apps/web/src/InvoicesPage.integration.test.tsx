@@ -3,9 +3,12 @@ import "./test/load-env.js";
 import { DEFAULT_WORKSPACE_ID } from "@hourden/domain";
 import { fireEvent, render, screen, waitFor, within, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { describeWithAuthenticatedWorkspace } from "./test/describe-with-live-api.js";
 import InvoicesPage from "./InvoicesPage.js";
+
+/** July so “last month” quick control selects June (fixture entry month). */
+const JULY_2026 = new Date("2026-07-15T12:00:00.000Z");
 
 function renderInvoicesPage() {
   return render(
@@ -56,9 +59,19 @@ async function waitForClientReady(clientName: string, clientId: string) {
 describeWithAuthenticatedWorkspace(
   "InvoicesPage with live API",
   (getWorkspace) => {
+    beforeAll(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(JULY_2026);
+    });
+
     beforeEach(() => {
+      vi.setSystemTime(JULY_2026);
       URL.createObjectURL = vi.fn(() => "blob:test") as typeof URL.createObjectURL;
       URL.revokeObjectURL = vi.fn() as typeof URL.revokeObjectURL;
+    });
+
+    afterAll(() => {
+      vi.useRealTimers();
     });
 
     it("previews then issues an invoice without marking entries Invoiced until issue", async () => {
