@@ -22,7 +22,7 @@ _Avoid_: invite, team (Phase 2 concepts)
 **Onboarding** — the first-run guided setup for a not-yet-configured **Workspace**: add a **Client**, add a **Project** under it, fill the **Invoice Sender** ("Invoice Data"), then land on Tracker. Every step is skippable and Tracker is always reachable; the flow is considered done once the Workspace has been set up or the Operator dismisses it, and does not reappear thereafter. Onboarding is a property of the **Workspace** being set up, not of the **User**.
 _Avoid_: wizard, tour, setup wizard (in domain copy)
 
-**Language** — the **User**'s preferred UI language (Phase 1: English or German), following that person across their devices. A per-**User** preference, distinct from the **Workspace**'s **Calendar Timezone** and from the **Invoice Sender** identity. Governs on-screen labels and how dates and amounts are displayed to the Operator; it does not change issued **Invoice** PDFs or the Clockify CSV export, which keep their existing format.
+**Language** — the **User**'s preferred UI language (Phase 1: English or German), following that person across their devices. A per-**User** preference, distinct from the **Workspace**'s **Calendar Timezone** and from the **Invoice Sender** identity. Governs on-screen labels and how dates and amounts are displayed to the Operator; it does not change **Sent** **Invoice** PDFs or the Clockify CSV export, which keep their existing format.
 _Avoid_: Locale (as the user-facing term), i18n
 
 ## Time tracking
@@ -57,7 +57,7 @@ _Avoid_: Today (retired screen name), time tracker (unqualified — use **Tracke
 **Billable Complete** — a stopped Time Entry with a non-empty Description. Incomplete entries stay editable and appear in Tracker/Report but are excluded from invoicing.
 _Avoid_: complete entry, valid entry
 
-**Invoiced Entry** — a Time Entry linked to an issued **Invoice** (`invoice_id` set). Read-only: it cannot be edited or deleted so covered work is not double-billed. The **Issuance Snapshot** freezes line content regardless of later entry edits.
+**Invoiced Entry** — a Time Entry linked to an **Invoice** (`invoice_id` set). While the invoice is **issued** (not yet **Sent**), membership can change: entries may be unlinked or re-linked as the Operator edits coverage. Once the invoice is **Sent** (or **Voided**), covered entries are read-only so work is not double-billed; voiding frees them for a replacement **Issue**. The **Issuance Snapshot** at **Sent** freezes line content regardless of later entry edits.
 _Avoid_: Locked entry, frozen entry
 
 **Clockify Import** — bulk load of historical Time Entries from Clockify CSV exports. Rows dedupe by an import fingerprint so re-uploading the same file does not duplicate entries. Rates and amounts are stored per row as recorded in the CSV.
@@ -67,26 +67,41 @@ _Avoid_: migration, sync
 
 **Invoice Prefix** — short label prepended to a prefixed **Invoice Number** (e.g. `BAN` in `BAN2026003`). Stored on the **Client**; default is derived from the **Client** `name` (not **Recipient** legal name): take the first three letters A–Z, skipping spaces, punctuation, and digits, uppercased; if fewer than three letters exist, use what's available (e.g. `AB` → `AB`). The Operator can edit a different prefix on preview (letters and digits, 1–6 characters, uppercased on save); it is persisted to the **Client** when an invoice is issued. The prefixed sequence counter is per **Client** per calendar year — every issued invoice for that **Client** in the year advances the count, whether prefixed or plain. Changing the prefix mid-year continues the count (e.g. after `BAN2026002`, renaming to `BD` suggests `BD2026003`).
 
-**Invoice Sender** — the business identity of the **Workspace** on issued invoices: legal name, address, tax number, email, phone, bank details. Stored on the **Workspace** (not on the **User** login record). Copied into the **Issuance Snapshot** at issue time so later edits to Workspace settings do not change sent PDFs. Replaces env-based `HOURDEN_OPERATOR_*` for invoice and report export. Each **User** with an owned **Workspace** can edit these fields from the Invoices page; changes apply to future previews and issues only — already issued invoices stay frozen in their snapshot. New Workspaces created via `create-user` start with empty sender fields; the first invoice preview prompts the **User** to fill them in if not configured yet (`sender_name` null = unconfigured).
+**Invoice Sender** — the business identity of the **Workspace** on invoices: legal name, address, tax number, email, phone, bank details. Stored on the **Workspace** (not on the **User** login record). Copied into the **Issuance Snapshot** at **Issue** (and rewritten on invoice edits until **Sent**) so later Workspace-setting edits do not silently change a frozen PDF. Replaces env-based `HOURDEN_OPERATOR_*` for invoice and report export. Each **User** with an owned **Workspace** can edit these fields from the Invoices page; changes apply to future previews, new issues, and explicit edits on an `issued` invoice — **Sent** invoices stay frozen in their snapshot. New Workspaces created via `create-user` start with empty sender fields; the first invoice preview prompts the **User** to fill them in if not configured yet (`sender_name` null = unconfigured).
 _Avoid_: Operator (when you mean this PDF header block — **Operator** is the person acting; **Invoice Sender** is the printed business identity)
 
-**Recipient** — the billing identity of a **Client**: legal name + postal address printed on the invoice PDF. Not a separate entity — these are fields on the Client (nullable until the Client is first invoiced). One Client has exactly one Recipient identity.
+**Recipient** — the billing identity of a **Client**: legal name + postal address printed on the invoice PDF, plus **Recipient email** for **Prepare Email** (not printed on the PDF). Not a separate entity — these are fields on the Client (nullable until the Client is first invoiced / first prepare-email). One Client has exactly one Recipient identity.
 _Avoid_: modeling Recipient as its own table (collapsed into Client — see ADR-0002)
 
-**Invoice** — a PDF request for payment covering a **Billing Period** for one Recipient, built from grouped **Billable Complete** Time Entries (by date + description). At most one issued Invoice per **Client** per billing month (calendar month of the Billing Period `to` date). Each **Invoice Number** is assigned once across the whole **Workspace** (German compliance: no duplicate numbers on separate invoices). Default format is **Invoice Prefix** + calendar year + per-**Client** sequence (e.g. `BAN2026003` — Bandao's 3rd invoice in 2026), with a minimum three-digit suffix that grows beyond 999 when needed (`BAN20261000`). The Operator may turn off "Use prefix" on preview for a single issue to get a plain **Workspace**-global number instead (`2026001`, `2026002`, …); only plain-format invoices advance that counter. The **Client**'s saved prefix is unchanged. HourDen warns if a number already exists anywhere in the Workspace. When the number is changed, the Operator chooses whether future invoices continue the original suggested sequence (count-based) or from the edited number (suffix-based). That override policy is per **Client** per calendar year for prefixed numbers, and **Workspace**-wide per calendar year for plain numbers. Once **issued**, an invoice is immutable: it can be reconstructed exactly as sent from its **Issuance Snapshot** and is never rewritten by later edits to a Client or Time Entry. HourDen owns only the invoices it issues; invoices predating the switch from the legacy script live in the parent repo's `Outgoing/` archive.
-_Avoid_: Bill
+**Email Greeting Name** — short name on the **Client** for mail copy only (e.g. “Anna” in “Hallo Anna,”), distinct from **Recipient** legal name on the PDF. Nullable; used as a placeholder in the **Invoice Email Template** at **Prepare Email** time. Not printed on the invoice PDF.
+_Avoid_: Recipient name (when you mean the legal PDF name), salutation (unqualified)
 
-**Voided Invoice** — reserved `status` where the **Invoice Number** is never reused and the row is excluded from list/reconstruct/**Outgoing export**. Schema and numbering rules support voided rows; no void UI/API is shipped yet — design rule only for now.
-_Avoid_: cancelled invoice, credit note
+**Invoice Email Template** — optional subject + body on the **Client** (with placeholders such as greeting name, invoice number, billing period, Operator name) used by **Prepare Email**. If the Client has none, the **Workspace** default template is used. Edited anytime on Client/Workspace; read live at prepare time (not snapshotted onto the invoice).
+_Avoid_: email draft (persisted outbound messages do not exist)
 
-**Issuance Snapshot** — JSON captured at issue time: Recipient block, **Invoice Sender** block, grouped lines, totals. Reconstruction renders the PDF from this snapshot, not from live Client/entry/Workspace data (ADR-0006). PDF bytes are not stored.
+**Invoice** — a PDF request for payment covering a **Billing Period** for one Recipient, built from grouped **Billable Complete** Time Entries (by date + description). Statuses: **`issued`** (persisted, editable) → **`sent`** (immutable) → **`voided`** (superseded). At most one non-voided Invoice per **Client** per billing month (calendar month of the Billing Period `to` date); a **Voided** prior allows a replacement **Issue** for that month. Each **Invoice Number** is unique across the whole **Workspace** among non-freed numbers (German compliance: no duplicate numbers on separate invoices; **Voided** numbers stay reserved). Default format is **Invoice Prefix** + calendar year + per-**Client** sequence (e.g. `BAN2026003` — Bandao's 3rd invoice in 2026), with a minimum three-digit suffix that grows beyond 999 when needed (`BAN20261000`). The Operator may turn off "Use prefix" on preview (or while `issued`) for a single invoice to get a plain **Workspace**-global number instead (`2026001`, `2026002`, …); only plain-format invoices advance that counter. The **Client**'s saved prefix is unchanged. HourDen warns if a number already exists anywhere in the Workspace. When the number is changed (on preview or while `issued`), the Operator chooses whether future invoices continue the original suggested sequence (count-based) or from the edited number (suffix-based); the old number becomes free again. That override policy is per **Client** per calendar year for prefixed numbers, and **Workspace**-wide per calendar year for plain numbers. While **`issued`**, the Operator may change Invoice Number, prefix/use-prefix, Recipient (including email), Invoice Sender block on this invoice, Billing Period, and line membership — each successful edit rewrites the working **Issuance Snapshot**. **Sent** freezes that snapshot; live Client/entry/Workspace edits never rewrite it. Correction after delivery: **Void** the **Sent** invoice and **Issue** a new one for the same period (new number), then **Prepare Email** again. HourDen owns only the invoices it issues; invoices predating the switch from the legacy script live in the parent repo's `Outgoing/` archive.
+_Avoid_: Bill, draft invoice (persisted pre-issue drafts do not exist — **Preview** is the dry-run)
+
+**Voided Invoice** — `status` used when a **Sent** invoice is superseded: the **Invoice Number** is never reused, the row is excluded from list/reconstruct/**Outgoing export**, and its **Invoiced Entries** become free for a replacement **Issue**. Design rule for post-delivery correction (void + reissue); void UI ships with that flow.
+_Avoid_: cancelled invoice, credit note, Unsent (aborting prepare-email returns the row to `issued` — not a void)
+
+**Issuance Snapshot** — JSON of Recipient block, **Invoice Sender** block, grouped lines, totals. Written at **Issue**, **rewritten on every successful edit** while status is `issued`, and **frozen at Sent** (ADR-0006, ADR-0014). Reconstruction renders the PDF from this snapshot plus the current **Invoice Number**, not from live Client/entry/Workspace data. PDF bytes are not stored.
 _Avoid_: stored PDF, template snapshot
 
-**Preview** — dry-run invoice for a Client + Billing Period: grouped lines, suggested **Invoice Number**, PDF bytes without persisting. Lets the Operator edit the number, prefix toggle, and numbering strategy before issue.
-_Avoid_: draft invoice (persisted drafts do not exist)
+**Preview** — dry-run invoice for a Client + Billing Period: grouped lines, suggested **Invoice Number**, PDF bytes without persisting. Lets the Operator edit the number, prefix toggle, and numbering strategy before **Issue**.
+_Avoid_: draft invoice (persisted drafts do not exist), Reader (Reader is for persisted invoices)
 
-**Issue** — persist an **Invoice** row, save the **Issuance Snapshot**, assign the **Invoice Number**, link covered Time Entries as **Invoiced**, and return downloadable PDF bytes.
-_Avoid_: send (email delivery is out of scope)
+**Reader** — in-app view of a persisted invoice’s current reconstructed PDF (`issued` or `sent`), using the same sheet/iframe chrome as **Preview**. While `issued`, reflects the working snapshot after edits; while `sent`, the frozen artifact.
+_Avoid_: Preview (pre-issue dry-run only)
+
+**Issue** — persist an **Invoice** row with status `issued`, save the working **Issuance Snapshot**, assign the **Invoice Number**, link covered Time Entries, and return downloadable PDF bytes. Does not freeze the invoice — **Sent** does.
+_Avoid_: send (server-side email delivery is out of scope; see **Prepare Email** / **Sent**)
+
+**Prepare Email** — open the Operator’s default mail client with **Recipient email**, subject/body from the **Invoice Email Template** (Client, else Workspace default, with **Email Greeting Name** and other placeholders filled), and trigger a PDF download so the Operator attaches it manually (`mailto:` cannot attach files). Confirms that marking **Sent** will lock the invoice.
+_Avoid_: send email (HourDen does not transmit mail), SMTP
+
+**Sent** — status (and act of confirming delivery intent) that freezes an **Invoice**: **Issuance Snapshot** and number no longer change; covered **Invoiced Entries** lock. Reached when **Prepare Email** runs and the Operator answers **Yes** to “Did you send it?”; **No** leaves/returns status `issued` (editable again). Not undone after a confirmed send — post-delivery fixes use **Voided** + replacement **Issue**. Existing rows created under the old “immutable at Issue” rule migrate to `sent`.
+_Avoid_: Unsent (not a status), delivered (no proof from the mail app)
 
 **Billing Period** — the date range of work included on an Invoice (typically one calendar month). On the Invoices tab, month quick controls (`< last this >`) above the date pickers set this/last calendar month or step one month from the current filter.
 
@@ -96,7 +111,7 @@ _Avoid_: Analytics, Overview, Insights (in nav copy — the label is "Dashboard"
 **Report** — a date-range view of Time Entries grouped by Client with duration and amount totals, used to review before invoicing. Can be exported as a Clockify-compatible CSV (full Clockify column set) that the existing `generate_invoice.py` consumes unchanged. Month quick controls (`< last this >`) above the date pickers set this/last calendar month or step one month from the current filter.
 _Avoid_: Summary, timesheet
 
-**Outgoing export** — download a zip of issued invoices laid out as `Outgoing/{RECIPIENT}/{year}/{number}_{dd_mm_yy}_Invoice_….pdf`. Does not write to the parent Invoices repo filesystem; the Operator archives the zip or individual PDFs manually. Excludes voided and snapshot-less rows.
+**Outgoing export** — download a zip of invoices laid out as `Outgoing/{RECIPIENT}/{year}/{number}_{dd_mm_yy}_Invoice_….pdf`. Does not write to the parent Invoices repo filesystem; the Operator archives the zip or individual PDFs manually. Intended after **Sent**; excludes voided and snapshot-less rows.
 _Avoid_: auto-sync to Outgoing folder
 
 ## Flagged ambiguities
@@ -115,4 +130,8 @@ _Avoid_: auto-sync to Outgoing folder
 >
 > **Operator**: Issue it.
 >
-> **System**: Invoice BAN2026006 issued. 47 entries marked Invoiced. Download PDF or **Outgoing export** when ready.
+> **System**: Invoice BAN2026006 issued (editable). 47 entries linked. Open **Reader**, edit, or **Prepare Email** when ready.
+>
+> **Operator**: Prepare Email.
+>
+> **System**: Opens mail client (Recipient email + template). Downloads PDF to attach. “Did you send it?” → Yes marks **Sent** (frozen); No keeps it issued.
