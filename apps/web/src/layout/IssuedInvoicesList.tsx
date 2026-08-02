@@ -6,6 +6,7 @@ import {
   invoiceEmailPlaceholderVars,
   resolveInvoiceEmailTemplates,
 } from "../invoices/invoice-email-template.js";
+import { buildMailtoHref } from "../invoices/open-mailto.js";
 import { useLocaleFormat } from "../locale/use-locale-format.js";
 import { InvoicePdfToolbar } from "./InvoicePdfToolbar.js";
 import {
@@ -42,6 +43,9 @@ export type WorkspaceMailTemplate = {
 };
 
 type Tab = "pdf" | "edit" | "email";
+
+/** Post–Prepare Email confirmation: mail opened? → then sent? */
+type EmailConfirmStep = null | "mailOpened" | "sent" | "mailFailed";
 
 type ListRow =
   | { kind: "year"; year: string }
@@ -126,9 +130,11 @@ export function IssuedInvoicesList({
   const { locale } = useLocaleFormat();
   const [tab, setTab] = useState<Tab>("pdf");
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
-  const [didSendOpen, setDidSendOpen] = useState(false);
+  const [emailConfirmStep, setEmailConfirmStep] =
+    useState<EmailConfirmStep>(null);
   const [voidConfirmOpen, setVoidConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [draftCopied, setDraftCopied] = useState(false);
   const [editNumber, setEditNumber] = useState("");
   const [numberingStrategy, setNumberingStrategy] = useState<
     "sequential" | "from_last" | ""
@@ -155,9 +161,10 @@ export function IssuedInvoicesList({
     setTab("pdf");
     setEditNumber(selected.invoiceNumber);
     setNumberingStrategy("");
-    setDidSendOpen(false);
+    setEmailConfirmStep(null);
     setVoidConfirmOpen(false);
     setFullscreenOpen(false);
+    setDraftCopied(false);
   }, [selected?.id]);
 
   useEffect(() => {
@@ -226,6 +233,10 @@ export function IssuedInvoicesList({
   const body = previewVars
     ? fillInvoiceEmailTemplate(bodyTemplate, previewVars)
     : bodyTemplate;
+  const mailtoHref =
+    mail?.recipientEmail?.trim()
+      ? buildMailtoHref(mail.recipientEmail.trim(), subject, body)
+      : null;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,18rem)_1fr]">
@@ -458,6 +469,36 @@ export function IssuedInvoicesList({
                     {"\n\n"}
                     {body}
                   </pre>
+                  {mailtoHref ? (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className={secondaryButtonClass}
+                        disabled={busy}
+                        onClick={() => {
+                          void (async () => {
+                            const draft = `${subject}\n\n${body}`;
+                            try {
+                              await navigator.clipboard.writeText(draft);
+                              setDraftCopied(true);
+                            } catch {
+                              setDraftCopied(false);
+                            }
+                          })();
+                        }}
+                      >
+                        {draftCopied
+                          ? t("invoices.copyEmailDraftDone")
+                          : t("invoices.copyEmailDraft")}
+                      </button>
+                      <a
+                        href={mailtoHref}
+                        className={secondaryButtonClass}
+                      >
+                        {t("invoices.openMailApp")}
+                      </a>
+                    </div>
+                  ) : null}
                   <button
                     type="button"
                     className={primaryButtonClass}
@@ -467,7 +508,7 @@ export function IssuedInvoicesList({
                         setBusy(true);
                         try {
                           await onPrepareEmail(selected);
-                          setDidSendOpen(true);
+                          setEmailConfirmStep("mailOpened");
                         } finally {
                           setBusy(false);
                         }
@@ -497,7 +538,54 @@ export function IssuedInvoicesList({
             </div>
           ) : null}
 
-          {didSendOpen ? (
+          {emailConfirmStep === "mailOpened" ? (
+            <div className="mt-4 rounded-md border border-divider bg-surface-hover p-4">
+              <p className="font-medium text-content">
+                {t("invoices.didMailOpenTitle")}
+              </p>
+              <p className={`mt-1 ${metaTextClass}`}>
+                {t("invoices.didMailOpenBody")}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className={primaryButtonClass}
+                  disabled={busy}
+                  onClick={() => setEmailConfirmStep("sent")}
+                >
+                  {t("invoices.didMailOpenYes")}
+                </button>
+                <button
+                  type="button"
+                  className={secondaryButtonClass}
+                  disabled={busy}
+                  onClick={() => setEmailConfirmStep("mailFailed")}
+                >
+                  {t("invoices.didMailOpenNo")}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {emailConfirmStep === "mailFailed" ? (
+            <div className="mt-4 rounded-md border border-divider bg-surface-hover p-4">
+              <p className={`mt-0 ${metaTextClass}`}>
+                {t("invoices.mailDidNotOpenTip")}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className={secondaryButtonClass}
+                  disabled={busy}
+                  onClick={() => setEmailConfirmStep(null)}
+                >
+                  {t("invoices.didYouSendNo")}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {emailConfirmStep === "sent" ? (
             <div className="mt-4 rounded-md border border-divider bg-surface-hover p-4">
               <p className="font-medium text-content">
                 {t("invoices.didYouSendTitle")}
@@ -515,7 +603,7 @@ export function IssuedInvoicesList({
                       setBusy(true);
                       try {
                         await onMarkSent(selected);
-                        setDidSendOpen(false);
+                        setEmailConfirmStep(null);
                       } finally {
                         setBusy(false);
                       }
@@ -528,7 +616,7 @@ export function IssuedInvoicesList({
                   type="button"
                   className={secondaryButtonClass}
                   disabled={busy}
-                  onClick={() => setDidSendOpen(false)}
+                  onClick={() => setEmailConfirmStep(null)}
                 >
                   {t("invoices.didYouSendNo")}
                 </button>
