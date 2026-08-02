@@ -258,8 +258,47 @@ describe("IssuedInvoicesList", () => {
       screen.getByRole("button", { name: /no — mail didn’t open/i }),
     );
     expect(screen.getByText(/default email reader/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^dismiss$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /no — keep issued/i }),
+    ).not.toBeInTheDocument();
     expect(onMarkSent).not.toHaveBeenCalled();
     expect(screen.queryByText(/did you send it/i)).not.toBeInTheDocument();
+  });
+
+  it("mail did not open can continue to Did you send without Prepare Email again", async () => {
+    mockDesktopViewport();
+    const onPrepareEmail = vi.fn(async () => undefined);
+    const onMarkSent = vi.fn(async () => undefined);
+    renderList([issuedInvoice], { onPrepareEmail, onMarkSent });
+
+    fireEvent.click(screen.getByRole("button", { name: /^email$/i }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /prepare email/i }),
+      ).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /prepare email/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/did your mail app open/i)).toBeInTheDocument();
+    });
+    expect(onPrepareEmail).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /no — mail didn’t open/i }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /mail opened now — continue/i }),
+    );
+    expect(screen.getByText(/did you send it/i)).toBeInTheDocument();
+    expect(onPrepareEmail).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: /yes — mark sent/i }));
+    await waitFor(() => {
+      expect(onMarkSent).toHaveBeenCalledWith(issuedInvoice);
+    });
   });
 
   it("email tab offers Copy draft and Open mail app mailto link", async () => {
@@ -290,7 +329,9 @@ describe("IssuedInvoicesList", () => {
       expect(writeText).toHaveBeenCalled();
     });
     expect(writeText).toHaveBeenCalledWith(
-      expect.stringMatching(/Invoice June 2026[\s\S]*Hello Anna,[\s\S]*Hannes/),
+      expect.stringMatching(
+        /To:\s*billing@bandao\.example[\s\S]*Invoice June 2026[\s\S]*Hello Anna,[\s\S]*Hannes/,
+      ),
     );
   });
 

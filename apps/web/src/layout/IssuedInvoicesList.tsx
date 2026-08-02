@@ -477,7 +477,10 @@ export function IssuedInvoicesList({
                         disabled={busy}
                         onClick={() => {
                           void (async () => {
-                            const draft = `${subject}\n\n${body}`;
+                            const to = mail?.recipientEmail?.trim();
+                            const draft = to
+                              ? `To: ${to}\n\n${subject}\n\n${body}`
+                              : `${subject}\n\n${body}`;
                             try {
                               await navigator.clipboard.writeText(draft);
                               setDraftCopied(true);
@@ -575,11 +578,19 @@ export function IssuedInvoicesList({
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
+                  className={primaryButtonClass}
+                  disabled={busy}
+                  onClick={() => setEmailConfirmStep("sent")}
+                >
+                  {t("invoices.mailOpenedNowContinue")}
+                </button>
+                <button
+                  type="button"
                   className={secondaryButtonClass}
                   disabled={busy}
                   onClick={() => setEmailConfirmStep(null)}
                 >
-                  {t("invoices.didYouSendNo")}
+                  {t("invoices.mailDidNotOpenDismiss")}
                 </button>
               </div>
             </div>
