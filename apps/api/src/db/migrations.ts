@@ -228,4 +228,30 @@ export const MIGRATIONS: Migration[] = [
         ADD COLUMN IF NOT EXISTS invoice_number_seq_before_year boolean NOT NULL DEFAULT false;
     `,
   },
+  {
+    id: "016_sent_gate_invoices",
+    sql: `
+      -- Legacy immutable-at-Issue rows become Sent (freeze already happened at Issue).
+      UPDATE invoices
+      SET status = 'sent'
+      WHERE status = 'issued';
+
+      ALTER TABLE invoices
+        DROP CONSTRAINT IF EXISTS invoices_client_id_period_start_period_end_key;
+
+      CREATE UNIQUE INDEX IF NOT EXISTS invoices_client_active_period_unique_idx
+        ON invoices (client_id, period_start, period_end)
+        WHERE status <> 'voided';
+
+      ALTER TABLE clients
+        ADD COLUMN IF NOT EXISTS recipient_email text,
+        ADD COLUMN IF NOT EXISTS email_greeting_name text,
+        ADD COLUMN IF NOT EXISTS invoice_email_subject text,
+        ADD COLUMN IF NOT EXISTS invoice_email_body text;
+
+      ALTER TABLE workspaces
+        ADD COLUMN IF NOT EXISTS invoice_email_subject text,
+        ADD COLUMN IF NOT EXISTS invoice_email_body text;
+    `,
+  },
 ] as const;

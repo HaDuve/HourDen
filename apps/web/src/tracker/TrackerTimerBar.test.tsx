@@ -99,6 +99,7 @@ describe("TrackerTimerBar", () => {
           isRunning: true,
           durationMinutes: 1,
           invoiced: false,
+          locked: false,
         }}
         liveCounter="0:01:05"
         description="Design review"

@@ -32,6 +32,10 @@ type ClientFormData = {
   legalName: string;
   addressLine1: string;
   addressLine2: string;
+  recipientEmail: string;
+  emailGreetingName: string;
+  invoiceEmailSubject: string;
+  invoiceEmailBody: string;
 };
 
 const emptyForm: ClientFormData = {
@@ -40,6 +44,10 @@ const emptyForm: ClientFormData = {
   legalName: "",
   addressLine1: "",
   addressLine2: "",
+  recipientEmail: "",
+  emailGreetingName: "",
+  invoiceEmailSubject: "",
+  invoiceEmailBody: "",
 };
 
 function clientToForm(client: Client): ClientFormData {
@@ -49,6 +57,10 @@ function clientToForm(client: Client): ClientFormData {
     legalName: client.legalName ?? "",
     addressLine1: client.addressLine1 ?? "",
     addressLine2: client.addressLine2 ?? "",
+    recipientEmail: client.recipientEmail ?? "",
+    emailGreetingName: client.emailGreetingName ?? "",
+    invoiceEmailSubject: client.invoiceEmailSubject ?? "",
+    invoiceEmailBody: client.invoiceEmailBody ?? "",
   };
 }
 
@@ -148,6 +160,10 @@ export default function ClientsPage() {
       legalName: form.legalName.trim() || null,
       addressLine1: form.addressLine1.trim() || null,
       addressLine2: form.addressLine2.trim() || null,
+      recipientEmail: form.recipientEmail.trim() || null,
+      emailGreetingName: form.emailGreetingName.trim() || null,
+      invoiceEmailSubject: form.invoiceEmailSubject.trim() || null,
+      invoiceEmailBody: form.invoiceEmailBody.trim() || null,
     };
 
     try {
@@ -389,6 +405,60 @@ export default function ClientsPage() {
                         addressLine2: e.target.value,
                       }))
                     }
+                    className={inputClass}
+                  />
+                </label>
+                <label className={`grid gap-1 ${fieldLabelClass}`}>
+                  <span>{t("clients.recipientEmail")}</span>
+                  <input
+                    type="email"
+                    value={form.recipientEmail}
+                    onChange={(e) =>
+                      setForm((current) => ({
+                        ...current,
+                        recipientEmail: e.target.value,
+                      }))
+                    }
+                    className={inputClass}
+                  />
+                </label>
+                <label className={`grid gap-1 ${fieldLabelClass}`}>
+                  <span>{t("clients.emailGreetingName")}</span>
+                  <input
+                    value={form.emailGreetingName}
+                    onChange={(e) =>
+                      setForm((current) => ({
+                        ...current,
+                        emailGreetingName: e.target.value,
+                      }))
+                    }
+                    className={inputClass}
+                  />
+                </label>
+                <label className={`grid gap-1 ${fieldLabelClass}`}>
+                  <span>{t("clients.invoiceEmailSubject")}</span>
+                  <input
+                    value={form.invoiceEmailSubject}
+                    onChange={(e) =>
+                      setForm((current) => ({
+                        ...current,
+                        invoiceEmailSubject: e.target.value,
+                      }))
+                    }
+                    className={inputClass}
+                  />
+                </label>
+                <label className={`grid gap-1 ${fieldLabelClass}`}>
+                  <span>{t("clients.invoiceEmailBody")}</span>
+                  <textarea
+                    value={form.invoiceEmailBody}
+                    onChange={(e) =>
+                      setForm((current) => ({
+                        ...current,
+                        invoiceEmailBody: e.target.value,
+                      }))
+                    }
+                    rows={4}
                     className={inputClass}
                   />
                 </label>

@@ -25,7 +25,7 @@ import {
   readApiErrorBody,
   readApiErrorMessage,
 } from "./invoices/read-api-error.js";
-import { IssuedInvoicesList } from "./layout/IssuedInvoicesList.js";
+import { IssuedInvoicesList, type IssuedInvoice } from "./layout/IssuedInvoicesList.js";
 import { PageMain } from "./layout/PageMain.js";
 import { ResponsiveOverlay } from "./layout/ResponsiveOverlay.js";
 import {
@@ -43,15 +43,6 @@ import {
   selectClass,
 } from "./layout/ui-classes.js";
 import { useIsMobile } from "./layout/use-is-mobile.js";
-
-type IssuedInvoice = {
-  id: string;
-  recipient: string;
-  invoiceNumber: string;
-  periodStart: string;
-  periodEnd: string;
-  totalAmount: number;
-};
 
 type NumberingPreview = {
   exists: boolean;
@@ -209,6 +200,15 @@ function downloadAttachmentBlob(blob: Blob, disposition: string) {
   URL.revokeObjectURL(url);
 }
 
+function fillInvoiceEmailTemplate(
+  template: string,
+  vars: Record<string, string>,
+): string {
+  return template.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
+    return vars[key] ?? "";
+  });
+}
+
 /** Chrome's PDF viewer names blob: downloads after the UUID; hide its toolbar. */
 function previewIframeSrc(blobUrl: string): string {
   return `${blobUrl}#toolbar=0`;
@@ -298,6 +298,7 @@ export default function InvoicesPage() {
   const [previewSheetOpen, setPreviewSheetOpen] = useState(false);
   const [previewFullscreenOpen, setPreviewFullscreenOpen] = useState(false);
   const [issuedInvoices, setIssuedInvoices] = useState<IssuedInvoice[]>([]);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [exportClientId, setExportClientId] = useState("");
   const [exportYear, setExportYear] = useState("");
@@ -382,10 +383,14 @@ export default function InvoicesPage() {
     try {
       const invoices = await fetchIssuedInvoices();
       setIssuedInvoices(invoices);
+      setSelectedInvoiceId((current) => {
+        if (current && invoices.some((inv) => inv.id === current)) return current;
+        return invoices[0]?.id ?? null;
+      });
     } catch (err) {
       setPlainAlert(t("invoices.loadInvoicesFailed"));
     }
-  }, [t]);
+  }, [setPlainAlert, t]);
 
   const loadInvoiceSenderStatus = useCallback(async () => {
     try {
@@ -985,6 +990,121 @@ export default function InvoicesPage() {
     }
   }
 
+  const loadClientMail = useCallback(async (mailClientId: string) => {
+    const res = await fetch(`/api/clients/${mailClientId}`);
+    if (!res.ok) {
+      throw new Error(await readApiErrorMessage(res));
+    }
+    const client = (await res.json()) as Client;
+    return {
+      recipientEmail: client.recipientEmail,
+      emailGreetingName: client.emailGreetingName,
+      invoiceEmailSubject: client.invoiceEmailSubject,
+      invoiceEmailBody: client.invoiceEmailBody,
+    };
+  }, []);
+
+  const loadWorkspaceTemplate = useCallback(async () => {
+    const res = await fetch("/api/workspace/invoice-email-template");
+    if (!res.ok) {
+      throw new Error(await readApiErrorMessage(res));
+    }
+    return res.json() as Promise<{
+      invoiceEmailSubject: string | null;
+      invoiceEmailBody: string | null;
+    }>;
+  }, []);
+
+  async function refreshIssuedInvoices() {
+    await loadIssuedInvoices();
+  }
+
+  async function handlePatchIssued(
+    invoice: IssuedInvoice,
+    options?: {
+      invoiceNumber?: string;
+      numberingStrategy?: InvoiceNumberingStrategy;
+    },
+  ) {
+    setAlert(null);
+    const res = await fetch(`/api/invoices/${invoice.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: invoice.clientId,
+        from: invoice.periodStart,
+        to: invoice.periodEnd,
+        invoiceNumber: options?.invoiceNumber ?? invoice.invoiceNumber,
+        numberingStrategy: options?.numberingStrategy,
+      }),
+    });
+    if (!res.ok) {
+      await applyApiErrorAlert(res, { clientId: invoice.clientId });
+      return;
+    }
+    await refreshIssuedInvoices();
+  }
+
+  async function handlePrepareEmail(invoice: IssuedInvoice) {
+    setAlert(null);
+    const [clientMail, workspaceTemplate, senderStatus] = await Promise.all([
+      loadClientMail(invoice.clientId),
+      loadWorkspaceTemplate(),
+      fetchInvoiceSenderStatus(),
+    ]);
+    const to = clientMail.recipientEmail?.trim();
+    if (!to) {
+      setPlainAlert(t("invoices.recipientEmailRequired"));
+      return;
+    }
+
+    const vars = {
+      greetingName: clientMail.emailGreetingName?.trim() || invoice.recipient,
+      invoiceNumber: invoice.invoiceNumber,
+      period: formatBillingPeriod(invoice.periodStart, invoice.periodEnd),
+      operatorName: senderStatus.invoiceSender.name,
+    };
+    const subjectTemplate =
+      clientMail.invoiceEmailSubject ||
+      workspaceTemplate.invoiceEmailSubject ||
+      `Invoice ${invoice.invoiceNumber}`;
+    const bodyTemplate =
+      clientMail.invoiceEmailBody ||
+      workspaceTemplate.invoiceEmailBody ||
+      "";
+    const subject = fillInvoiceEmailTemplate(subjectTemplate, vars);
+    const body = fillInvoiceEmailTemplate(bodyTemplate, vars);
+    window.open(
+      `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
+      "_blank",
+    );
+    await handleDownloadIssued(invoice);
+  }
+
+  async function handleMarkSent(invoice: IssuedInvoice) {
+    setAlert(null);
+    const res = await fetch(`/api/invoices/${invoice.id}/mark-sent`, {
+      method: "POST",
+    });
+    if (!res.ok) {
+      await applyApiErrorAlert(res, { clientId: invoice.clientId });
+      return;
+    }
+    await refreshIssuedInvoices();
+  }
+
+  async function handleVoid(invoice: IssuedInvoice) {
+    setAlert(null);
+    const res = await fetch(`/api/invoices/${invoice.id}/mark-void`, {
+      method: "POST",
+    });
+    if (!res.ok) {
+      await applyApiErrorAlert(res, { clientId: invoice.clientId });
+      return;
+    }
+    await refreshIssuedInvoices();
+  }
+
   const closeSenderEditor = () => {
     setEditingSender(false);
     setSenderForm(emptyInvoiceSenderForm);
@@ -1365,9 +1485,24 @@ export default function InvoicesPage() {
           <IssuedInvoicesList
             invoices={issuedInvoices}
             downloadingId={downloadingId}
+            selectedId={selectedInvoiceId}
+            onSelect={setSelectedInvoiceId}
             onDownload={(invoice) => void handleDownloadIssued(invoice)}
+            onRefreshLines={(invoice) => handlePatchIssued(invoice)}
+            onSaveNumber={(invoice, invoiceNumber, strategy) =>
+              handlePatchIssued(invoice, {
+                invoiceNumber,
+                numberingStrategy: strategy,
+              })
+            }
+            onPrepareEmail={(invoice) => handlePrepareEmail(invoice)}
+            onMarkSent={(invoice) => handleMarkSent(invoice)}
+            onVoid={(invoice) => handleVoid(invoice)}
+            loadClientMail={loadClientMail}
+            loadWorkspaceTemplate={loadWorkspaceTemplate}
             formatBillingPeriod={formatBillingPeriod}
             formatAmount={formatCurrency}
+            pdfUrl={(id) => `/api/invoices/${id}/pdf`}
           />
         )}
       </section>

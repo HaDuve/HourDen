@@ -3,8 +3,10 @@ import { Hono } from "hono";
 import type { Pool } from "pg";
 import {
   completeWorkspaceOnboarding,
+  getWorkspaceInvoiceEmailTemplate,
   getWorkspaceInvoiceSenderStatus,
   getWorkspaceOnboardingStatus,
+  updateWorkspaceInvoiceEmailTemplate,
   updateWorkspaceInvoiceSender,
   type UpdateInvoiceSenderInput,
 } from "./db/workspaces.js";
@@ -76,6 +78,37 @@ export function createWorkspaceSettingsRouter(pool: Pool) {
       getCurrentWorkspaceId(),
     );
     return c.json(status);
+  });
+
+  router.get("/invoice-email-template", async (c) => {
+    const template = await getWorkspaceInvoiceEmailTemplate(
+      pool,
+      getCurrentWorkspaceId(),
+    );
+    if (!template) {
+      return c.json({ error: "Workspace not found" }, 404);
+    }
+    return c.json(template);
+  });
+
+  router.patch("/invoice-email-template", async (c) => {
+    const body = await readJsonBody<{
+      invoiceEmailSubject?: string | null;
+      invoiceEmailBody?: string | null;
+    }>(c);
+    if (body instanceof Response) {
+      return body;
+    }
+
+    const template = await updateWorkspaceInvoiceEmailTemplate(
+      pool,
+      getCurrentWorkspaceId(),
+      body,
+    );
+    if (!template) {
+      return c.json({ error: "Workspace not found" }, 404);
+    }
+    return c.json(template);
   });
 
   router.get("/onboarding", async (c) => {

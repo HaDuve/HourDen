@@ -25,6 +25,7 @@ const morningEntry = {
   isRunning: false,
   durationMinutes: 60,
   invoiced: false,
+  locked: false,
 };
 
 const afternoonEntry = {
@@ -40,6 +41,7 @@ const afternoonEntry = {
   isRunning: false,
   durationMinutes: 60,
   invoiced: false,
+  locked: false,
 };
 
 const lastMonthEntry = {
@@ -55,6 +57,7 @@ const lastMonthEntry = {
   isRunning: false,
   durationMinutes: 60,
   invoiced: false,
+  locked: false,
 };
 
 function createFetchMock(
@@ -276,6 +279,7 @@ describe("TrackerPage", () => {
       isRunning: true,
       durationMinutes: 5,
       invoiced: false,
+      locked: false,
     };
     const project = {
       id: "p0000000-0000-4000-8000-000000000001",
