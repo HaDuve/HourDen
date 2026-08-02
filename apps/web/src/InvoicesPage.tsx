@@ -22,6 +22,12 @@ import {
   type ArchiveWriteResult,
 } from "./invoices/archive-directory.js";
 import {
+  fillInvoiceEmailTemplate,
+  invoiceEmailPlaceholderLiterals,
+  invoiceEmailPlaceholderVars,
+  resolveInvoiceEmailTemplates,
+} from "./invoices/invoice-email-template.js";
+import {
   readApiErrorBody,
   readApiErrorMessage,
 } from "./invoices/read-api-error.js";
@@ -201,15 +207,6 @@ function downloadAttachmentBlob(blob: Blob, disposition: string) {
   URL.revokeObjectURL(url);
 }
 
-function fillInvoiceEmailTemplate(
-  template: string,
-  vars: Record<string, string>,
-): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
-    return vars[key] ?? "";
-  });
-}
-
 /** Chrome's PDF viewer names blob: downloads after the UUID; hide its toolbar. */
 function previewIframeSrc(blobUrl: string): string {
   return `${blobUrl}#toolbar=0`;
@@ -217,7 +214,7 @@ function previewIframeSrc(blobUrl: string): string {
 
 export default function InvoicesPage() {
   const { t } = useTranslation();
-  const { formatCurrency, formatIsoDate } = useLocaleFormat();
+  const { formatCurrency, formatIsoDate, locale } = useLocaleFormat();
   const formatBillingPeriod = (periodStart: string, periodEnd: string) =>
     `${formatIsoDate(periodStart)} – ${formatIsoDate(periodEnd)}`;
   const initialRange = currentMonthRange();
@@ -277,6 +274,7 @@ export default function InvoicesPage() {
   const [loadingSender, setLoadingSender] = useState(false);
   const [savingSender, setSavingSender] = useState(false);
   const [invoiceSenderConfigured, setInvoiceSenderConfigured] = useState(true);
+  const [invoiceSenderName, setInvoiceSenderName] = useState("");
   const previewUrlRef = useRef<string | null>(null);
   const previewBlobRef = useRef<Blob | null>(null);
   const previewFilenameRef = useRef<string | null>(null);
@@ -349,6 +347,7 @@ export default function InvoicesPage() {
     try {
       const status = await fetchInvoiceSenderStatus();
       setInvoiceSenderConfigured(status.configured);
+      setInvoiceSenderName(status.invoiceSender.name);
     } catch (err) {
       setPlainAlert(t("invoices.loadInvoiceSenderFailed"));
     }
@@ -1011,20 +1010,28 @@ export default function InvoicesPage() {
       return;
     }
 
-    const vars = {
+    const vars = invoiceEmailPlaceholderVars({
       greetingName: clientMail.emailGreetingName?.trim() || invoice.recipient,
       invoiceNumber: invoice.invoiceNumber,
-      period: formatBillingPeriod(invoice.periodStart, invoice.periodEnd),
+      periodStart: invoice.periodStart,
+      periodEnd: invoice.periodEnd,
       operatorName: senderStatus.invoiceSender.name,
-    };
-    const subjectTemplate =
-      clientMail.invoiceEmailSubject ||
-      workspaceTemplate.invoiceEmailSubject ||
-      `Invoice ${invoice.invoiceNumber}`;
-    const bodyTemplate =
-      clientMail.invoiceEmailBody ||
-      workspaceTemplate.invoiceEmailBody ||
-      "";
+      locale,
+    });
+    const { subjectTemplate, bodyTemplate } = resolveInvoiceEmailTemplates({
+      clientSubject: clientMail.invoiceEmailSubject,
+      clientBody: clientMail.invoiceEmailBody,
+      workspaceSubject: workspaceTemplate.invoiceEmailSubject,
+      workspaceBody: workspaceTemplate.invoiceEmailBody,
+      defaultSubject: t(
+        "clients.invoiceEmailSubjectDefault",
+        invoiceEmailPlaceholderLiterals,
+      ),
+      defaultBody: t(
+        "clients.invoiceEmailBodyDefault",
+        invoiceEmailPlaceholderLiterals,
+      ),
+    });
     const subject = fillInvoiceEmailTemplate(subjectTemplate, vars);
     const body = fillInvoiceEmailTemplate(bodyTemplate, vars);
     window.open(
@@ -1071,6 +1078,7 @@ export default function InvoicesPage() {
     try {
       const status = await saveInvoiceSender(senderForm);
       setInvoiceSenderConfigured(status.configured);
+      setInvoiceSenderName(status.invoiceSender.name);
       closeSenderEditor();
       if (previewUrl) {
         await requestPreview({
@@ -1459,6 +1467,7 @@ export default function InvoicesPage() {
             onVoid={(invoice) => handleVoid(invoice)}
             loadClientMail={loadClientMail}
             loadWorkspaceTemplate={loadWorkspaceTemplate}
+            operatorName={invoiceSenderName}
             formatBillingPeriod={formatBillingPeriod}
             formatAmount={formatCurrency}
             pdfUrl={(id) => `/api/invoices/${id}/pdf`}

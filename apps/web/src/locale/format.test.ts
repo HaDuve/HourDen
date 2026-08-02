@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCurrency, formatDate } from "./format.js";
+import { formatBillingMonth, formatCurrency, formatDate } from "./format.js";
 
 describe("locale formatting", () => {
   const sampleDate = new Date("2026-07-04T12:00:00.000Z");
@@ -18,5 +18,10 @@ describe("locale formatting", () => {
   it("switches currency output by active locale", () => {
     expect(formatCurrency(sampleAmount, "en")).toBe("€1,234.56");
     expect(formatCurrency(sampleAmount, "de")).toBe("1.234,56 €");
+  });
+
+  it("formats billing month as month name and year for email copy", () => {
+    expect(formatBillingMonth("2026-07-31", "de")).toBe("Juli 2026");
+    expect(formatBillingMonth("2026-07-01", "en")).toBe("July 2026");
   });
 });

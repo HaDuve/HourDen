@@ -58,6 +58,7 @@ function renderList(
       {...mailLoaders}
       formatBillingPeriod={(start, end) => `${start} – ${end}`}
       formatAmount={(amount) => `${amount.toFixed(2)} EUR`}
+      operatorName=""
       pdfUrl={(id) => `/api/invoices/${id}/pdf`}
       {...overrides}
     />,
@@ -155,6 +156,7 @@ describe("IssuedInvoicesList", () => {
           {...mailLoaders}
           formatBillingPeriod={(start, end) => `${start} – ${end}`}
           formatAmount={(amount) => `${amount.toFixed(2)} EUR`}
+          operatorName=""
           pdfUrl={(id) => `/api/invoices/${id}/pdf`}
         />
       );
@@ -211,6 +213,20 @@ describe("IssuedInvoicesList", () => {
     await waitFor(() => {
       expect(onMarkSent).toHaveBeenCalledWith(issuedInvoice);
     });
+  });
+
+  it("email tab shows filled locale default draft when none is saved", async () => {
+    mockDesktopViewport();
+    renderList([issuedInvoice], { operatorName: "Hannes" });
+
+    fireEvent.click(screen.getByRole("button", { name: /^email$/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/Invoice June 2026/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Hello Anna,/)).toBeInTheDocument();
+    expect(screen.getByText(/invoice for June 2026/i)).toBeInTheDocument();
+    expect(screen.getByText(/Hannes/)).toBeInTheDocument();
+    expect(screen.queryByText(/\{\{billingMonth\}\}/)).not.toBeInTheDocument();
   });
 
   it("Void & replace on a Sent invoice calls onVoid after confirm", async () => {
