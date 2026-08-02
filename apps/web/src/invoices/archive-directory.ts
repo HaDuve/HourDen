@@ -144,7 +144,16 @@ export async function writePdfUnderArchiveRoot(
   pdf: Blob,
 ): Promise<Extract<ArchiveWriteResult, { kind: "archived" | "collision" }>> {
   const parts = relativePath.split("/").filter(Boolean);
-  if (parts.length < 2) {
+  if (
+    parts.length < 2 ||
+    parts.some(
+      (segment) =>
+        segment === "." ||
+        segment === ".." ||
+        segment.includes("\\") ||
+        segment.includes("/"),
+    )
+  ) {
     throw new Error(`invalid archive relative path: ${relativePath}`);
   }
   const filename = parts[parts.length - 1]!;

@@ -165,6 +165,17 @@ describe("writePdfUnderArchiveRoot", () => {
       ),
     ).toBe("old");
   });
+
+  it("rejects relative paths with . or .. segments", async () => {
+    const root = memoryDir("Outgoing");
+    await expect(
+      writePdfUnderArchiveRoot(root.handle, "BANDAO/../x.pdf", pdfBlob("%PDF")),
+    ).rejects.toThrow(/invalid archive relative path/i);
+    await expect(
+      writePdfUnderArchiveRoot(root.handle, "./BANDAO/2026/x.pdf", pdfBlob("%PDF")),
+    ).rejects.toThrow(/invalid archive relative path/i);
+    expect(root.dirs.size).toBe(0);
+  });
 });
 
 describe("tryArchiveIssuedPdf", () => {
