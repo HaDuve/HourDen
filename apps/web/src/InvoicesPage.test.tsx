@@ -904,11 +904,13 @@ describe("InvoicesPage", () => {
   it("lists issued invoices and re-downloads a PDF", async () => {
     const issuedInvoice = {
       id: "inv-00000000-0000-4000-8000-000000000001",
+      clientId: bandaoClient.id,
       recipient: "BANDAO Guidance GmbH",
       invoiceNumber: "BAN2026001",
       periodStart: "2026-06-01",
       periodEnd: "2026-06-30",
       totalAmount: 60,
+      status: "issued",
     };
 
     const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
@@ -916,6 +918,27 @@ describe("InvoicesPage", () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({ invoices: [issuedInvoice] }),
+        });
+      }
+      if (url === `/api/clients/${bandaoClient.id}`) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            ...bandaoClient,
+            recipientEmail: "billing@bandao.example",
+            emailGreetingName: "Anna",
+            invoiceEmailSubject: null,
+            invoiceEmailBody: null,
+          }),
+        });
+      }
+      if (url === "/api/workspace/invoice-email-template") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            invoiceEmailSubject: null,
+            invoiceEmailBody: null,
+          }),
         });
       }
       if (url === `/api/invoices/${issuedInvoice.id}/pdf`) {
@@ -938,17 +961,13 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitFor(() => {
-      expect(screen.getByText("BANDAO Guidance GmbH")).toBeInTheDocument();
-      expect(screen.getByText("BAN2026001")).toBeInTheDocument();
-      expect(screen.getByText("06/01/2026 – 06/30/2026")).toBeInTheDocument();
-      expect(screen.getByText("€60.00")).toBeInTheDocument();
+      expect(screen.getAllByText("BANDAO Guidance GmbH").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("BAN2026001").length).toBeGreaterThan(0);
+      expect(screen.getByText(/06\/01\/2026/)).toBeInTheDocument();
+      expect(screen.getByText(/€60\.00/)).toBeInTheDocument();
     });
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: /download invoice BAN2026001/i,
-      }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /^download$/i }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(`/api/invoices/${issuedInvoice.id}/pdf`);

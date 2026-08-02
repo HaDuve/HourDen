@@ -5,6 +5,7 @@ import ClientsPage from "./ClientsPage.js";
 import ImportPage from "./ImportPage.js";
 import InvoicesPage from "./InvoicesPage.js";
 import ArchivePrototypePage from "./invoices/archive-prototype/ArchivePrototypePage.js";
+import SentGatePrototypePage from "./invoices/sent-gate-prototype/SentGatePrototypePage.js";
 import LoginPage from "./LoginPage.js";
 import ClientStepPage from "./onboarding/ClientStepPage.js";
 import InvoiceSenderStepPage from "./onboarding/InvoiceSenderStepPage.js";
@@ -26,6 +27,7 @@ export const appLayoutChildren: RouteObject[] = [
   { path: "report", element: <ReportPage /> },
   { path: "invoices", element: <InvoicesPage /> },
   { path: "prototype", element: <ArchivePrototypePage /> },
+  { path: "prototype/sent-gate", element: <SentGatePrototypePage /> },
   { path: "import", element: <ImportPage /> },
   { path: "*", element: <Navigate to="/" replace /> },
 ];

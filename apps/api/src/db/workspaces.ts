@@ -432,3 +432,72 @@ export async function createUserWithWorkspace(
     client.release();
   }
 }
+
+export type InvoiceEmailTemplate = {
+  invoiceEmailSubject: string | null;
+  invoiceEmailBody: string | null;
+};
+
+export async function getWorkspaceInvoiceEmailTemplate(
+  pool: Pool,
+  workspaceId: string,
+): Promise<InvoiceEmailTemplate | null> {
+  const result = await pool.query<{
+    invoice_email_subject: string | null;
+    invoice_email_body: string | null;
+  }>(
+    `
+      SELECT invoice_email_subject, invoice_email_body
+      FROM workspaces
+      WHERE id = $1
+    `,
+    [workspaceId],
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    invoiceEmailSubject: row.invoice_email_subject,
+    invoiceEmailBody: row.invoice_email_body,
+  };
+}
+
+export async function updateWorkspaceInvoiceEmailTemplate(
+  pool: Pool,
+  workspaceId: string,
+  input: {
+    invoiceEmailSubject?: string | null;
+    invoiceEmailBody?: string | null;
+  },
+): Promise<InvoiceEmailTemplate | null> {
+  const current = await getWorkspaceInvoiceEmailTemplate(pool, workspaceId);
+  if (!current) return null;
+
+  const nextSubject =
+    input.invoiceEmailSubject !== undefined
+      ? normalizeOptionalText(input.invoiceEmailSubject ?? undefined)
+      : current.invoiceEmailSubject;
+  const nextBody =
+    input.invoiceEmailBody !== undefined
+      ? normalizeOptionalText(input.invoiceEmailBody ?? undefined)
+      : current.invoiceEmailBody;
+
+  const result = await pool.query<{
+    invoice_email_subject: string | null;
+    invoice_email_body: string | null;
+  }>(
+    `
+      UPDATE workspaces
+      SET invoice_email_subject = $2,
+          invoice_email_body = $3
+      WHERE id = $1
+      RETURNING invoice_email_subject, invoice_email_body
+    `,
+    [workspaceId, nextSubject, nextBody],
+  );
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    invoiceEmailSubject: row.invoice_email_subject,
+    invoiceEmailBody: row.invoice_email_body,
+  };
+}

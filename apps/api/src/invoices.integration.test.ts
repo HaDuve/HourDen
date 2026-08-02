@@ -251,7 +251,7 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
     });
   });
 
-  it("marks covered Time Entries as Invoiced and blocks edits", async () => {
+  it("links covered Time Entries on Issue; locks them only after Sent", async () => {
     const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
@@ -288,13 +288,48 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
     ).json();
     expect(listed.entries[0].invoiced).toBe(true);
 
-    const patch = await getWorkspace().app.request(`/api/time-entries/${created.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ description: "Changed" }),
-    });
-    expect(patch.status).toBe(409);
-    expect(await patch.json()).toEqual({
+    const patchWhileIssued = await getWorkspace().app.request(
+      `/api/time-entries/${created.id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: "Changed while issued" }),
+      },
+    );
+    expect(patchWhileIssued.status).toBe(200);
+    expect((await patchWhileIssued.json()).description).toBe("Changed while issued");
+
+    const invoiceId = (
+      await getWorkspace().pool.query<{ id: string }>(
+        `
+          SELECT id FROM invoices
+          WHERE workspace_id = $1
+          ORDER BY created_at DESC
+          LIMIT 1
+        `,
+        [DEFAULT_WORKSPACE_ID],
+      )
+    ).rows[0]!.id;
+
+    const markSent = await getWorkspace().app.request(
+      `/api/invoices/${invoiceId}/mark-sent`,
+      {
+        method: "POST",
+      },
+    );
+    expect(markSent.status).toBe(200);
+    expect(await markSent.json()).toMatchObject({ id: invoiceId, status: "sent" });
+
+    const patchAfterSent = await getWorkspace().app.request(
+      `/api/time-entries/${created.id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: "Changed after sent" }),
+      },
+    );
+    expect(patchAfterSent.status).toBe(409);
+    expect(await patchAfterSent.json()).toEqual({
       error: "Invoiced Time Entry is read-only",
     });
   });
@@ -388,7 +423,10 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
     const row = await getWorkspace().pool.query<{
       snapshot: InvoiceIssuanceSnapshot;
       status: string;
-    }>("SELECT snapshot, status FROM invoices LIMIT 1");
+    }>(
+      "SELECT snapshot, status FROM invoices WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT 1",
+      [DEFAULT_WORKSPACE_ID],
+    );
 
     expect(row.rows).toHaveLength(1);
     expect(row.rows[0]!.status).toBe("issued");
@@ -464,7 +502,8 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
     expect(issued.status).toBe(201);
 
     const row = await getWorkspace().pool.query<{ snapshot: InvoiceIssuanceSnapshot; id: string }>(
-      "SELECT id, snapshot FROM invoices LIMIT 1",
+      "SELECT id, snapshot FROM invoices WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT 1",
+      [DEFAULT_WORKSPACE_ID],
     );
     expect(row.rows[0]!.snapshot.usesSmallBusinessRule).toBe(false);
 
@@ -523,7 +562,8 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
       expect(res.status).toBe(201);
 
       const row = await getWorkspace().pool.query<{ snapshot: InvoiceIssuanceSnapshot }>(
-        "SELECT snapshot FROM invoices LIMIT 1",
+        "SELECT snapshot FROM invoices WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT 1",
+        [DEFAULT_WORKSPACE_ID],
       );
 
       expect(row.rows[0]!.snapshot.operator.name).toBe("Workspace Sender Name");
@@ -859,7 +899,10 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
       legalName: "BANDAO Guidance GmbH",
     });
 
-    const row = await getWorkspace().pool.query<{ id: string }>("SELECT id FROM invoices LIMIT 1");
+    const row = await getWorkspace().pool.query<{ id: string }>(
+      "SELECT id FROM invoices WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT 1",
+      [DEFAULT_WORKSPACE_ID],
+    );
     const invoiceId = row.rows[0]!.id;
 
     const patched = await getWorkspace().app.request(`/api/clients/${bandao.id}`, {
@@ -934,7 +977,10 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
       legalName: "BANDAO Guidance GmbH",
     });
 
-    const row = await getWorkspace().pool.query<{ id: string }>("SELECT id FROM invoices LIMIT 1");
+    const row = await getWorkspace().pool.query<{ id: string }>(
+      "SELECT id FROM invoices WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT 1",
+      [DEFAULT_WORKSPACE_ID],
+    );
     const invoiceId = row.rows[0]!.id;
 
     try {
@@ -1050,7 +1096,10 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
       }),
     });
 
-    const row = await getWorkspace().pool.query<{ id: string }>("SELECT id FROM invoices LIMIT 1");
+    const row = await getWorkspace().pool.query<{ id: string }>(
+      "SELECT id FROM invoices WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT 1",
+      [DEFAULT_WORKSPACE_ID],
+    );
     const invoiceId = row.rows[0]!.id;
 
     await getWorkspace().pool.query("UPDATE invoices SET status = 'voided' WHERE id = $1", [
@@ -1276,7 +1325,10 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
       Object.keys(issuedZip.files).filter((path) => !issuedZip.files[path]!.dir),
     ).toHaveLength(1);
 
-    const row = await getWorkspace().pool.query<{ id: string }>("SELECT id FROM invoices LIMIT 1");
+    const row = await getWorkspace().pool.query<{ id: string }>(
+      "SELECT id FROM invoices WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT 1",
+      [DEFAULT_WORKSPACE_ID],
+    );
     const invoiceId = row.rows[0]!.id;
 
     await getWorkspace().pool.query("UPDATE invoices SET status = 'voided' WHERE id = $1", [
@@ -1335,7 +1387,10 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
       }),
     });
 
-    const row = await getWorkspace().pool.query<{ id: string }>("SELECT id FROM invoices LIMIT 1");
+    const row = await getWorkspace().pool.query<{ id: string }>(
+      "SELECT id FROM invoices WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT 1",
+      [DEFAULT_WORKSPACE_ID],
+    );
     const invoiceId = row.rows[0]!.id;
 
     await getWorkspace().pool.query("UPDATE invoices SET snapshot = NULL WHERE id = $1", [invoiceId]);
@@ -2737,5 +2792,303 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
       await getWorkspace().app.request(`/api/clients/${bandao.id}`)
     ).json();
     expect(client.invoicePrefix).toBe("BD");
+  });
+
+  it("lists issued and sent invoices with status; PDF works for both", async () => {
+    const bandao = await createClient(getWorkspace().app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
+
+    await getWorkspace().app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "June work",
+        startedAt: "2026-06-18T10:00:00.000Z",
+        endedAt: "2026-06-18T11:00:00.000Z",
+      }),
+    });
+    await getWorkspace().app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+
+    await getWorkspace().app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "May work",
+        startedAt: "2026-05-10T10:00:00.000Z",
+        endedAt: "2026-05-10T11:00:00.000Z",
+      }),
+    });
+    await getWorkspace().app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-05-01",
+        to: "2026-05-31",
+      }),
+    });
+
+    const mayId = (
+      await getWorkspace().pool.query<{ id: string }>(
+        `SELECT id FROM invoices WHERE workspace_id = $1 AND period_end = '2026-05-31'`,
+        [DEFAULT_WORKSPACE_ID],
+      )
+    ).rows[0]!.id;
+    await getWorkspace().app.request(`/api/invoices/${mayId}/mark-sent`, { method: "POST" });
+
+    const list = await (
+      await getWorkspace().app.request("/api/invoices")
+    ).json();
+    expect(list.invoices).toHaveLength(2);
+    const byPeriod = Object.fromEntries(
+      list.invoices.map((inv: { periodEnd: string; status: string }) => [
+        inv.periodEnd,
+        inv.status,
+      ]),
+    );
+    expect(byPeriod["2026-06-30"]).toBe("issued");
+    expect(byPeriod["2026-05-31"]).toBe("sent");
+
+    const juneId = list.invoices.find(
+      (inv: { periodEnd: string }) => inv.periodEnd === "2026-06-30",
+    )!.id;
+    expect((await getWorkspace().app.request(`/api/invoices/${juneId}/pdf`)).status).toBe(
+      200,
+    );
+    expect((await getWorkspace().app.request(`/api/invoices/${mayId}/pdf`)).status).toBe(
+      200,
+    );
+  });
+
+  it("rewrites the issuance snapshot while issued and rejects edits after Sent", async () => {
+    const bandao = await createClient(getWorkspace().app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
+
+    await getWorkspace().app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "First line",
+        startedAt: "2026-06-10T10:00:00.000Z",
+        endedAt: "2026-06-10T11:00:00.000Z",
+      }),
+    });
+    await getWorkspace().app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+
+    await getWorkspace().app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "Second line",
+        startedAt: "2026-06-20T10:00:00.000Z",
+        endedAt: "2026-06-20T12:00:00.000Z",
+      }),
+    });
+
+    const invoiceId = (
+      await getWorkspace().pool.query<{ id: string }>(
+        `
+          SELECT id FROM invoices
+          WHERE workspace_id = $1
+          ORDER BY created_at DESC
+          LIMIT 1
+        `,
+        [DEFAULT_WORKSPACE_ID],
+      )
+    ).rows[0]!.id;
+
+    const patched = await getWorkspace().app.request(`/api/invoices/${invoiceId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+    expect(patched.status).toBe(200);
+
+    const row = await getWorkspace().pool.query<{
+      snapshot: InvoiceIssuanceSnapshot;
+      total_amount: string;
+    }>("SELECT snapshot, total_amount::text FROM invoices WHERE id = $1", [invoiceId]);
+    expect(row.rows[0]!.snapshot.lines).toHaveLength(2);
+    expect(Number(row.rows[0]!.total_amount)).toBe(180);
+
+    await getWorkspace().app.request(`/api/invoices/${invoiceId}/mark-sent`, {
+      method: "POST",
+    });
+
+    const afterSent = await getWorkspace().app.request(`/api/invoices/${invoiceId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+    expect(afterSent.status).toBe(409);
+  });
+
+  it("voids a sent invoice, frees entries, and allows reissue for the same billing month", async () => {
+    const bandao = await createClient(getWorkspace().app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
+
+    const entry = await (
+      await getWorkspace().app.request("/api/time-entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: ondojo.id,
+          description: "Billable work",
+          startedAt: "2026-06-18T10:00:00.000Z",
+          endedAt: "2026-06-18T11:00:00.000Z",
+        }),
+      })
+    ).json();
+
+    await getWorkspace().app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+
+    const firstId = (
+      await getWorkspace().pool.query<{ id: string; invoice_number: string }>(
+        `
+          SELECT id, invoice_number
+          FROM invoices
+          WHERE workspace_id = $1
+          ORDER BY created_at DESC
+          LIMIT 1
+        `,
+        [DEFAULT_WORKSPACE_ID],
+      )
+    ).rows[0]!;
+
+    const markSent = await getWorkspace().app.request(
+      `/api/invoices/${firstId.id}/mark-sent`,
+      { method: "POST" },
+    );
+    expect(markSent.status).toBe(200);
+
+    const voided = await getWorkspace().app.request(
+      `/api/invoices/${firstId.id}/mark-void`,
+      { method: "POST" },
+    );
+    expect(voided.status).toBe(200);
+    expect(await voided.json()).toMatchObject({
+      id: firstId.id,
+      status: "voided",
+    });
+
+    const listed = await (
+      await getWorkspace().app.request("/api/time-entries?date=2026-06-18")
+    ).json();
+    expect(listed.entries[0].invoiced).toBe(false);
+
+    const patch = await getWorkspace().app.request(`/api/time-entries/${entry.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ description: "After void" }),
+    });
+    expect(patch.status).toBe(200);
+
+    const reissue = await getWorkspace().app.request("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId: bandao.id,
+        from: "2026-06-01",
+        to: "2026-06-30",
+      }),
+    });
+    expect(reissue.status).toBe(201);
+    expect(reissue.headers.get("x-invoice-number")).not.toBe(firstId.invoice_number);
+
+    const list = await (await getWorkspace().app.request("/api/invoices")).json();
+    expect(list.invoices).toHaveLength(1);
+    expect(list.invoices[0].status).toBe("issued");
+  });
+
+  it("stores Recipient email, greeting, and email templates on Client and Workspace", async () => {
+    const bandao = await createClient(getWorkspace().app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+
+    const patchedClient = await getWorkspace().app.request(`/api/clients/${bandao.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        recipientEmail: "billing@bandao.example",
+        emailGreetingName: "Anna",
+        invoiceEmailSubject: "Invoice {{invoiceNumber}}",
+        invoiceEmailBody: "Hallo {{greetingName}},",
+      }),
+    });
+    expect(patchedClient.status).toBe(200);
+    expect(await patchedClient.json()).toMatchObject({
+      recipientEmail: "billing@bandao.example",
+      emailGreetingName: "Anna",
+      invoiceEmailSubject: "Invoice {{invoiceNumber}}",
+      invoiceEmailBody: "Hallo {{greetingName}},",
+    });
+
+    const workspace = await getWorkspace().app.request("/api/workspace/invoice-email-template", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        invoiceEmailSubject: "Workspace subject {{invoiceNumber}}",
+        invoiceEmailBody: "Workspace body",
+      }),
+    });
+    expect(workspace.status).toBe(200);
+    expect(await workspace.json()).toMatchObject({
+      invoiceEmailSubject: "Workspace subject {{invoiceNumber}}",
+      invoiceEmailBody: "Workspace body",
+    });
   });
 });

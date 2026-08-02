@@ -1,0 +1,50 @@
+/** Hardcoded EN — throwaway prototype copy candidates, not wired to i18n. */
+
+export const protoCopy = {
+  banner:
+    "PROTOTYPE — issued vs sent invoice flows (throwaway). Open /prototype/sent-gate?variant=A|B|C; flip with the bar or ← →.",
+  issued: "Issued",
+  sent: "Sent",
+  voided: "Voided",
+  reader: "Reader",
+  download: "Download",
+  edit: "Edit",
+  prepareEmail: "Prepare Email",
+  voidReplace: "Void & replace",
+  close: "Close",
+  cancel: "Cancel",
+  save: "Save",
+  yes: "Yes",
+  no: "No",
+  dismiss: "Dismiss",
+  didYouSend: "Did you send it?",
+  didYouSendHint:
+    "Yes freezes this invoice (Sent). No keeps it Issued so you can still edit.",
+  prepareConfirmTitle: "Prepare Email",
+  prepareConfirmBody:
+    "Opens your mail client with the Recipient email and template. Downloads the PDF so you can attach it — mail apps can’t attach automatically.",
+  prepareOpenMail: "Open mail & download PDF",
+  voidTitle: "Void this invoice?",
+  voidBody:
+    "Marks it Voided (number stays reserved). Covered time becomes free so you can Issue a replacement for the same month, then Prepare Email again.",
+  voidConfirm: "Void invoice",
+  readerTitle: "Invoice Reader",
+  editTitle: "Edit issued invoice",
+  editHint: "Full field set while Issued — snapshot rewrites on Save. Sent invoices are frozen.",
+  clientMail: "Client email settings",
+  recipientEmail: "Recipient email",
+  greetingName: "Email Greeting Name",
+  templateSubject: "Email subject template",
+  templateBody: "Email body template",
+  stateLabel: "Prototype state",
+  readyLane: "Ready to send",
+  sentLane: "Already sent",
+  pdfTab: "PDF",
+  editTab: "Edit",
+  emailTab: "Email",
+  replacePath: "Replace this invoice",
+  primarySend: "Send when ready",
+  attachHint: "PDF download starts when you confirm — attach it in your mail app.",
+  fakePdf:
+    "FAKE PDF — reconstruct from Issuance Snapshot + Invoice Number. Not a real render.",
+} as const;

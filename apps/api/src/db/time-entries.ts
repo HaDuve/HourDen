@@ -134,6 +134,23 @@ async function getTimeEntryRow(
   return result.rows[0] ?? null;
 }
 
+async function isTimeEntryLockedBySentInvoice(
+  pool: Pool,
+  workspaceId: string,
+  invoiceId: string | null,
+): Promise<boolean> {
+  if (!invoiceId) return false;
+  const result = await pool.query<{ status: string }>(
+    `
+      SELECT status
+      FROM invoices
+      WHERE id = $1 AND workspace_id = $2
+    `,
+    [invoiceId, workspaceId],
+  );
+  return result.rows[0]?.status === "sent";
+}
+
 export async function startTimer(
   pool: Pool,
   workspaceId: string,
@@ -487,7 +504,9 @@ export async function updateTimeEntry(
 ): Promise<TimeEntry | null | "invoiced" | "invalid_project" | "invalid_range" | "cannot_reopen"> {
   const existing = await getTimeEntryRow(pool, workspaceId, entryId);
   if (!existing) return null;
-  if (existing.invoice_id) return "invoiced";
+  if (await isTimeEntryLockedBySentInvoice(pool, workspaceId, existing.invoice_id)) {
+    return "invoiced";
+  }
 
   if (input.projectId) {
     const projectCheck = await validateProjectId(pool, workspaceId, input.projectId);
@@ -540,7 +559,7 @@ export async function updateTimeEntry(
     `
       UPDATE time_entries
       SET ${assignments.join(", ")}
-      WHERE id = $1 AND workspace_id = $2 AND invoice_id IS NULL
+      WHERE id = $1 AND workspace_id = $2
       RETURNING
         id,
         project_id,
@@ -591,7 +610,9 @@ export async function deleteTimeEntry(
 ): Promise<"deleted" | "not_found" | "invoiced"> {
   const existing = await getTimeEntryRow(pool, workspaceId, entryId);
   if (!existing) return "not_found";
-  if (existing.invoice_id) return "invoiced";
+  if (await isTimeEntryLockedBySentInvoice(pool, workspaceId, existing.invoice_id)) {
+    return "invoiced";
+  }
 
   await pool.query(
     "DELETE FROM time_entries WHERE id = $1 AND workspace_id = $2",
