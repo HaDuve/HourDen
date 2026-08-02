@@ -27,6 +27,7 @@ import {
   invoiceEmailPlaceholderVars,
   resolveInvoiceEmailTemplates,
 } from "./invoices/invoice-email-template.js";
+import { buildMailtoHref, openMailto } from "./invoices/open-mailto.js";
 import {
   readApiErrorBody,
   readApiErrorMessage,
@@ -1034,10 +1035,7 @@ export default function InvoicesPage() {
     });
     const subject = fillInvoiceEmailTemplate(subjectTemplate, vars);
     const body = fillInvoiceEmailTemplate(bodyTemplate, vars);
-    window.open(
-      `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
-      "_blank",
-    );
+    openMailto(buildMailtoHref(to, subject, body));
     await handleDownloadIssued(invoice);
   }
 
