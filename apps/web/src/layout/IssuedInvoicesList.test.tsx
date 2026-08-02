@@ -97,7 +97,7 @@ describe("IssuedInvoicesList", () => {
       expect(screen.getByText(/did you send it/i)).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /no, keep issued/i }));
+    fireEvent.click(screen.getByRole("button", { name: /no — keep issued/i }));
     expect(onMarkSent).not.toHaveBeenCalled();
     expect(screen.queryByText(/did you send it/i)).not.toBeInTheDocument();
 
@@ -105,7 +105,7 @@ describe("IssuedInvoicesList", () => {
     await waitFor(() => {
       expect(screen.getByText(/did you send it/i)).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByRole("button", { name: /yes, mark sent/i }));
+    fireEvent.click(screen.getByRole("button", { name: /yes — mark sent/i }));
     await waitFor(() => {
       expect(onMarkSent).toHaveBeenCalledWith(issuedInvoice);
     });

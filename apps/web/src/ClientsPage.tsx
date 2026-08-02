@@ -445,6 +445,9 @@ export default function ClientsPage() {
                         invoiceEmailSubject: e.target.value,
                       }))
                     }
+                    placeholder={t("clients.invoiceEmailSubjectPlaceholder", {
+                      invoiceNumber: "{{invoiceNumber}}",
+                    })}
                     className={inputClass}
                   />
                 </label>
@@ -458,10 +461,24 @@ export default function ClientsPage() {
                         invoiceEmailBody: e.target.value,
                       }))
                     }
+                    placeholder={t("clients.invoiceEmailBodyPlaceholder", {
+                      greetingName: "{{greetingName}}",
+                      invoiceNumber: "{{invoiceNumber}}",
+                      period: "{{period}}",
+                      operatorName: "{{operatorName}}",
+                    })}
                     rows={4}
                     className={inputClass}
                   />
                 </label>
+                <p className={metaTextClass}>
+                  {t("clients.invoiceEmailPlaceholders", {
+                    greetingName: "{{greetingName}}",
+                    invoiceNumber: "{{invoiceNumber}}",
+                    period: "{{period}}",
+                    operatorName: "{{operatorName}}",
+                  })}
+                </p>
               </fieldset>
             </div>
 
