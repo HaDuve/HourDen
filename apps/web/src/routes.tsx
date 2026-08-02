@@ -4,6 +4,7 @@ import AuthenticatedApp from "./AuthenticatedApp.js";
 import ClientsPage from "./ClientsPage.js";
 import ImportPage from "./ImportPage.js";
 import InvoicesPage from "./InvoicesPage.js";
+import ArchivePrototypePage from "./invoices/archive-prototype/ArchivePrototypePage.js";
 import LoginPage from "./LoginPage.js";
 import ClientStepPage from "./onboarding/ClientStepPage.js";
 import InvoiceSenderStepPage from "./onboarding/InvoiceSenderStepPage.js";
@@ -24,6 +25,7 @@ export const appLayoutChildren: RouteObject[] = [
   { path: "dashboard", element: <DashboardPage /> },
   { path: "report", element: <ReportPage /> },
   { path: "invoices", element: <InvoicesPage /> },
+  { path: "prototype", element: <ArchivePrototypePage /> },
   { path: "import", element: <ImportPage /> },
   { path: "*", element: <Navigate to="/" replace /> },
 ];

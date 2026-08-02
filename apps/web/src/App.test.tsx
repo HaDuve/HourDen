@@ -213,6 +213,31 @@ describe("App", () => {
     });
   });
 
+  it("renders the archive UI prototype at /prototype", async () => {
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    renderApp("/prototype?variant=A");
+
+    await waitFor(() => {
+      expect(screen.getByText("PROTOTYPE")).toBeInTheDocument();
+      expect(
+        screen.getByRole("group", { name: /prototype variant switcher/i }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("keeps Invoices free of the archive prototype even with ?variant=", async () => {
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    renderApp("/invoices?variant=A");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /^invoices$/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /issued invoices/i })).toBeInTheDocument();
+    });
+    expect(screen.queryByText("PROTOTYPE")).not.toBeInTheDocument();
+  });
+
   it("redirects legacy /today to /tracker", async () => {
     vi.stubGlobal("fetch", mockAppFetch());
 
