@@ -276,7 +276,7 @@ export function IssuedInvoicesList({
                 title={t("invoices.readerTitle", {
                   number: selected.invoiceNumber,
                 })}
-                src={pdfUrl(selected.id)}
+                src={`${pdfUrl(selected.id)}#toolbar=0`}
                 className="h-[28rem] w-full rounded-md border border-divider"
               />
               <button

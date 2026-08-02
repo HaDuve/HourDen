@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { IssuedInvoicesList } from "./IssuedInvoicesList.js";
 import { mockDesktopViewport } from "../test/viewport.js";
 
@@ -18,6 +19,8 @@ const sentInvoice = {
   ...issuedInvoice,
   id: "inv-00000000-0000-4000-8000-000000000002",
   invoiceNumber: "BAN2026002",
+  periodStart: "2026-07-01",
+  periodEnd: "2026-07-31",
   status: "sent",
 };
 
@@ -73,9 +76,54 @@ describe("IssuedInvoicesList", () => {
     expect(screen.getByRole("button", { name: /^pdf$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^edit$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^email$/i })).toBeInTheDocument();
-    expect(
-      screen.getByTitle(/invoice BAN2026001/i),
-    ).toHaveAttribute("src", `/api/invoices/${issuedInvoice.id}/pdf`);
+    expect(screen.getByTitle(/invoice BAN2026001/i)).toHaveAttribute(
+      "src",
+      `/api/invoices/${issuedInvoice.id}/pdf#toolbar=0`,
+    );
+  });
+
+  it("selecting an issued invoice shows Reader PDF and does not call Download", async () => {
+    mockDesktopViewport();
+    const onDownload = vi.fn();
+
+    function Controlled() {
+      const [selectedId, setSelectedId] = useState(issuedInvoice.id);
+      return (
+        <IssuedInvoicesList
+          invoices={[issuedInvoice, sentInvoice]}
+          downloadingId={null}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          onDownload={onDownload}
+          onRefreshLines={noopAsync}
+          onSaveNumber={noopAsync}
+          onPrepareEmail={noopAsync}
+          onMarkSent={noopAsync}
+          onVoid={noopAsync}
+          {...mailLoaders}
+          formatBillingPeriod={(start, end) => `${start} – ${end}`}
+          formatAmount={(amount) => `${amount.toFixed(2)} EUR`}
+          pdfUrl={(id) => `/api/invoices/${id}/pdf`}
+        />
+      );
+    }
+
+    render(<Controlled />);
+
+    expect(screen.getByTitle(/invoice BAN2026001/i)).toHaveAttribute(
+      "src",
+      `/api/invoices/${issuedInvoice.id}/pdf#toolbar=0`,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /BAN2026002/i }));
+    expect(onDownload).not.toHaveBeenCalled();
+    expect(screen.getByTitle(/invoice BAN2026002/i)).toHaveAttribute(
+      "src",
+      `/api/invoices/${sentInvoice.id}/pdf#toolbar=0`,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^download$/i }));
+    expect(onDownload).toHaveBeenCalledWith(sentInvoice);
   });
 
   it("Prepare Email opens Did you send?; Yes marks Sent and No dismisses", async () => {
