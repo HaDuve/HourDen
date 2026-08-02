@@ -27,6 +27,8 @@ import {
   invoiceEmailPlaceholderVars,
   resolveInvoiceEmailTemplates,
 } from "./invoices/invoice-email-template.js";
+import { buildMailtoHref } from "./invoices/open-mailto.js";
+import { deliverPrepareEmail } from "./invoices/prepare-email-delivery.js";
 import {
   readApiErrorBody,
   readApiErrorMessage,
@@ -1034,11 +1036,10 @@ export default function InvoicesPage() {
     });
     const subject = fillInvoiceEmailTemplate(subjectTemplate, vars);
     const body = fillInvoiceEmailTemplate(bodyTemplate, vars);
-    window.open(
-      `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
-      "_blank",
-    );
-    await handleDownloadIssued(invoice);
+    await deliverPrepareEmail({
+      mailtoHref: buildMailtoHref(to, subject, body),
+      downloadPdf: () => handleDownloadIssued(invoice),
+    });
   }
 
   async function handleMarkSent(invoice: IssuedInvoice) {
