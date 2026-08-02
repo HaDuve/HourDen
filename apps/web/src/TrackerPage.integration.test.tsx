@@ -118,10 +118,23 @@ describeWithAuthenticatedWorkspace("TrackerPage with live API", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /stop timer/i }));
 
-    await waitFor(() => {
-      expect(screen.getByText(/incomplete/i)).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /start timer/i })).toBeInTheDocument();
-    });
+    await waitFor(
+      async () => {
+        const runningRes = await fetch("/api/time-entries/running");
+        const { entry } = (await runningRes.json()) as { entry: unknown | null };
+        expect(entry).toBeNull();
+      },
+      { timeout: 5000 },
+    );
+
+    await waitFor(
+      () => {
+        expect(screen.queryByText(/^running$/i)).not.toBeInTheDocument();
+        expect(screen.getByText(/incomplete/i)).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /start timer/i })).toBeInTheDocument();
+      },
+      { timeout: 10_000 },
+    );
 
     const incompleteRow = screen.getByText(/incomplete/i).closest("li");
     expect(incompleteRow).not.toBeNull();
