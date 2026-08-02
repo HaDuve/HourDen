@@ -2,11 +2,9 @@ import type { Client, InvoiceNumberingStrategy } from "@hourden/domain";
 import { deriveDefaultInvoicePrefix, isValidAnyInvoiceNumber } from "@hourden/domain";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router-dom";
 import { useLocaleFormat } from "./locale/use-locale-format.js";
 import { DateRangeFilter } from "./DateRangeFilter.js";
 import { currentMonthRange } from "./date-range.js";
-import { ArchivePrototypeHost } from "./invoices/archive-prototype/ArchivePrototypeHost.js";
 import { InvoiceAlertBanner } from "./invoices/InvoiceAlertBanner.js";
 import type { InvoiceAlert } from "./invoices/invoice-alert.js";
 import {
@@ -252,9 +250,6 @@ function InvoicePreviewToolbar({
 
 export default function InvoicesPage() {
   const { t } = useTranslation();
-  const [searchParams] = useSearchParams();
-  const showArchivePrototype =
-    import.meta.env.DEV && Boolean(searchParams.get("variant"));
   const { formatCurrency, formatIsoDate } = useLocaleFormat();
   const formatBillingPeriod = (periodStart: string, periodEnd: string) =>
     `${formatIsoDate(periodStart)} – ${formatIsoDate(periodEnd)}`;
@@ -1162,10 +1157,7 @@ export default function InvoicesPage() {
         </div>
       ) : null}
 
-      {showArchivePrototype ? <ArchivePrototypeHost /> : null}
-
       <section className="mt-10">
-        {showArchivePrototype ? null : (
         <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
           <h2 className="text-lg font-medium text-content">{t("invoices.issuedInvoices")}</h2>
           <div
@@ -1217,7 +1209,6 @@ export default function InvoicesPage() {
             </button>
           </div>
         </div>
-        )}
         {issuedInvoices.length === 0 ? (
           <p className={`${emptyStateClass} py-6`}>
             {t("invoices.noIssuedInvoices")}

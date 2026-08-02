@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { PrototypeSwitcher } from "../../layout/PrototypeSwitcher.js";
 import { infoPanelClass } from "../../layout/ui-classes.js";
+import { PrototypeSwitcher } from "./PrototypeSwitcher.js";
 import { VariantA, variantAName } from "./VariantA.js";
 import { VariantB, variantBName } from "./VariantB.js";
 import { VariantC, variantCName } from "./VariantC.js";
@@ -11,7 +11,7 @@ import type { ArchivePrototypeModel } from "./types.js";
 const LABELS = { A: variantAName, B: variantBName, C: variantCName } as const;
 
 /**
- * Throwaway host for archive UI variants on /invoices?variant=.
+ * Throwaway host for archive UI variants on /prototype?variant=.
  * Plan: three variants — quiet line / setup panel+modal / Issue-adjacent chip.
  */
 export function ArchivePrototypeHost() {
@@ -87,8 +87,8 @@ export function ArchivePrototypeHost() {
     <div className="mb-10 space-y-3">
       <div className={`${infoPanelClass} border-dashed`}>
         <strong>PROTOTYPE</strong> — archive folder + Issue-prompt UI (throwaway).{" "}
-        Flip variants with the bar below or ← →. See{" "}
-        <code className="text-xs">invoices/archive-prototype/NOTES.md</code>.
+        Open <code className="text-xs">/prototype?variant=A|B|C</code>; flip with the bar
+        or ← →. See <code className="text-xs">NOTES.md</code>.
       </div>
       {variant === "B" ? (
         <VariantB {...model} />

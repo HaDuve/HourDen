@@ -6,7 +6,7 @@ type PrototypeSwitcherProps = {
   labels?: Record<string, string>;
 };
 
-/** Throwaway UI-prototype control — hide outside development. */
+/** Throwaway UI-prototype control for `/prototype`. */
 export function PrototypeSwitcher({ variants, labels = {} }: PrototypeSwitcherProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const current = searchParams.get("variant") ?? variants[0] ?? "A";
@@ -53,8 +53,6 @@ export function PrototypeSwitcher({ variants, labels = {} }: PrototypeSwitcherPr
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [go]);
-
-  if (!import.meta.env.DEV) return null;
 
   const label = labels[current] ? `${current} — ${labels[current]}` : current;
 

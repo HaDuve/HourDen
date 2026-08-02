@@ -149,11 +149,7 @@ function MissingAccessOverlay(props: ArchivePrototypeModel) {
       <p className={`mt-2 ${metaTextClass}`}>
         {needsFolder ? protoCopy.issueOkNeedsFolder : protoCopy.issueOkNeedsPermission}
       </p>
-      {!needsFolder ? (
-        <p className={`mt-2 text-xs ${metaTextClass}`}>{protoCopy.persistTip}</p>
-      ) : (
-        <p className={`mt-2 text-xs ${metaTextClass}`}>{protoCopy.persistTip}</p>
-      )}
+      <p className={`mt-2 text-xs ${metaTextClass}`}>{protoCopy.persistTip}</p>
       <div className="mt-4 flex flex-wrap gap-2">
         <button
           type="button"
