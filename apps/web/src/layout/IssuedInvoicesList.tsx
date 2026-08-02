@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { InvoicePdfToolbar } from "./InvoicePdfToolbar.js";
 import {
   destructiveButtonClass,
   fieldLabelClass,
@@ -114,6 +115,7 @@ export function IssuedInvoicesList({
 }: IssuedInvoicesListProps) {
   const { t, i18n } = useTranslation();
   const [tab, setTab] = useState<Tab>("pdf");
+  const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [didSendOpen, setDidSendOpen] = useState(false);
   const [voidConfirmOpen, setVoidConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -145,7 +147,19 @@ export function IssuedInvoicesList({
     setNumberingStrategy("");
     setDidSendOpen(false);
     setVoidConfirmOpen(false);
+    setFullscreenOpen(false);
   }, [selected?.id]);
+
+  useEffect(() => {
+    if (!fullscreenOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setFullscreenOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [fullscreenOpen]);
 
   useEffect(() => {
     if (!selected || tab !== "email") return;
@@ -279,16 +293,17 @@ export function IssuedInvoicesList({
                 src={`${pdfUrl(selected.id)}#toolbar=0`}
                 className="h-[28rem] w-full rounded-md border border-divider"
               />
-              <button
-                type="button"
-                className={secondaryButtonClass}
-                disabled={downloadingId === selected.id}
-                onClick={() => onDownload(selected)}
-              >
-                {downloadingId === selected.id
-                  ? t("invoices.downloading")
-                  : t("invoices.download")}
-              </button>
+              <InvoicePdfToolbar
+                buttonClass={secondaryButtonClass}
+                fullscreenAriaLabel={t("invoices.fullscreenReader")}
+                downloadAriaLabel={t("invoices.downloadInvoice", {
+                  number: selected.invoiceNumber,
+                })}
+                downloadDisabled={downloadingId === selected.id}
+                downloading={downloadingId === selected.id}
+                onFullscreen={() => setFullscreenOpen(true)}
+                onDownload={() => onDownload(selected)}
+              />
             </div>
           ) : null}
 
@@ -528,6 +543,32 @@ export function IssuedInvoicesList({
       ) : (
         <p className={metaTextClass}>{t("invoices.selectInvoice")}</p>
       )}
+      {selected && fullscreenOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("invoices.fullscreenReader")}
+          className="fixed inset-0 z-50 flex flex-col bg-background"
+        >
+          <InvoicePdfToolbar
+            className="flex items-center justify-end gap-2 border-b border-divider px-4 py-3"
+            buttonClass={secondaryButtonClass}
+            downloadAriaLabel={t("invoices.downloadInvoice", {
+              number: selected.invoiceNumber,
+            })}
+            closeAriaLabel={t("invoices.closeFullscreenReader")}
+            downloadDisabled={downloadingId === selected.id}
+            downloading={downloadingId === selected.id}
+            onDownload={() => onDownload(selected)}
+            onClose={() => setFullscreenOpen(false)}
+          />
+          <iframe
+            title={t("invoices.fullscreenReader")}
+            src={`${pdfUrl(selected.id)}#toolbar=0`}
+            className="min-h-0 w-full flex-1 border-0"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

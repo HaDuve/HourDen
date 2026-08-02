@@ -139,6 +139,8 @@
     "fullscreen": "Vollbild",
     "fullscreenPreview": "Vollbildvorschau",
     "closeFullscreenPreview": "Vollbildvorschau schließen",
+    "fullscreenReader": "Rechnung im Vollbild",
+    "closeFullscreenReader": "Rechnung im Vollbild schließen",
     "loadClientsFailed": "Kunden konnten nicht geladen werden",
     "loadInvoicesFailed": "Rechnungen konnten nicht geladen werden",
     "loadInvoiceSenderFailed": "Rechnungsabsender konnte nicht geladen werden",
