@@ -139,6 +139,8 @@
     "fullscreen": "Fullscreen",
     "fullscreenPreview": "Fullscreen preview",
     "closeFullscreenPreview": "Close fullscreen preview",
+    "fullscreenReader": "Fullscreen invoice",
+    "closeFullscreenReader": "Close fullscreen invoice",
     "loadClientsFailed": "Failed to load clients",
     "loadInvoicesFailed": "Failed to load invoices",
     "loadInvoiceSenderFailed": "Failed to load invoice sender",

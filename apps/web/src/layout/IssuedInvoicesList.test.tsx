@@ -82,6 +82,40 @@ describe("IssuedInvoicesList", () => {
     );
   });
 
+  it("Reader PDF toolbar has Fullscreen next to Download, both with icons", () => {
+    mockDesktopViewport();
+    renderList([issuedInvoice]);
+
+    const fullscreen = screen.getByRole("button", {
+      name: /fullscreen invoice/i,
+    });
+    const download = screen.getByRole("button", { name: /^download$/i });
+
+    expect(fullscreen.querySelector("svg")).not.toBeNull();
+    expect(download.querySelector("svg")).not.toBeNull();
+    expect(
+      fullscreen.compareDocumentPosition(download) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    fireEvent.click(fullscreen);
+
+    expect(
+      screen.getByRole("dialog", { name: /fullscreen invoice/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByTitle(/^fullscreen invoice$/i)).toHaveAttribute(
+      "src",
+      `/api/invoices/${issuedInvoice.id}/pdf#toolbar=0`,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /close fullscreen invoice/i }),
+    );
+    expect(
+      screen.queryByRole("dialog", { name: /fullscreen invoice/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("selecting an issued invoice shows Reader PDF and does not call Download", async () => {
     mockDesktopViewport();
     const onDownload = vi.fn();
