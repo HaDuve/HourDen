@@ -10,4 +10,4 @@
 | B | Setup panel + modal | Dedicated archive panel; “Allow on every visit” tip; missing-root = overlay |
 | C | Issue-adjacent chip | Folder chip beside **mock** Preview/Issue row (not the live Invoices header); sticky bottom outcome strip; Clear in ··· menu |
 
-**Verdict:** _(fill after reaction — which bits to keep)_
+**Verdict:** Ship **Variant A** (Quiet status line): folder Change/Clear as text under Issued; zip demoted to “Download all outgoing invoices” text link; post-Issue outcomes as top banners with choose/grant + retry. No “Allow on every visit” tip in v1.

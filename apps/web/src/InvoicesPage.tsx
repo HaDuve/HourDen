@@ -8,6 +8,20 @@ import { currentMonthRange } from "./date-range.js";
 import { InvoiceAlertBanner } from "./invoices/InvoiceAlertBanner.js";
 import type { InvoiceAlert } from "./invoices/invoice-alert.js";
 import {
+  ArchiveFolderStatusLine,
+  ArchiveOutcomeBanner,
+  type ArchiveFolderStatus,
+} from "./invoices/ArchiveFolderUi.js";
+import {
+  createIndexedDbArchiveRootStore,
+  isLocalArchiveSupported,
+  loadArchiveFolderLabel,
+  pickAndStoreArchiveRoot,
+  tryArchiveIssuedPdf,
+  type ArchiveRootStore,
+  type ArchiveWriteResult,
+} from "./invoices/archive-directory.js";
+import {
   readApiErrorBody,
   readApiErrorMessage,
 } from "./invoices/read-api-error.js";
@@ -288,6 +302,20 @@ export default function InvoicesPage() {
   const [exportClientId, setExportClientId] = useState("");
   const [exportYear, setExportYear] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [archiveSupported] = useState(() => isLocalArchiveSupported());
+  const [archiveFolder, setArchiveFolder] = useState<ArchiveFolderStatus>(() =>
+    isLocalArchiveSupported()
+      ? { status: "unset" }
+      : { status: "unsupported" },
+  );
+  const [archiveOutcome, setArchiveOutcome] = useState<ArchiveWriteResult | null>(
+    null,
+  );
+  const [pendingArchive, setPendingArchive] = useState<{
+    pdf: Blob;
+    relativePath: string;
+  } | null>(null);
+  const archiveStoreRef = useRef<ArchiveRootStore | null>(null);
   const [editingSender, setEditingSender] = useState(false);
   const [senderForm, setSenderForm] = useState<InvoiceSenderFormData>(
     emptyInvoiceSenderForm,
@@ -367,6 +395,91 @@ export default function InvoicesPage() {
       setPlainAlert(t("invoices.loadInvoiceSenderFailed"));
     }
   }, [t]);
+
+  const getArchiveStore = useCallback((): ArchiveRootStore => {
+    if (!archiveStoreRef.current) {
+      archiveStoreRef.current = createIndexedDbArchiveRootStore();
+    }
+    return archiveStoreRef.current;
+  }, []);
+
+  const refreshArchiveFolder = useCallback(async () => {
+    if (!archiveSupported) {
+      setArchiveFolder({ status: "unsupported" });
+      return;
+    }
+    try {
+      const label = await loadArchiveFolderLabel(getArchiveStore());
+      setArchiveFolder(
+        label.status === "set" && label.name
+          ? { status: "set", name: label.name }
+          : { status: "unset" },
+      );
+    } catch {
+      setArchiveFolder({ status: "unset" });
+    }
+  }, [archiveSupported, getArchiveStore]);
+
+  useEffect(() => {
+    void refreshArchiveFolder();
+  }, [refreshArchiveFolder]);
+
+  const applyArchiveResult = useCallback(
+    (result: ArchiveWriteResult, pending: { pdf: Blob; relativePath: string }) => {
+      if (result.kind === "unsupported" || result.kind === "aborted") {
+        setArchiveOutcome(null);
+        setPendingArchive(null);
+        return;
+      }
+      setArchiveOutcome(result);
+      if (result.kind === "needs-folder" || result.kind === "needs-permission") {
+        setPendingArchive(pending);
+      } else {
+        setPendingArchive(null);
+      }
+    },
+    [],
+  );
+
+  const handleChooseArchiveFolder = useCallback(async () => {
+    if (!archiveSupported) return;
+    const picked = await pickAndStoreArchiveRoot({ store: getArchiveStore() });
+    if (picked === "aborted") return;
+    await refreshArchiveFolder();
+  }, [archiveSupported, getArchiveStore, refreshArchiveFolder]);
+
+  const handleClearArchiveFolder = useCallback(async () => {
+    await getArchiveStore().clear();
+    setArchiveFolder({ status: "unset" });
+  }, [getArchiveStore]);
+
+  const handleRetryArchiveWithPick = useCallback(async () => {
+    if (!pendingArchive) return;
+    const picked = await pickAndStoreArchiveRoot({ store: getArchiveStore() });
+    if (picked === "aborted") return;
+    await refreshArchiveFolder();
+    const result = await tryArchiveIssuedPdf({
+      ...pendingArchive,
+      store: getArchiveStore(),
+      supported: true,
+    });
+    applyArchiveResult(result, pendingArchive);
+  }, [
+    applyArchiveResult,
+    getArchiveStore,
+    pendingArchive,
+    refreshArchiveFolder,
+  ]);
+
+  const handleRetryArchiveWithPermission = useCallback(async () => {
+    if (!pendingArchive) return;
+    const result = await tryArchiveIssuedPdf({
+      ...pendingArchive,
+      store: getArchiveStore(),
+      supported: true,
+    });
+    applyArchiveResult(result, pendingArchive);
+  }, [applyArchiveResult, getArchiveStore, pendingArchive]);
 
   const loadClients = useCallback(async () => {
     setLoading(true);
@@ -791,6 +904,19 @@ export default function InvoicesPage() {
       const disposition = res.headers.get("Content-Disposition") ?? "";
       downloadAttachmentBlob(blob, disposition);
       setInvoiceNumber(res.headers.get("X-Invoice-Number"));
+      const exportPath = res.headers.get("X-Invoice-Export-Path");
+      if (exportPath && archiveSupported) {
+        const pending = { pdf: blob, relativePath: exportPath };
+        const archiveResult = await tryArchiveIssuedPdf({
+          ...pending,
+          store: getArchiveStore(),
+          supported: true,
+        });
+        applyArchiveResult(archiveResult, pending);
+      } else {
+        setArchiveOutcome(null);
+        setPendingArchive(null);
+      }
       clearPreviewBlob();
       setSuggestedInvoiceNumber(null);
       setSuggestedInvoicePrefix(null);
@@ -982,6 +1108,18 @@ export default function InvoicesPage() {
 
       {alert ? (
         <InvoiceAlertBanner alert={alert} />
+      ) : null}
+
+      {archiveOutcome ? (
+        <ArchiveOutcomeBanner
+          outcome={archiveOutcome}
+          onDismiss={() => {
+            setArchiveOutcome(null);
+            setPendingArchive(null);
+          }}
+          onChooseAndRetry={() => void handleRetryArchiveWithPick()}
+          onGrantAndRetry={() => void handleRetryArchiveWithPermission()}
+        />
       ) : null}
 
       {invoiceNumberExists ? (
@@ -1199,15 +1337,25 @@ export default function InvoicesPage() {
                 className={`${inputClass}${isMobile ? " min-h-11 w-full" : " w-28"}`}
               />
             </label>
+          </div>
+        </div>
+        <div className="mb-4 space-y-2">
+          <ArchiveFolderStatusLine
+            folder={archiveFolder}
+            onChooseFolder={() => void handleChooseArchiveFolder()}
+            onChangeFolder={() => void handleChooseArchiveFolder()}
+            onClearFolder={() => void handleClearArchiveFolder()}
+          />
+          <p>
             <button
               type="button"
               onClick={() => void handleExportOutgoing()}
               disabled={exporting || loading}
-              className={`${secondaryButtonClass}${isMobile ? " w-full" : ""}`}
+              className="text-sm text-muted underline hover:text-content disabled:opacity-50"
             >
               {exporting ? t("invoices.exporting") : t("invoices.exportOutgoing")}
             </button>
-          </div>
+          </p>
         </div>
         {issuedInvoices.length === 0 ? (
           <p className={`${emptyStateClass} py-6`}>

@@ -4,6 +4,35 @@ import { MemoryRouter } from "react-router-dom";
 import i18n from "./i18n/i18n.js";
 import InvoicesPage from "./InvoicesPage.js";
 
+const archiveMocks = vi.hoisted(() => ({
+  isLocalArchiveSupported: vi.fn(() => false),
+  loadArchiveFolderLabel: vi.fn(async () => ({ status: "unset" as const })),
+  tryArchiveIssuedPdf: vi.fn(
+    async (): Promise<import("./invoices/archive-directory.js").ArchiveWriteResult> => ({
+      kind: "unsupported",
+    }),
+  ),
+  pickAndStoreArchiveRoot: vi.fn(async () => "aborted" as const),
+  createIndexedDbArchiveRootStore: vi.fn(() => ({
+    get: async () => null,
+    set: async () => {},
+    clear: async () => {},
+  })),
+}));
+
+vi.mock("./invoices/archive-directory.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("./invoices/archive-directory.js")>();
+  return {
+    ...actual,
+    isLocalArchiveSupported: archiveMocks.isLocalArchiveSupported,
+    loadArchiveFolderLabel: archiveMocks.loadArchiveFolderLabel,
+    tryArchiveIssuedPdf: archiveMocks.tryArchiveIssuedPdf,
+    pickAndStoreArchiveRoot: archiveMocks.pickAndStoreArchiveRoot,
+    createIndexedDbArchiveRootStore: archiveMocks.createIndexedDbArchiveRootStore,
+  };
+});
+
 function renderInvoicesPage() {
   return render(
     <MemoryRouter>
@@ -137,6 +166,7 @@ function issuePdfResponse(invoiceNumber: string) {
     headers: {
       "Content-Type": "application/pdf",
       "X-Invoice-Number": invoiceNumber,
+      "X-Invoice-Export-Path": `BANDAO/2026/${invoiceNumber}_30_06_26_Invoice_Hannes_Duve_BANDAO.pdf`,
       "Content-Disposition":
         'attachment; filename="BAN2026001_30_06_26_Invoice_Hannes_Duve_BANDAO.pdf"',
     },
@@ -167,6 +197,10 @@ describe("InvoicesPage", () => {
     await i18n.changeLanguage("en");
     URL.createObjectURL = vi.fn(() => "blob:test") as typeof URL.createObjectURL;
     URL.revokeObjectURL = vi.fn() as typeof URL.revokeObjectURL;
+    archiveMocks.isLocalArchiveSupported.mockReturnValue(false);
+    archiveMocks.loadArchiveFolderLabel.mockResolvedValue({ status: "unset" });
+    archiveMocks.tryArchiveIssuedPdf.mockResolvedValue({ kind: "unsupported" });
+    archiveMocks.pickAndStoreArchiveRoot.mockResolvedValue("aborted");
   });
 
   afterEach(() => {
@@ -901,6 +935,44 @@ describe("InvoicesPage", () => {
     clickSpy.mockRestore();
   });
 
+  it("after Issue without an archive folder, shows choose-folder retry when archive is supported", async () => {
+    archiveMocks.isLocalArchiveSupported.mockReturnValue(true);
+    archiveMocks.tryArchiveIssuedPdf.mockResolvedValue({ kind: "needs-folder" });
+
+    vi.stubGlobal(
+      "fetch",
+      createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+        if (url === "/api/invoices/preview" && init?.method === "POST") {
+          return Promise.resolve(previewPdfResponse("BAN2026001"));
+        }
+        if (url === "/api/invoices" && init?.method === "POST") {
+          return Promise.resolve(issuePdfResponse("BAN2026001"));
+        }
+        return undefined;
+      }),
+    );
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    renderInvoicesPage();
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeEnabled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
+
+    await waitFor(() => {
+      expect(archiveMocks.tryArchiveIssuedPdf).toHaveBeenCalled();
+      expect(
+        screen.getByText(/no archive folder is set/i),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /choose folder & file pdf/i }),
+      ).toBeInTheDocument();
+    });
+  });
+
   it("lists issued invoices and re-downloads a PDF", async () => {
     const issuedInvoice = {
       id: "inv-00000000-0000-4000-8000-000000000001",
@@ -988,7 +1060,9 @@ describe("InvoicesPage", () => {
     fireEvent.change(screen.getByLabelText(/export year/i), {
       target: { value: "2026" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /export outgoing\.zip/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /download all outgoing invoices/i }),
+    );
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
