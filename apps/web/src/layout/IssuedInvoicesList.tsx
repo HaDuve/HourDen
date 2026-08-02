@@ -124,6 +124,7 @@ export function IssuedInvoicesList({
   const [mail, setMail] = useState<ClientMailSettings | null>(null);
   const [workspaceTemplate, setWorkspaceTemplate] =
     useState<WorkspaceMailTemplate | null>(null);
+  const [readerSrc, setReaderSrc] = useState<string | null>(null);
 
   const selected =
     invoices.find((inv) => inv.id === selectedId) ?? invoices[0] ?? null;
@@ -146,6 +147,39 @@ export function IssuedInvoicesList({
     setDidSendOpen(false);
     setVoidConfirmOpen(false);
   }, [selected?.id]);
+
+  // Fetch PDF bytes and use a blob: URL so the iframe displays inline.
+  // Navigating to /pdf (attachment disposition) would download instead.
+  useEffect(() => {
+    if (!selected || tab !== "pdf") {
+      setReaderSrc(null);
+      return;
+    }
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    void (async () => {
+      try {
+        const res = await fetch(pdfUrl(selected.id));
+        if (!res.ok || cancelled) return;
+        const blob = await res.blob();
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        if (cancelled) {
+          URL.revokeObjectURL(objectUrl);
+          objectUrl = null;
+          return;
+        }
+        setReaderSrc(`${objectUrl}#toolbar=0`);
+      } catch {
+        if (!cancelled) setReaderSrc(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      setReaderSrc(null);
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [selected?.id, tab, pdfUrl]);
 
   useEffect(() => {
     if (!selected || tab !== "email") return;
@@ -272,13 +306,22 @@ export function IssuedInvoicesList({
 
           {tab === "pdf" ? (
             <div className="space-y-3">
-              <iframe
-                title={t("invoices.readerTitle", {
-                  number: selected.invoiceNumber,
-                })}
-                src={pdfUrl(selected.id)}
-                className="h-[28rem] w-full rounded-md border border-divider"
-              />
+              {readerSrc ? (
+                <iframe
+                  title={t("invoices.readerTitle", {
+                    number: selected.invoiceNumber,
+                  })}
+                  src={readerSrc}
+                  className="h-[28rem] w-full rounded-md border border-divider"
+                />
+              ) : (
+                <div
+                  className="flex h-[28rem] w-full items-center justify-center rounded-md border border-divider text-sm text-muted"
+                  role="status"
+                >
+                  {t("invoices.loading")}
+                </div>
+              )}
               <button
                 type="button"
                 className={secondaryButtonClass}
