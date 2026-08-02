@@ -1218,7 +1218,9 @@ describe("InvoicesPage", () => {
       expect(screen.getByText(/€60\.00/)).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /^download$/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /download invoice BAN2026001/i }),
+    );
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(`/api/invoices/${issuedInvoice.id}/pdf`);

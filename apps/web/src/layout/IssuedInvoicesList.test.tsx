@@ -82,17 +82,17 @@ describe("IssuedInvoicesList", () => {
     );
   });
 
-  it("Reader PDF toolbar has Fullscreen next to Download, both with icons", () => {
+  it("Reader PDF toolbar has Fullscreen next to Download", () => {
     mockDesktopViewport();
     renderList([issuedInvoice]);
 
     const fullscreen = screen.getByRole("button", {
       name: /fullscreen invoice/i,
     });
-    const download = screen.getByRole("button", { name: /^download$/i });
+    const download = screen.getByRole("button", {
+      name: /download invoice BAN2026001/i,
+    });
 
-    expect(fullscreen.querySelector("svg")).not.toBeNull();
-    expect(download.querySelector("svg")).not.toBeNull();
     expect(
       fullscreen.compareDocumentPosition(download) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -111,6 +111,24 @@ describe("IssuedInvoicesList", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /close fullscreen invoice/i }),
     );
+    expect(
+      screen.queryByRole("dialog", { name: /fullscreen invoice/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("closes the Reader fullscreen dialog when Escape is pressed", () => {
+    mockDesktopViewport();
+    renderList([issuedInvoice]);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /fullscreen invoice/i }),
+    );
+    expect(
+      screen.getByRole("dialog", { name: /fullscreen invoice/i }),
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
     expect(
       screen.queryByRole("dialog", { name: /fullscreen invoice/i }),
     ).not.toBeInTheDocument();
@@ -156,7 +174,9 @@ describe("IssuedInvoicesList", () => {
       `/api/invoices/${sentInvoice.id}/pdf#toolbar=0`,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /^download$/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /download invoice BAN2026002/i }),
+    );
     expect(onDownload).toHaveBeenCalledWith(sentInvoice);
   });
 

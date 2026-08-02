@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import Download from "lucide-react/icons/download";
-import Maximize2 from "lucide-react/icons/maximize-2";
+import { InvoicePdfToolbar } from "./InvoicePdfToolbar.js";
 import {
   destructiveButtonClass,
   fieldLabelClass,
@@ -11,9 +10,6 @@ import {
   primaryButtonClass,
   secondaryButtonClass,
 } from "./ui-classes.js";
-
-const TOOLBAR_ICON_SIZE = 16;
-const TOOLBAR_ICON_STROKE = 1.75;
 
 export type IssuedInvoice = {
   id: string;
@@ -297,38 +293,17 @@ export function IssuedInvoicesList({
                 src={`${pdfUrl(selected.id)}#toolbar=0`}
                 className="h-[28rem] w-full rounded-md border border-divider"
               />
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  className={`${secondaryButtonClass} inline-flex items-center gap-1.5`}
-                  aria-label={t("invoices.fullscreenReader")}
-                  onClick={() => setFullscreenOpen(true)}
-                >
-                  <Maximize2
-                    size={TOOLBAR_ICON_SIZE}
-                    strokeWidth={TOOLBAR_ICON_STROKE}
-                    aria-hidden
-                    className="shrink-0"
-                  />
-                  {t("invoices.fullscreen")}
-                </button>
-                <button
-                  type="button"
-                  className={`${secondaryButtonClass} inline-flex items-center gap-1.5`}
-                  disabled={downloadingId === selected.id}
-                  onClick={() => onDownload(selected)}
-                >
-                  <Download
-                    size={TOOLBAR_ICON_SIZE}
-                    strokeWidth={TOOLBAR_ICON_STROKE}
-                    aria-hidden
-                    className="shrink-0"
-                  />
-                  {downloadingId === selected.id
-                    ? t("invoices.downloading")
-                    : t("invoices.download")}
-                </button>
-              </div>
+              <InvoicePdfToolbar
+                buttonClass={secondaryButtonClass}
+                fullscreenAriaLabel={t("invoices.fullscreenReader")}
+                downloadAriaLabel={t("invoices.downloadInvoice", {
+                  number: selected.invoiceNumber,
+                })}
+                downloadDisabled={downloadingId === selected.id}
+                downloading={downloadingId === selected.id}
+                onFullscreen={() => setFullscreenOpen(true)}
+                onDownload={() => onDownload(selected)}
+              />
             </div>
           ) : null}
 
@@ -575,32 +550,18 @@ export function IssuedInvoicesList({
           aria-label={t("invoices.fullscreenReader")}
           className="fixed inset-0 z-50 flex flex-col bg-background"
         >
-          <div className="flex items-center justify-end gap-2 border-b border-divider px-4 py-3">
-            <button
-              type="button"
-              className={`${secondaryButtonClass} inline-flex items-center gap-1.5`}
-              disabled={downloadingId === selected.id}
-              onClick={() => onDownload(selected)}
-            >
-              <Download
-                size={TOOLBAR_ICON_SIZE}
-                strokeWidth={TOOLBAR_ICON_STROKE}
-                aria-hidden
-                className="shrink-0"
-              />
-              {downloadingId === selected.id
-                ? t("invoices.downloading")
-                : t("invoices.download")}
-            </button>
-            <button
-              type="button"
-              className={`${secondaryButtonClass} inline-flex items-center gap-1.5`}
-              aria-label={t("invoices.closeFullscreenReader")}
-              onClick={() => setFullscreenOpen(false)}
-            >
-              {t("nav.close")}
-            </button>
-          </div>
+          <InvoicePdfToolbar
+            className="flex items-center justify-end gap-2 border-b border-divider px-4 py-3"
+            buttonClass={secondaryButtonClass}
+            downloadAriaLabel={t("invoices.downloadInvoice", {
+              number: selected.invoiceNumber,
+            })}
+            closeAriaLabel={t("invoices.closeFullscreenReader")}
+            downloadDisabled={downloadingId === selected.id}
+            downloading={downloadingId === selected.id}
+            onDownload={() => onDownload(selected)}
+            onClose={() => setFullscreenOpen(false)}
+          />
           <iframe
             title={t("invoices.fullscreenReader")}
             src={`${pdfUrl(selected.id)}#toolbar=0`}
