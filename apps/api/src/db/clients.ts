@@ -10,7 +10,17 @@ type ClientRow = {
   address_line2: string | null;
   invoice_prefix: string | null;
   invoice_number_seq_before_year: boolean;
+  recipient_email: string | null;
+  email_greeting_name: string | null;
+  invoice_email_subject: string | null;
+  invoice_email_body: string | null;
 };
+
+const CLIENT_COLUMNS = `
+  id, name, default_rate, legal_name, address_line1, address_line2,
+  invoice_prefix, invoice_number_seq_before_year,
+  recipient_email, email_greeting_name, invoice_email_subject, invoice_email_body
+`;
 
 function rowToClient(row: ClientRow): Client {
   return {
@@ -22,6 +32,10 @@ function rowToClient(row: ClientRow): Client {
     addressLine2: row.address_line2,
     invoicePrefix: row.invoice_prefix,
     invoiceNumberSeqBeforeYear: row.invoice_number_seq_before_year,
+    recipientEmail: row.recipient_email,
+    emailGreetingName: row.email_greeting_name,
+    invoiceEmailSubject: row.invoice_email_subject,
+    invoiceEmailBody: row.invoice_email_body,
   };
 }
 
@@ -41,7 +55,7 @@ export async function createClient(
         address_line2
       )
       VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, name, default_rate, legal_name, address_line1, address_line2, invoice_prefix, invoice_number_seq_before_year
+      RETURNING ${CLIENT_COLUMNS}
     `,
     [
       workspaceId,
@@ -63,7 +77,7 @@ export async function getClientById(
 ): Promise<Client | null> {
   const result = await pool.query<ClientRow>(
     `
-      SELECT id, name, default_rate, legal_name, address_line1, address_line2, invoice_prefix, invoice_number_seq_before_year
+      SELECT ${CLIENT_COLUMNS}
       FROM clients
       WHERE id = $1 AND workspace_id = $2
     `,
@@ -79,7 +93,7 @@ export async function listClients(
 ): Promise<Client[]> {
   const result = await pool.query<ClientRow>(
     `
-      SELECT id, name, default_rate, legal_name, address_line1, address_line2, invoice_prefix, invoice_number_seq_before_year
+      SELECT ${CLIENT_COLUMNS}
       FROM clients
       WHERE workspace_id = $1
       ORDER BY name ASC
@@ -109,11 +123,23 @@ export async function updateClient(
   if (input.legalName !== undefined) addField("legal_name", input.legalName);
   if (input.addressLine1 !== undefined) addField("address_line1", input.addressLine1);
   if (input.addressLine2 !== undefined) addField("address_line2", input.addressLine2);
+  if (input.recipientEmail !== undefined) {
+    addField("recipient_email", input.recipientEmail);
+  }
+  if (input.emailGreetingName !== undefined) {
+    addField("email_greeting_name", input.emailGreetingName);
+  }
+  if (input.invoiceEmailSubject !== undefined) {
+    addField("invoice_email_subject", input.invoiceEmailSubject);
+  }
+  if (input.invoiceEmailBody !== undefined) {
+    addField("invoice_email_body", input.invoiceEmailBody);
+  }
 
   if (assignments.length === 0) {
     const existing = await pool.query<ClientRow>(
       `
-        SELECT id, name, default_rate, legal_name, address_line1, address_line2, invoice_prefix, invoice_number_seq_before_year
+        SELECT ${CLIENT_COLUMNS}
         FROM clients
         WHERE id = $1 AND workspace_id = $2
       `,
@@ -129,7 +155,7 @@ export async function updateClient(
       UPDATE clients
       SET ${assignments.join(", ")}
       WHERE id = $1 AND workspace_id = $2
-      RETURNING id, name, default_rate, legal_name, address_line1, address_line2, invoice_prefix, invoice_number_seq_before_year
+      RETURNING ${CLIENT_COLUMNS}
     `,
     values,
   );

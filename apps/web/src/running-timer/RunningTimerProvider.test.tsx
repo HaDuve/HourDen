@@ -32,6 +32,7 @@ describe("RunningTimerProvider", () => {
               isRunning: true,
               durationMinutes: 0,
               invoiced: false,
+              locked: false,
             },
           }),
         });
@@ -127,6 +128,7 @@ describe("RunningTimerProvider", () => {
               isRunning: true,
               durationMinutes: 0,
               invoiced: false,
+              locked: false,
             },
           }),
         });

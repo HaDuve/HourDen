@@ -11,6 +11,8 @@ export type TimeEntry = {
   isRunning: boolean;
   durationMinutes: number;
   invoiced: boolean;
+  /** True when linked to a Sent invoice — fields are read-only. */
+  locked: boolean;
 };
 
 export type StartTimerInput = {

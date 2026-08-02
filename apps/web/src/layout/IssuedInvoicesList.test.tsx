@@ -1,102 +1,133 @@
-import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { IssuedInvoicesList } from "./IssuedInvoicesList.js";
-import { mockDesktopViewport, mockMobileViewport } from "../test/viewport.js";
+import { mockDesktopViewport } from "../test/viewport.js";
 
 const issuedInvoice = {
   id: "inv-00000000-0000-4000-8000-000000000001",
+  clientId: "client-00000000-0000-4000-8000-000000000001",
   recipient: "BANDAO Guidance GmbH",
   invoiceNumber: "BAN2026001",
   periodStart: "2026-06-01",
   periodEnd: "2026-06-30",
   totalAmount: 60,
+  status: "issued",
 };
 
+const sentInvoice = {
+  ...issuedInvoice,
+  id: "inv-00000000-0000-4000-8000-000000000002",
+  invoiceNumber: "BAN2026002",
+  status: "sent",
+};
+
+const noopAsync = async () => undefined;
+
+const mailLoaders = {
+  loadClientMail: vi.fn(async () => ({
+    recipientEmail: "billing@bandao.example",
+    emailGreetingName: "Anna",
+    invoiceEmailSubject: null,
+    invoiceEmailBody: null,
+  })),
+  loadWorkspaceTemplate: vi.fn(async () => ({
+    invoiceEmailSubject: null,
+    invoiceEmailBody: null,
+  })),
+};
+
+function renderList(
+  invoices: typeof issuedInvoice[],
+  overrides: Partial<Parameters<typeof IssuedInvoicesList>[0]> = {},
+) {
+  return render(
+    <IssuedInvoicesList
+      invoices={invoices}
+      downloadingId={null}
+      selectedId={invoices[0]!.id}
+      onSelect={() => undefined}
+      onDownload={() => undefined}
+      onRefreshLines={noopAsync}
+      onSaveNumber={noopAsync}
+      onPrepareEmail={noopAsync}
+      onMarkSent={noopAsync}
+      onVoid={noopAsync}
+      {...mailLoaders}
+      formatBillingPeriod={(start, end) => `${start} – ${end}`}
+      formatAmount={(amount) => `${amount.toFixed(2)} EUR`}
+      pdfUrl={(id) => `/api/invoices/${id}/pdf`}
+      {...overrides}
+    />,
+  );
+}
+
 describe("IssuedInvoicesList", () => {
-  it("renders cards instead of a table on mobile", () => {
-    mockMobileViewport();
-    render(
-      <IssuedInvoicesList
-        invoices={[issuedInvoice]}
-        downloadingId={null}
-        onDownload={() => undefined}
-        formatBillingPeriod={(start, end) => `${start} – ${end}`}
-        formatAmount={(amount) => `${amount.toFixed(2)} EUR`}
-      />,
-    );
-
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    expect(screen.getByRole("list")).toBeInTheDocument();
-    expect(screen.getByText("BANDAO Guidance GmbH")).toBeInTheDocument();
-    expect(screen.getByText("BAN2026001")).toBeInTheDocument();
-  });
-
-  it("renders a table on desktop", () => {
+  it("renders a master list grouped by year/month and a PDF reader for the selection", () => {
     mockDesktopViewport();
-    render(
-      <IssuedInvoicesList
-        invoices={[issuedInvoice]}
-        downloadingId={null}
-        onDownload={() => undefined}
-        formatBillingPeriod={(start, end) => `${start} – ${end}`}
-        formatAmount={(amount) => `${amount.toFixed(2)} EUR`}
-      />,
-    );
+    renderList([issuedInvoice]);
 
-    expect(screen.getByRole("table")).toBeInTheDocument();
-    expect(screen.queryByRole("list")).not.toBeInTheDocument();
-  });
-
-  it("renders issued invoice column labels from the message catalog", () => {
-    mockDesktopViewport();
-    render(
-      <IssuedInvoicesList
-        invoices={[issuedInvoice]}
-        downloadingId={null}
-        onDownload={() => undefined}
-        formatBillingPeriod={(start, end) => `${start} – ${end}`}
-        formatAmount={(amount) => `${amount.toFixed(2)} EUR`}
-      />,
-    );
-
-    expect(screen.getByRole("columnheader", { name: /^recipient$/i })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: /^invoice number$/i })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: /^billing period$/i })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: /^total$/i })).toBeInTheDocument();
+    expect(screen.getByText("2026")).toBeInTheDocument();
+    expect(screen.getByText("June")).toBeInTheDocument();
+    expect(screen.getAllByText("BAN2026001").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Issued").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /^pdf$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^edit$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^email$/i })).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /download invoice BAN2026001/i }),
-    ).toBeInTheDocument();
+      screen.getByTitle(/invoice BAN2026001/i),
+    ).toHaveAttribute("src", `/api/invoices/${issuedInvoice.id}/pdf`);
   });
 
-  it("right-aligns invoice totals with tabular numeric styling on desktop", () => {
+  it("Prepare Email opens Did you send?; Yes marks Sent and No dismisses", async () => {
     mockDesktopViewport();
-    render(
-      <IssuedInvoicesList
-        invoices={[issuedInvoice]}
-        downloadingId={null}
-        onDownload={() => undefined}
-        formatBillingPeriod={(start, end) => `${start} – ${end}`}
-        formatAmount={(amount) => `${amount.toFixed(2)} EUR`}
-      />,
-    );
+    const onPrepareEmail = vi.fn(async () => undefined);
+    const onMarkSent = vi.fn(async () => undefined);
+    renderList([issuedInvoice], { onPrepareEmail, onMarkSent });
 
-    const totalCell = screen.getByRole("cell", { name: /60\.00 EUR/ });
-    expect(totalCell).toHaveClass("tabular-nums", "font-mono", "text-right");
+    fireEvent.click(screen.getByRole("button", { name: /^email$/i }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /prepare email/i }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /prepare email/i }));
+    await waitFor(() => {
+      expect(onPrepareEmail).toHaveBeenCalledWith(issuedInvoice);
+      expect(screen.getByText(/did you send it/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /no, keep issued/i }));
+    expect(onMarkSent).not.toHaveBeenCalled();
+    expect(screen.queryByText(/did you send it/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /prepare email/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/did you send it/i)).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /yes, mark sent/i }));
+    await waitFor(() => {
+      expect(onMarkSent).toHaveBeenCalledWith(issuedInvoice);
+    });
   });
 
-  it("right-aligns invoice totals with tabular numeric styling on mobile cards", () => {
-    mockMobileViewport();
-    render(
-      <IssuedInvoicesList
-        invoices={[issuedInvoice]}
-        downloadingId={null}
-        onDownload={() => undefined}
-        formatBillingPeriod={(start, end) => `${start} – ${end}`}
-        formatAmount={(amount) => `${amount.toFixed(2)} EUR`}
-      />,
-    );
+  it("Void & replace on a Sent invoice calls onVoid after confirm", async () => {
+    mockDesktopViewport();
+    const onVoid = vi.fn(async () => undefined);
+    renderList([sentInvoice], { onVoid });
 
-    const totalValue = screen.getByText("60.00 EUR");
-    expect(totalValue).toHaveClass("tabular-nums", "font-mono", "text-right");
+    fireEvent.click(screen.getByRole("button", { name: /^email$/i }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /void & replace/i }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /void & replace/i }));
+    expect(screen.getByText(/void this invoice/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /void invoice/i }));
+    await waitFor(() => {
+      expect(onVoid).toHaveBeenCalledWith(sentInvoice);
+    });
   });
 });

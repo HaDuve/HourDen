@@ -14,7 +14,6 @@ import {
 import { Hono } from "hono";
 import type { Pool } from "pg";
 import {
-  createInvoice,
   findInvoiceForBillingMonth,
   findInvoiceForPeriod,
   getClientForInvoice,
@@ -31,6 +30,12 @@ import {
   rowsToGroupedInvoiceLines,
   type IssuedInvoiceDetail,
 } from "./db/invoices.js";
+import {
+  createInvoice,
+  markInvoiceSent,
+  updateIssuedInvoice,
+  voidInvoice,
+} from "./db/invoice-writes.js";
 import { buildIssuedInvoicesZip } from "./invoice-export.js";
 import { invoiceFilename } from "./invoice-path.js";
 import { getWorkspaceCalendarTimezone, getWorkspaceInvoiceOperator } from "./db/workspaces.js";
@@ -105,6 +110,7 @@ function addDays(isoDate: string, days: number): string {
 async function prepareInvoice(
   pool: Pool,
   body: InvoiceRequestBody,
+  options?: { excludeInvoiceId?: string },
 ): Promise<PreparedInvoice | PrepareInvoiceError> {
   const range = parseDateRange(body.from, body.to);
   if (range === "invalid") {
@@ -132,11 +138,16 @@ async function prepareInvoice(
     };
   }
 
+  const exclude = options?.excludeInvoiceId
+    ? { excludeInvoiceId: options.excludeInvoiceId }
+    : undefined;
+
   const existingPeriod = await findInvoiceForPeriod(
     pool,
     client.id,
     range.from,
     range.to,
+    exclude,
   );
   if (existingPeriod) {
     return {
@@ -149,6 +160,7 @@ async function prepareInvoice(
     pool,
     client.id,
     range.to,
+    exclude,
   );
   if (existingMonth) {
     return {
@@ -165,6 +177,9 @@ async function prepareInvoice(
     range.from,
     range.to,
     timeZone,
+    options?.excludeInvoiceId
+      ? { includeInvoiceId: options.excludeInvoiceId }
+      : undefined,
   );
 
   if (entryRows.length === 0) {
@@ -508,7 +523,7 @@ export function createInvoicesRouter(pool: Pool) {
     const invoices = await listIssuedInvoiceDetails(
       pool,
       getCurrentWorkspaceId(),
-      filters,
+      { ...filters, statuses: ["sent"] },
     );
     const zip = await buildIssuedInvoicesZip(invoices, renderInvoicePdfFromSnapshot);
 
@@ -541,6 +556,170 @@ export function createInvoicesRouter(pool: Pool) {
     }
 
     return c.body(new Uint8Array(pdf), 200);
+  });
+
+  router.post("/:id/mark-sent", async (c) => {
+    const result = await markInvoiceSent(
+      pool,
+      getCurrentWorkspaceId(),
+      c.req.param("id"),
+    );
+    if (result === "not_found") {
+      return c.json({ error: "Invoice not found" }, 404);
+    }
+    if (result === "not_issued") {
+      return c.json({ error: "Only issued invoices can be marked Sent" }, 409);
+    }
+    return c.json({
+      id: result.id,
+      status: result.status,
+      invoiceNumber: result.invoiceNumber,
+    });
+  });
+
+  router.post("/:id/mark-void", async (c) => {
+    const result = await voidInvoice(
+      pool,
+      getCurrentWorkspaceId(),
+      c.req.param("id"),
+    );
+    if (result === "not_found") {
+      return c.json({ error: "Invoice not found" }, 404);
+    }
+    if (result === "not_sent") {
+      return c.json({ error: "Only sent invoices can be voided" }, 409);
+    }
+    return c.json({
+      id: result.id,
+      status: result.status,
+      invoiceNumber: result.invoiceNumber,
+    });
+  });
+
+  router.patch("/:id", async (c) => {
+    const invoiceId = c.req.param("id");
+    const body = await parseInvoiceBody(c);
+    if (body === "invalid_json") {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+
+    const preparedOrError = await prepareInvoice(pool, body, {
+      excludeInvoiceId: invoiceId,
+    });
+    if ("error" in preparedOrError) {
+      return c.json(
+        preparedOrError.code
+          ? { error: preparedOrError.error, code: preparedOrError.code }
+          : { error: preparedOrError.error },
+        preparedOrError.status,
+      );
+    }
+
+    const existing = await getIssuedInvoiceById(
+      pool,
+      getCurrentWorkspaceId(),
+      invoiceId,
+    );
+    if (!existing) {
+      return c.json({ error: "Invoice not found" }, 404);
+    }
+    if (existing.status !== "issued") {
+      return c.json({ error: "Only issued invoices can be edited" }, 409);
+    }
+
+    const prepared = withInvoiceOptions(preparedOrError, body);
+    const client = prepared.client;
+
+    const usePrefix = parseUsePrefix(body.usePrefix);
+    const invoiceNumberSeqBeforeYear = resolveInvoiceNumberSeqBeforeYear(
+      body,
+      client,
+    );
+    const prefix = usePrefix
+      ? resolveRequestInvoicePrefix(body, client)
+      : resolveInvoicePrefix(client);
+    if (!isValidInvoicePrefix(prefix)) {
+      return c.json({ error: "invoicePrefix must be 1-6 letters or digits" }, 400);
+    }
+
+    const invoiceNumber = body.invoiceNumber ?? existing.invoiceNumber;
+
+    if (!isValidIssuedInvoiceNumber(invoiceNumber, prepared.invoiceYear)) {
+      return c.json(
+        { error: invalidInvoiceNumberMessage(prefix, prepared.invoiceYear) },
+        400,
+      );
+    }
+
+    const editedNumber = invoiceNumber !== existing.invoiceNumber;
+    if (editedNumber && !body.numberingStrategy) {
+      return c.json(
+        { error: "numberingStrategy is required when overriding Invoice Number" },
+        400,
+      );
+    }
+    if (
+      body.numberingStrategy &&
+      parseNumberingStrategy(body.numberingStrategy) === "invalid"
+    ) {
+      return c.json({ error: "numberingStrategy must be sequential or from_last" }, 400);
+    }
+
+    const updated = await updateIssuedInvoice(pool, {
+      workspaceId: prepared.workspaceId,
+      invoiceId,
+      clientId: prepared.client.id,
+      client,
+      invoiceYear: prepared.invoiceYear,
+      periodStart: prepared.range.from,
+      periodEnd: prepared.range.to,
+      invoiceDate: prepared.invoiceDate,
+      dueDate: prepared.dueDate,
+      totalAmount: prepared.totalAmount,
+      totalDurationMinutes: prepared.totalDurationMinutes,
+      entryIds: prepared.entryIds,
+      snapshot: prepared.snapshot,
+      invoiceNumber,
+      invoicePrefix: prefix,
+      numberingStrategy: editedNumber ? body.numberingStrategy : undefined,
+      usePrefix,
+      invoiceNumberSeqBeforeYear,
+    });
+
+    if (updated === "not_found") {
+      return c.json({ error: "Invoice not found" }, 404);
+    }
+    if (updated === "not_issued") {
+      return c.json({ error: "Only issued invoices can be edited" }, 409);
+    }
+    if (updated === "client_not_found") {
+      return c.json({ error: "Client not found" }, 404);
+    }
+    if (updated === "entries_unavailable") {
+      return c.json(
+        { error: "One or more Time Entries are unavailable for this Invoice" },
+        409,
+      );
+    }
+    if (updated === "duplicate_period") {
+      return c.json({ error: invoiceConflictMessage("duplicate_period") }, 409);
+    }
+    if (updated === "duplicate_number") {
+      return c.json({ error: invoiceConflictMessage("duplicate_number") }, 409);
+    }
+    if (updated === "duplicate_month") {
+      return c.json({ error: invoiceConflictMessage("duplicate_month") }, 409);
+    }
+    if (updated === "invalid_prefix") {
+      return c.json({ error: "invoicePrefix must be 1-6 letters or digits" }, 400);
+    }
+
+    return c.json({
+      id: updated.id,
+      status: updated.status,
+      invoiceNumber: updated.invoiceNumber,
+      totalAmount: updated.totalAmount,
+    });
   });
 
   router.post("/preview", async (c) => {

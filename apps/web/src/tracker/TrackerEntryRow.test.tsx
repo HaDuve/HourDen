@@ -32,6 +32,7 @@ const stoppedEntry = {
   isRunning: false,
   durationMinutes: 60,
   invoiced: false,
+  locked: false,
 };
 
 function renderRow(
@@ -175,9 +176,20 @@ describe("TrackerEntryRow", () => {
     expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
   });
 
-  it("shows an invoiced status button instead of delete for invoiced entries", () => {
+  it("keeps issued-linked entries editable until Sent", () => {
     renderRow({
-      entry: { ...stoppedEntry, invoiced: true },
+      entry: { ...stoppedEntry, invoiced: true, locked: false },
+    });
+
+    expect(
+      screen.getByRole("button", { name: /morning work/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /delete/i })).toBeEnabled();
+  });
+
+  it("shows an invoiced status button instead of delete for Sent-locked entries", () => {
+    renderRow({
+      entry: { ...stoppedEntry, invoiced: true, locked: true },
     });
 
     expect(screen.queryByRole("button", { name: /morning work/i })).not.toBeInTheDocument();
@@ -187,10 +199,10 @@ describe("TrackerEntryRow", () => {
     expect(invoicedButton).toBeDisabled();
   });
 
-  it("shows the invoiced status button on mobile invoiced rows", () => {
+  it("shows the invoiced status button on mobile Sent-locked rows", () => {
     renderRow({
       isMobile: true,
-      entry: { ...stoppedEntry, invoiced: true },
+      entry: { ...stoppedEntry, invoiced: true, locked: true },
     });
 
     expect(
@@ -201,13 +213,13 @@ describe("TrackerEntryRow", () => {
     expect(screen.getByRole("button", { name: /^invoiced$/i })).toBeDisabled();
   });
 
-  it("explains why invoiced entry fields are read-only via tooltip", () => {
+  it("explains why Sent-locked entry fields are read-only via tooltip", () => {
     renderRow({
-      entry: { ...stoppedEntry, invoiced: true },
+      entry: { ...stoppedEntry, invoiced: true, locked: true },
     });
 
     const helpText =
-      "This time entry was invoiced and cannot be edited or deleted.";
+      "This time entry is on a Sent invoice and cannot be edited or deleted.";
 
     expect(screen.getAllByTitle(helpText)).toHaveLength(2);
     expect(screen.getByRole("button", { name: /^invoiced$/i })).toHaveAttribute(

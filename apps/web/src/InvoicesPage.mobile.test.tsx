@@ -77,7 +77,7 @@ describe("InvoicesPage mobile layout", () => {
     render(<InvoicesPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("BAN2026001")).toBeInTheDocument();
+      expect(screen.getAllByText("BAN2026001").length).toBeGreaterThan(0);
     });
 
     expect(screen.queryByRole("table")).not.toBeInTheDocument();

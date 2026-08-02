@@ -11,6 +11,10 @@ const bandao: Client = {
   addressLine2: null,
   invoicePrefix: null,
   invoiceNumberSeqBeforeYear: false,
+  recipientEmail: null,
+  emailGreetingName: null,
+  invoiceEmailSubject: null,
+  invoiceEmailBody: null,
 };
 
 const hannah: Client = {
@@ -22,6 +26,10 @@ const hannah: Client = {
   addressLine2: null,
   invoicePrefix: null,
   invoiceNumberSeqBeforeYear: false,
+  recipientEmail: null,
+  emailGreetingName: null,
+  invoiceEmailSubject: null,
+  invoiceEmailBody: null,
 };
 
 const ondojo: Project = {

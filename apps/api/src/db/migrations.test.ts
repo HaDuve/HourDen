@@ -112,6 +112,17 @@ describe("migration definitions", () => {
     expect(migration?.sql).toContain("invoice_number_seq_before_year");
   });
 
+  it("moves immutability to Sent: migrate issued→sent, partial period unique, email fields", () => {
+    const migration = MIGRATIONS.find((m) => m.id === "016_sent_gate_invoices");
+    expect(migration).toBeDefined();
+    expect(migration?.sql).toContain("SET status = 'sent'");
+    expect(migration?.sql).toContain("invoices_client_active_period_unique_idx");
+    expect(migration?.sql).toContain("recipient_email");
+    expect(migration?.sql).toContain("email_greeting_name");
+    expect(migration?.sql).toContain("invoice_email_subject");
+    expect(migration?.sql).toContain("invoice_email_body");
+  });
+
   it("adds auth tables, workspace sender settings, and operator seeding", () => {
     const migration = MIGRATIONS.find((m) => m.id === "012_auth");
     expect(migration).toBeDefined();

@@ -49,6 +49,7 @@ describeWithAuthenticatedWorkspace("Time Entry API", (getWorkspace) => {
       billableComplete: false,
       amount: null,
       invoiced: false,
+      locked: false,
     });
     expect(entry.startedAt).toBeTruthy();
     expect(entry.durationMinutes).toBeGreaterThanOrEqual(0);
@@ -413,9 +414,10 @@ describeWithAuthenticatedWorkspace("Time Entry API", (getWorkspace) => {
           invoice_date,
           due_date,
           total_amount,
-          total_duration_minutes
+          total_duration_minutes,
+          status
         )
-        VALUES ($1, $2, '2026001', '2026-07-01', '2026-07-31', '2026-07-31', '2026-08-14', 60, 60)
+        VALUES ($1, $2, '2026001', '2026-07-01', '2026-07-31', '2026-07-31', '2026-08-14', 60, 60, 'sent')
         RETURNING id
       `,
       [DEFAULT_WORKSPACE_ID, client.id],

@@ -19,6 +19,15 @@ export async function resetWorkspace(pool: Pool, workspaceId: string): Promise<v
     for (const sql of WORKSPACE_RESET_STATEMENTS) {
       await client.query(sql, [workspaceId]);
     }
+    // Restore Invoice Sender after tests that mutate it mid-suite (seed uses COALESCE and won't).
+    await client.query(
+      `
+        UPDATE workspaces
+        SET sender_name = $2
+        WHERE id = $1
+      `,
+      [workspaceId, process.env.HOURDEN_OPERATOR_NAME ?? "Hannes Duve"],
+    );
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");

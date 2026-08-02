@@ -18,6 +18,7 @@ type TimeEntryRow = {
   billable: boolean;
   amount: string | null;
   invoice_id: string | null;
+  invoice_status?: string | null;
 };
 
 function durationMinutes(startedAt: Date, endedAt: Date | null, now = new Date()): number {
@@ -43,6 +44,7 @@ function rowToTimeEntry(row: TimeEntryRow, now = new Date()): TimeEntry {
     isRunning: row.ended_at === null,
     durationMinutes: durationMinutes(row.started_at, row.ended_at, now),
     invoiced: row.invoice_id !== null,
+    locked: row.invoice_status === "sent",
   };
 }
 
@@ -132,6 +134,23 @@ async function getTimeEntryRow(
   );
 
   return result.rows[0] ?? null;
+}
+
+async function isTimeEntryLockedBySentInvoice(
+  pool: Pool,
+  workspaceId: string,
+  invoiceId: string | null,
+): Promise<boolean> {
+  if (!invoiceId) return false;
+  const result = await pool.query<{ status: string }>(
+    `
+      SELECT status
+      FROM invoices
+      WHERE id = $1 AND workspace_id = $2
+    `,
+    [invoiceId, workspaceId],
+  );
+  return result.rows[0]?.status === "sent";
 }
 
 export async function startTimer(
@@ -385,18 +404,20 @@ export async function listTrackerTimeEntries(
   const result = await pool.query<TimeEntryRow>(
     `
       SELECT
-        id,
-        project_id,
-        started_at,
-        ended_at,
-        description,
-        tags,
-        billable,
-        amount,
-        invoice_id
-      FROM time_entries
-      WHERE workspace_id = $1
-      ORDER BY started_at DESC
+        te.id,
+        te.project_id,
+        te.started_at,
+        te.ended_at,
+        te.description,
+        te.tags,
+        te.billable,
+        te.amount,
+        te.invoice_id,
+        i.status AS invoice_status
+      FROM time_entries te
+      LEFT JOIN invoices i ON i.id = te.invoice_id
+      WHERE te.workspace_id = $1
+      ORDER BY te.started_at DESC
       LIMIT $2
     `,
     [workspaceId, limit],
@@ -414,20 +435,22 @@ export async function listTimeEntriesForDate(
   const result = await pool.query<TimeEntryRow>(
     `
       SELECT
-        id,
-        project_id,
-        started_at,
-        ended_at,
-        description,
-        tags,
-        billable,
-        amount,
-        invoice_id
-      FROM time_entries
-      WHERE workspace_id = $1
-        AND ((started_at AT TIME ZONE $3)::date <= $2::date)
-        AND (ended_at IS NULL OR (ended_at AT TIME ZONE $3)::date >= $2::date)
-      ORDER BY started_at ASC
+        te.id,
+        te.project_id,
+        te.started_at,
+        te.ended_at,
+        te.description,
+        te.tags,
+        te.billable,
+        te.amount,
+        te.invoice_id,
+        i.status AS invoice_status
+      FROM time_entries te
+      LEFT JOIN invoices i ON i.id = te.invoice_id
+      WHERE te.workspace_id = $1
+        AND ((te.started_at AT TIME ZONE $3)::date <= $2::date)
+        AND (te.ended_at IS NULL OR (te.ended_at AT TIME ZONE $3)::date >= $2::date)
+      ORDER BY te.started_at ASC
     `,
     [workspaceId, date, timeZone],
   );
@@ -487,7 +510,9 @@ export async function updateTimeEntry(
 ): Promise<TimeEntry | null | "invoiced" | "invalid_project" | "invalid_range" | "cannot_reopen"> {
   const existing = await getTimeEntryRow(pool, workspaceId, entryId);
   if (!existing) return null;
-  if (existing.invoice_id) return "invoiced";
+  if (await isTimeEntryLockedBySentInvoice(pool, workspaceId, existing.invoice_id)) {
+    return "invoiced";
+  }
 
   if (input.projectId) {
     const projectCheck = await validateProjectId(pool, workspaceId, input.projectId);
@@ -540,7 +565,7 @@ export async function updateTimeEntry(
     `
       UPDATE time_entries
       SET ${assignments.join(", ")}
-      WHERE id = $1 AND workspace_id = $2 AND invoice_id IS NULL
+      WHERE id = $1 AND workspace_id = $2
       RETURNING
         id,
         project_id,
@@ -591,7 +616,9 @@ export async function deleteTimeEntry(
 ): Promise<"deleted" | "not_found" | "invoiced"> {
   const existing = await getTimeEntryRow(pool, workspaceId, entryId);
   if (!existing) return "not_found";
-  if (existing.invoice_id) return "invoiced";
+  if (await isTimeEntryLockedBySentInvoice(pool, workspaceId, existing.invoice_id)) {
+    return "invoiced";
+  }
 
   await pool.query(
     "DELETE FROM time_entries WHERE id = $1 AND workspace_id = $2",

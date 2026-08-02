@@ -226,6 +226,7 @@ describe("App", () => {
     });
   });
 
+
   it("keeps Invoices free of the archive prototype even with ?variant=", async () => {
     vi.stubGlobal("fetch", mockAppFetch());
 
