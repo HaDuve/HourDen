@@ -287,6 +287,7 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
       await getWorkspace().app.request("/api/time-entries?date=2026-06-18")
     ).json();
     expect(listed.entries[0].invoiced).toBe(true);
+    expect(listed.entries[0].locked).toBe(false);
 
     const patchWhileIssued = await getWorkspace().app.request(
       `/api/time-entries/${created.id}`,
@@ -297,7 +298,9 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
       },
     );
     expect(patchWhileIssued.status).toBe(200);
-    expect((await patchWhileIssued.json()).description).toBe("Changed while issued");
+    const patchedWhileIssued = await patchWhileIssued.json();
+    expect(patchedWhileIssued.description).toBe("Changed while issued");
+    expect(patchedWhileIssued.locked).toBe(false);
 
     const invoiceId = (
       await getWorkspace().pool.query<{ id: string }>(
@@ -319,6 +322,12 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
     );
     expect(markSent.status).toBe(200);
     expect(await markSent.json()).toMatchObject({ id: invoiceId, status: "sent" });
+
+    const listedAfterSent = await (
+      await getWorkspace().app.request("/api/time-entries?date=2026-06-18")
+    ).json();
+    expect(listedAfterSent.entries[0].invoiced).toBe(true);
+    expect(listedAfterSent.entries[0].locked).toBe(true);
 
     const patchAfterSent = await getWorkspace().app.request(
       `/api/time-entries/${created.id}`,
@@ -1066,7 +1075,7 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
     expect(data.invoices[0]!.id).toBeTruthy();
   });
 
-  it("excludes non-issued Invoices from the list and PDF reconstruction", async () => {
+  it("excludes voided Invoices from the list and PDF reconstruction", async () => {
     const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
@@ -1113,7 +1122,7 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
     expect(pdf.status).toBe(404);
   });
 
-  it("exports issued invoices as Outgoing.zip with recipient/year tree layout", async () => {
+  it("exports sent invoices as Outgoing.zip with recipient/year tree layout", async () => {
     const bandao = await createClient(getWorkspace().app, {
       name: "Bandao",
       legalName: "BANDAO Guidance GmbH",
@@ -1141,6 +1150,28 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
         from: "2026-06-01",
         to: "2026-06-30",
       }),
+    });
+
+    const issuedOnly = await getWorkspace().app.request("/api/invoices/export.zip");
+    expect(issuedOnly.status).toBe(200);
+    const issuedZip = await JSZip.loadAsync(await issuedOnly.arrayBuffer());
+    expect(
+      Object.keys(issuedZip.files).filter((path) => !issuedZip.files[path]!.dir),
+    ).toEqual([]);
+
+    const invoiceId = (
+      await getWorkspace().pool.query<{ id: string }>(
+        `
+          SELECT id FROM invoices
+          WHERE workspace_id = $1
+          ORDER BY created_at DESC
+          LIMIT 1
+        `,
+        [DEFAULT_WORKSPACE_ID],
+      )
+    ).rows[0]!.id;
+    await getWorkspace().app.request(`/api/invoices/${invoiceId}/mark-sent`, {
+      method: "POST",
     });
 
     const res = await getWorkspace().app.request("/api/invoices/export.zip");
@@ -1239,6 +1270,16 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
       }),
     });
 
+    const toSend = await getWorkspace().pool.query<{ id: string }>(
+      "SELECT id FROM invoices WHERE workspace_id = $1",
+      [DEFAULT_WORKSPACE_ID],
+    );
+    for (const row of toSend.rows) {
+      await getWorkspace().app.request(`/api/invoices/${row.id}/mark-sent`, {
+        method: "POST",
+      });
+    }
+
     const clientFiltered = await getWorkspace().app.request(
       `/api/invoices/export.zip?client=${bandao.id}`,
     );
@@ -1319,17 +1360,21 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
       }),
     });
 
-    const issuedExport = await getWorkspace().app.request("/api/invoices/export.zip");
-    const issuedZip = await JSZip.loadAsync(await issuedExport.arrayBuffer());
-    expect(
-      Object.keys(issuedZip.files).filter((path) => !issuedZip.files[path]!.dir),
-    ).toHaveLength(1);
-
     const row = await getWorkspace().pool.query<{ id: string }>(
       "SELECT id FROM invoices WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT 1",
       [DEFAULT_WORKSPACE_ID],
     );
     const invoiceId = row.rows[0]!.id;
+
+    await getWorkspace().app.request(`/api/invoices/${invoiceId}/mark-sent`, {
+      method: "POST",
+    });
+
+    const sentExport = await getWorkspace().app.request("/api/invoices/export.zip");
+    const sentZip = await JSZip.loadAsync(await sentExport.arrayBuffer());
+    expect(
+      Object.keys(sentZip.files).filter((path) => !sentZip.files[path]!.dir),
+    ).toHaveLength(1);
 
     await getWorkspace().pool.query("UPDATE invoices SET status = 'voided' WHERE id = $1", [
       invoiceId,
@@ -1342,7 +1387,7 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
     ).toHaveLength(0);
 
     await getWorkspace().pool.query(
-      "UPDATE invoices SET status = 'issued', snapshot = NULL WHERE id = $1",
+      "UPDATE invoices SET status = 'sent', snapshot = NULL WHERE id = $1",
       [invoiceId],
     );
 

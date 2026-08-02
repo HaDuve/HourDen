@@ -18,6 +18,7 @@ const morningEntry = {
   isRunning: false,
   durationMinutes: 60,
   invoiced: false,
+  locked: false,
 };
 
 function createFetchMock() {

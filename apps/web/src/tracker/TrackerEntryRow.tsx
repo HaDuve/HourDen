@@ -42,9 +42,9 @@ export function TrackerEntryRow({
   onMobileEdit,
 }: TrackerEntryRowProps) {
   const { t } = useTranslation();
-  const locked = entry.invoiced || entry.isRunning;
-  const editable = !locked && !isMobile;
-  const invoicedReadOnlyHelp = entry.invoiced
+  const frozen = entry.locked || entry.isRunning;
+  const editable = !frozen && !isMobile;
+  const lockedReadOnlyHelp = entry.locked
     ? t("tracker.invoicedReadOnlyHelp")
     : undefined;
 
@@ -129,8 +129,8 @@ export function TrackerEntryRow({
 
   return (
     <li className="flex items-start justify-between gap-4 px-4 py-4">
-      <div className="min-w-0 flex-1" title={invoicedReadOnlyHelp}>
-        {isMobile && !locked ? (
+      <div className="min-w-0 flex-1" title={lockedReadOnlyHelp}>
+        {isMobile && !frozen ? (
           <button
             type="button"
             onClick={onMobileEdit}
@@ -323,12 +323,12 @@ export function TrackerEntryRow({
             <span className={`block ${metaTextClass}`}>{t("tracker.running")}</span>
           )}
         </p>
-        {entry.invoiced ? (
+        {entry.locked ? (
           <button
             type="button"
             disabled
             aria-label={t("tracker.invoiced")}
-            title={invoicedReadOnlyHelp}
+            title={lockedReadOnlyHelp}
             className={`${mutedOutlineButtonClass} px-3 py-1.5 text-sm`}
           >
             {t("tracker.invoiced")}

@@ -948,7 +948,10 @@ export default function InvoicesPage() {
       "";
     const subject = fillInvoiceEmailTemplate(subjectTemplate, vars);
     const body = fillInvoiceEmailTemplate(bodyTemplate, vars);
-    window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(
+      `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
+      "_blank",
+    );
     await handleDownloadIssued(invoice);
   }
 

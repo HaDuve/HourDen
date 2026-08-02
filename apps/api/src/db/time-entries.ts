@@ -18,6 +18,7 @@ type TimeEntryRow = {
   billable: boolean;
   amount: string | null;
   invoice_id: string | null;
+  invoice_status?: string | null;
 };
 
 function durationMinutes(startedAt: Date, endedAt: Date | null, now = new Date()): number {
@@ -43,6 +44,7 @@ function rowToTimeEntry(row: TimeEntryRow, now = new Date()): TimeEntry {
     isRunning: row.ended_at === null,
     durationMinutes: durationMinutes(row.started_at, row.ended_at, now),
     invoiced: row.invoice_id !== null,
+    locked: row.invoice_status === "sent",
   };
 }
 
@@ -402,18 +404,20 @@ export async function listTrackerTimeEntries(
   const result = await pool.query<TimeEntryRow>(
     `
       SELECT
-        id,
-        project_id,
-        started_at,
-        ended_at,
-        description,
-        tags,
-        billable,
-        amount,
-        invoice_id
-      FROM time_entries
-      WHERE workspace_id = $1
-      ORDER BY started_at DESC
+        te.id,
+        te.project_id,
+        te.started_at,
+        te.ended_at,
+        te.description,
+        te.tags,
+        te.billable,
+        te.amount,
+        te.invoice_id,
+        i.status AS invoice_status
+      FROM time_entries te
+      LEFT JOIN invoices i ON i.id = te.invoice_id
+      WHERE te.workspace_id = $1
+      ORDER BY te.started_at DESC
       LIMIT $2
     `,
     [workspaceId, limit],
@@ -431,20 +435,22 @@ export async function listTimeEntriesForDate(
   const result = await pool.query<TimeEntryRow>(
     `
       SELECT
-        id,
-        project_id,
-        started_at,
-        ended_at,
-        description,
-        tags,
-        billable,
-        amount,
-        invoice_id
-      FROM time_entries
-      WHERE workspace_id = $1
-        AND ((started_at AT TIME ZONE $3)::date <= $2::date)
-        AND (ended_at IS NULL OR (ended_at AT TIME ZONE $3)::date >= $2::date)
-      ORDER BY started_at ASC
+        te.id,
+        te.project_id,
+        te.started_at,
+        te.ended_at,
+        te.description,
+        te.tags,
+        te.billable,
+        te.amount,
+        te.invoice_id,
+        i.status AS invoice_status
+      FROM time_entries te
+      LEFT JOIN invoices i ON i.id = te.invoice_id
+      WHERE te.workspace_id = $1
+        AND ((te.started_at AT TIME ZONE $3)::date <= $2::date)
+        AND (te.ended_at IS NULL OR (te.ended_at AT TIME ZONE $3)::date >= $2::date)
+      ORDER BY te.started_at ASC
     `,
     [workspaceId, date, timeZone],
   );

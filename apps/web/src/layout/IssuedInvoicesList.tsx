@@ -277,7 +277,7 @@ export function IssuedInvoicesList({
                   number: selected.invoiceNumber,
                 })}
                 src={pdfUrl(selected.id)}
-                className="h-[28rem] w-full rounded-md border border-divider bg-white"
+                className="h-[28rem] w-full rounded-md border border-divider"
               />
               <button
                 type="button"

@@ -49,6 +49,7 @@ describeWithAuthenticatedWorkspace("Time Entry API", (getWorkspace) => {
       billableComplete: false,
       amount: null,
       invoiced: false,
+      locked: false,
     });
     expect(entry.startedAt).toBeTruthy();
     expect(entry.durationMinutes).toBeGreaterThanOrEqual(0);

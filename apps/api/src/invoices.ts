@@ -14,7 +14,6 @@ import {
 import { Hono } from "hono";
 import type { Pool } from "pg";
 import {
-  createInvoice,
   findInvoiceForBillingMonth,
   findInvoiceForPeriod,
   getClientForInvoice,
@@ -26,14 +25,17 @@ import {
   listIssuedInvoices,
   hasStoppedEntriesWithoutProjectInPeriod,
   hasStoppedEntriesMissingDescriptionForClientInPeriod,
-  markInvoiceSent,
   peekNextInvoiceNumber,
   resolveInvoicePrefix,
   rowsToGroupedInvoiceLines,
-  updateIssuedInvoice,
-  voidInvoice,
   type IssuedInvoiceDetail,
 } from "./db/invoices.js";
+import {
+  createInvoice,
+  markInvoiceSent,
+  updateIssuedInvoice,
+  voidInvoice,
+} from "./db/invoice-writes.js";
 import { buildIssuedInvoicesZip } from "./invoice-export.js";
 import { invoiceFilename } from "./invoice-path.js";
 import { getWorkspaceCalendarTimezone, getWorkspaceInvoiceOperator } from "./db/workspaces.js";
@@ -521,7 +523,7 @@ export function createInvoicesRouter(pool: Pool) {
     const invoices = await listIssuedInvoiceDetails(
       pool,
       getCurrentWorkspaceId(),
-      filters,
+      { ...filters, statuses: ["sent"] },
     );
     const zip = await buildIssuedInvoicesZip(invoices, renderInvoicePdfFromSnapshot);
 
@@ -689,6 +691,15 @@ export function createInvoicesRouter(pool: Pool) {
     }
     if (updated === "not_issued") {
       return c.json({ error: "Only issued invoices can be edited" }, 409);
+    }
+    if (updated === "client_not_found") {
+      return c.json({ error: "Client not found" }, 404);
+    }
+    if (updated === "entries_unavailable") {
+      return c.json(
+        { error: "One or more Time Entries are unavailable for this Invoice" },
+        409,
+      );
     }
     if (updated === "duplicate_period") {
       return c.json({ error: invoiceConflictMessage("duplicate_period") }, 409);

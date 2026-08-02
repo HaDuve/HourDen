@@ -226,19 +226,6 @@ describe("App", () => {
     });
   });
 
-  it("renders the sent-gate UI prototype at /prototype/sent-gate", async () => {
-    vi.stubGlobal("fetch", mockAppFetch());
-
-    renderApp("/prototype/sent-gate?variant=A");
-
-    await waitFor(() => {
-      expect(screen.getByText("PROTOTYPE")).toBeInTheDocument();
-      expect(
-        screen.getByRole("group", { name: /prototype variant switcher/i }),
-      ).toBeInTheDocument();
-      expect(screen.getByText(/issued vs sent invoice flows/i)).toBeInTheDocument();
-    });
-  });
 
   it("keeps Invoices free of the archive prototype even with ?variant=", async () => {
     vi.stubGlobal("fetch", mockAppFetch());
