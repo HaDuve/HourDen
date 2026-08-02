@@ -17,6 +17,7 @@ The **Operator** also wants human-readable, client-scoped numbers by default (`B
 - Enforce uniqueness on `(workspace_id, invoice_number)` for all issued invoices, including voided rows (numbers are never reused).
 - Migration pre-checks for cross-Client duplicates and fails loudly if any exist; no auto-renumbering of issued invoices.
 - Rely on the unique index for concurrent issue protection; a collision returns `duplicate_number`.
+- While an invoice is `issued` (not yet `sent`), the Operator may change its **Invoice Number**; the previous number becomes free again (ADR-0014). **Voided** numbers remain reserved forever.
 
 **Default format: prefixed**
 
