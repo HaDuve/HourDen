@@ -217,6 +217,7 @@
     "dayTotal": "Total",
     "showEntries": "Show entries",
     "addManualEntry": "Add manual entry",
+    "addEntry": "Add entry",
     "startTimer": "Start timer",
     "stopTimer": "Stop timer",
     "timerBar": "Timer bar",
@@ -244,6 +245,8 @@
     "saveFailed": "Failed to save entry",
     "deleteFailed": "Failed to delete entry",
     "startFailed": "Failed to start timer",
+    "startRequired": "Start is required when End is set",
+    "invalidRange": "endedAt must be after startedAt",
     "stopFailed": "Failed to stop timer",
     "remoteStopNotice": "Timer stopped — a new one was started on another device",
     "dismissNotice": "Dismiss"

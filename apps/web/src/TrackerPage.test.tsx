@@ -6,7 +6,7 @@ import { createMatchMedia } from "./test/match-media.js";
 import { MockEventSource, resetMockEventSources } from "./test/mock-event-source.js";
 import { renderWithRunningTimer } from "./test/render-with-running-timer.js";
 import { resetWorkspaceEventsConnectionForTests } from "./workspace-events-connection.js";
-import { localTimeValue } from "./tracker/localDatetimeValue.js";
+import { localDatetimeValue, localTimeValue } from "./tracker/localDatetimeValue.js";
 
 vi.mock("./today-date.js", () => ({
   todayDateInTimeZone: () => "2026-07-02",
@@ -61,8 +61,8 @@ const lastMonthEntry = {
 };
 
 function createFetchMock(
-  entries: typeof morningEntry[],
-  running: typeof morningEntry | null = null,
+  entries: unknown[],
+  running: unknown = null,
   limit = 50,
 ) {
   return vi.fn((url: string, init?: RequestInit) => {
@@ -189,6 +189,408 @@ describe("TrackerPage", () => {
       expect(bar.className).toMatch(/sticky/);
       expect(screen.getByRole("button", { name: /start timer/i })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /stop timer/i })).not.toBeInTheDocument();
+    });
+  });
+
+  it("shows empty Start and End on the timer bar and no header Add manual entry control", async () => {
+    vi.stubGlobal("fetch", createFetchMock([]));
+
+    renderTrackerPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("region", { name: /timer bar/i })).toBeInTheDocument();
+    });
+
+    const bar = screen.getByRole("region", { name: /timer bar/i });
+    expect(within(bar).getByLabelText(/^start$/i)).toHaveValue("");
+    expect(within(bar).getByLabelText(/^end$/i)).toHaveValue("");
+    expect(screen.queryByRole("button", { name: /add manual entry/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: /manual entry/i })).not.toBeInTheDocument();
+  });
+
+  it("creates a Manual Entry from Start and End on the timer bar", async () => {
+    const fetchMock = createFetchMock([]);
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/time-entries" && init?.method === "POST") {
+        return Promise.resolve({
+          ok: true,
+          status: 201,
+          json: async () => morningEntry,
+        });
+      }
+      return createFetchMock([])(url, init);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTrackerPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /start timer/i })).toBeInTheDocument();
+    });
+
+    const bar = screen.getByRole("region", { name: /timer bar/i });
+    fireEvent.change(within(bar).getByLabelText(/^description$/i), {
+      target: { value: "Backfill" },
+    });
+    fireEvent.change(within(bar).getByLabelText(/^start$/i), {
+      target: { value: "2026-07-02T08:00" },
+    });
+    fireEvent.change(within(bar).getByLabelText(/^end$/i), {
+      target: { value: "2026-07-02T09:00" },
+    });
+
+    fireEvent.click(within(bar).getByRole("button", { name: /add entry/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/time-entries",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            description: "Backfill",
+            startedAt: new Date("2026-07-02T08:00").toISOString(),
+            endedAt: new Date("2026-07-02T09:00").toISOString(),
+            projectId: null,
+          }),
+        }),
+      );
+    });
+  });
+
+  it("starts a Running Timer with an optional Start time from the timer bar", async () => {
+    const fetchMock = createFetchMock([]);
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/time-entries/timer" && init?.method === "POST") {
+        return Promise.resolve({
+          ok: true,
+          status: 201,
+          json: async () => ({
+            ...morningEntry,
+            endedAt: null,
+            isRunning: true,
+            billableComplete: false,
+            durationMinutes: 0,
+            amount: null,
+          }),
+        });
+      }
+      return createFetchMock([])(url, init);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTrackerPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /start timer/i })).toBeInTheDocument();
+    });
+
+    const bar = screen.getByRole("region", { name: /timer bar/i });
+    fireEvent.change(within(bar).getByLabelText(/^start$/i), {
+      target: { value: "2026-07-02T08:00" },
+    });
+    fireEvent.click(within(bar).getByRole("button", { name: /start timer/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/time-entries/timer",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            description: null,
+            projectId: null,
+            startedAt: new Date("2026-07-02T08:00").toISOString(),
+          }),
+        }),
+      );
+    });
+  });
+
+  it("rejects starting a timer when End is set without Start", async () => {
+    const fetchMock = createFetchMock([]);
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTrackerPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /start timer/i })).toBeInTheDocument();
+    });
+
+    const bar = screen.getByRole("region", { name: /timer bar/i });
+    fireEvent.change(within(bar).getByLabelText(/^end$/i), {
+      target: { value: "2026-07-02T09:00" },
+    });
+    fireEvent.click(within(bar).getByRole("button", { name: /start timer/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/start is required when end is set/i)).toBeInTheDocument();
+    });
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "/api/time-entries/timer",
+      expect.anything(),
+    );
+  });
+
+  it("keeps the Running Timer going when Start is changed on the timer bar", async () => {
+    const runningEntry = {
+      ...morningEntry,
+      endedAt: null,
+      isRunning: true,
+      billableComplete: false,
+      durationMinutes: 5,
+      amount: null,
+    };
+    const updatedStart = "2026-07-02T07:30:00.000Z";
+    const fetchMock = createFetchMock([runningEntry], runningEntry);
+    fetchMock.mockImplementation(((url: string, init?: RequestInit) => {
+      if (url === `/api/time-entries/${runningEntry.id}` && init?.method === "PATCH") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            ...runningEntry,
+            startedAt: updatedStart,
+          }),
+        });
+      }
+      return createFetchMock([runningEntry], runningEntry)(url, init);
+    }) as typeof fetchMock);
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTrackerPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /stop timer/i })).toBeInTheDocument();
+    });
+
+    const bar = screen.getByRole("region", { name: /timer bar/i });
+    fireEvent.change(within(bar).getByLabelText(/^start$/i), {
+      target: { value: localDatetimeValue(new Date(updatedStart)) },
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/time-entries/${runningEntry.id}`,
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({
+            startedAt: new Date(localDatetimeValue(new Date(updatedStart))).toISOString(),
+          }),
+        }),
+      );
+    });
+    expect(screen.getByRole("button", { name: /stop timer/i })).toBeInTheDocument();
+  });
+
+  it("stops the Running Timer when End is set on the timer bar", async () => {
+    const runningEntry = {
+      ...morningEntry,
+      endedAt: null,
+      isRunning: true,
+      billableComplete: false,
+      durationMinutes: 5,
+      amount: null,
+    };
+    const endedAtLocal = localDatetimeValue(new Date("2026-07-02T09:15:00.000Z"));
+    const fetchMock = createFetchMock([runningEntry], runningEntry);
+    fetchMock.mockImplementation(((url: string, init?: RequestInit) => {
+      if (
+        url === `/api/time-entries/${runningEntry.id}/stop` &&
+        init?.method === "POST"
+      ) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            ...runningEntry,
+            endedAt: new Date(endedAtLocal).toISOString(),
+            isRunning: false,
+            durationMinutes: 75,
+          }),
+        });
+      }
+      return createFetchMock([runningEntry], runningEntry)(url, init);
+    }) as typeof fetchMock);
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTrackerPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /stop timer/i })).toBeInTheDocument();
+      expect(
+        within(screen.getByRole("region", { name: /timer bar/i })).getByLabelText(
+          /^description$/i,
+        ),
+      ).toHaveValue("Morning work");
+    });
+
+    const bar = screen.getByRole("region", { name: /timer bar/i });
+    fireEvent.change(within(bar).getByLabelText(/^end$/i), {
+      target: { value: endedAtLocal },
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/time-entries/${runningEntry.id}/stop`,
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            description: "Morning work",
+            endedAt: new Date(endedAtLocal).toISOString(),
+          }),
+        }),
+      );
+    });
+  });
+
+  it("rejects End before the Running Timer Start without calling stop", async () => {
+    const runningEntry = {
+      ...morningEntry,
+      startedAt: "2026-07-02T10:00:00.000Z",
+      endedAt: null,
+      isRunning: true,
+      billableComplete: false,
+      durationMinutes: 5,
+      amount: null,
+    };
+    const fetchMock = createFetchMock([runningEntry], runningEntry);
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTrackerPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /stop timer/i })).toBeInTheDocument();
+    });
+
+    const bar = screen.getByRole("region", { name: /timer bar/i });
+    fireEvent.change(within(bar).getByLabelText(/^end$/i), {
+      target: { value: localDatetimeValue(new Date("2026-07-02T09:00:00.000Z")) },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/endedat must be after startedat/i)).toBeInTheDocument();
+    });
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      `/api/time-entries/${runningEntry.id}/stop`,
+      expect.anything(),
+    );
+  });
+
+  it("ignores Start and End changes on the timer bar while saving", async () => {
+    const runningEntry = {
+      ...morningEntry,
+      endedAt: null,
+      isRunning: true,
+      billableComplete: false,
+      durationMinutes: 5,
+      amount: null,
+    };
+    const endedAtLocal = localDatetimeValue(new Date("2026-07-02T09:15:00.000Z"));
+    let resolveStop: ((value: unknown) => void) | undefined;
+    const fetchMock = createFetchMock([runningEntry], runningEntry);
+    fetchMock.mockImplementation(((url: string, init?: RequestInit) => {
+      if (
+        url === `/api/time-entries/${runningEntry.id}/stop` &&
+        init?.method === "POST"
+      ) {
+        return new Promise((resolve) => {
+          resolveStop = resolve as (value: unknown) => void;
+        });
+      }
+      return createFetchMock([runningEntry], runningEntry)(url, init);
+    }) as typeof fetchMock);
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTrackerPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /stop timer/i })).toBeInTheDocument();
+      expect(
+        within(screen.getByRole("region", { name: /timer bar/i })).getByLabelText(
+          /^description$/i,
+        ),
+      ).toHaveValue("Morning work");
+    });
+
+    const bar = screen.getByRole("region", { name: /timer bar/i });
+    fireEvent.change(within(bar).getByLabelText(/^end$/i), {
+      target: { value: endedAtLocal },
+    });
+
+    await waitFor(() => {
+      expect(resolveStop).toBeTypeOf("function");
+    });
+
+    expect(within(bar).getByLabelText(/^start$/i)).toBeDisabled();
+    expect(within(bar).getByLabelText(/^end$/i)).toBeDisabled();
+
+    const stopCallsBefore = fetchMock.mock.calls.filter(
+      ([url, init]) =>
+        url === `/api/time-entries/${runningEntry.id}/stop` &&
+        (init as RequestInit | undefined)?.method === "POST",
+    ).length;
+
+    fireEvent.change(within(bar).getByLabelText(/^end$/i), {
+      target: { value: localDatetimeValue(new Date("2026-07-02T09:30:00.000Z")) },
+    });
+    fireEvent.change(within(bar).getByLabelText(/^start$/i), {
+      target: { value: localDatetimeValue(new Date("2026-07-02T07:30:00.000Z")) },
+    });
+
+    expect(
+      fetchMock.mock.calls.filter(
+        ([url, init]) =>
+          url === `/api/time-entries/${runningEntry.id}/stop` &&
+          (init as RequestInit | undefined)?.method === "POST",
+      ).length,
+    ).toBe(stopCallsBefore);
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      `/api/time-entries/${runningEntry.id}`,
+      expect.objectContaining({ method: "PATCH" }),
+    );
+
+    resolveStop?.({
+      ok: true,
+      json: async () => ({
+        ...runningEntry,
+        endedAt: new Date(endedAtLocal).toISOString(),
+        isRunning: false,
+        durationMinutes: 75,
+      }),
+    });
+  });
+
+  it("surfaces Manual Entry API errors from Add entry", async () => {
+    const fetchMock = createFetchMock([]);
+    fetchMock.mockImplementation(((url: string, init?: RequestInit) => {
+      if (url === "/api/time-entries" && init?.method === "POST") {
+        return Promise.resolve({
+          ok: false,
+          status: 400,
+          json: async () => ({ error: "endedAt must be after startedAt" }),
+        });
+      }
+      return createFetchMock([])(url, init);
+    }) as typeof fetchMock);
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTrackerPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /start timer/i })).toBeInTheDocument();
+    });
+
+    const bar = screen.getByRole("region", { name: /timer bar/i });
+    fireEvent.change(within(bar).getByLabelText(/^description$/i), {
+      target: { value: "Bad range" },
+    });
+    fireEvent.change(within(bar).getByLabelText(/^start$/i), {
+      target: { value: "2026-07-02T10:00" },
+    });
+    fireEvent.change(within(bar).getByLabelText(/^end$/i), {
+      target: { value: "2026-07-02T09:00" },
+    });
+    fireEvent.click(within(bar).getByRole("button", { name: /add entry/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("endedAt must be after startedAt")).toBeInTheDocument();
     });
   });
 
@@ -597,7 +999,7 @@ describe("TrackerPage", () => {
 
     const morningRow = screen.getByText("Morning work").closest("li");
     fireEvent.click(within(morningRow!).getByRole("button", { name: /^end:/i }));
-    const endInput = screen.getByLabelText(/^end$/i);
+    const endInput = within(morningRow!).getByLabelText(/^end$/i);
     fireEvent.change(endInput, { target: { value: "07:00" } });
     fireEvent.blur(endInput);
 
@@ -670,7 +1072,7 @@ describe("TrackerPage", () => {
 
     const morningRow = screen.getByText("Morning work").closest("li");
     fireEvent.click(within(morningRow!).getByRole("button", { name: /^end:/i }));
-    const endInput = screen.getByLabelText(/^end$/i);
+    const endInput = within(morningRow!).getByLabelText(/^end$/i);
     fireEvent.change(endInput, {
       target: { value: localTimeValue(new Date(updatedEndedAt)) },
     });

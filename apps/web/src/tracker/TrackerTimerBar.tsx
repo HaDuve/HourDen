@@ -18,14 +18,19 @@ type TrackerTimerBarProps = {
   projectId: string;
   projectGroups: ProjectClientGroup[];
   saving: boolean;
+  startedAt: string;
+  endedAt: string;
   onDescriptionChange: (description: string) => void;
   onDescriptionSuggestionSelect: (suggestion: {
     description: string;
     projectId: string | null;
   }) => void;
   onProjectChange: (projectId: string) => void;
+  onStartedAtChange: (startedAt: string) => void;
+  onEndedAtChange: (endedAt: string) => void;
   onStart: () => void;
   onStop: () => void;
+  onAddManual: () => void;
 };
 
 export function TrackerTimerBar({
@@ -35,14 +40,20 @@ export function TrackerTimerBar({
   projectId,
   projectGroups,
   saving,
+  startedAt,
+  endedAt,
   onDescriptionChange,
   onDescriptionSuggestionSelect,
   onProjectChange,
+  onStartedAtChange,
+  onEndedAtChange,
   onStart,
   onStop,
+  onAddManual,
 }: TrackerTimerBarProps) {
   const { t } = useTranslation();
   const isRunning = running !== null;
+  const isManualReady = !isRunning && startedAt !== "" && endedAt !== "";
 
   return (
     <section
@@ -99,6 +110,15 @@ export function TrackerTimerBar({
             >
               {t("tracker.stopTimer")}
             </button>
+          ) : isManualReady ? (
+            <button
+              type="button"
+              onClick={onAddManual}
+              disabled={saving}
+              className={primaryButtonClass}
+            >
+              {t("tracker.addEntry")}
+            </button>
           ) : (
             <button
               type="button"
@@ -110,6 +130,30 @@ export function TrackerTimerBar({
             </button>
           )}
         </div>
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <label className="grid gap-1 text-sm text-content">
+          <span>{t("tracker.start")}</span>
+          <input
+            type="datetime-local"
+            value={startedAt}
+            disabled={saving}
+            onChange={(event) => onStartedAtChange(event.target.value)}
+            className={inputClass}
+          />
+        </label>
+
+        <label className="grid gap-1 text-sm text-content">
+          <span>{t("tracker.end")}</span>
+          <input
+            type="datetime-local"
+            value={endedAt}
+            disabled={saving}
+            onChange={(event) => onEndedAtChange(event.target.value)}
+            className={inputClass}
+          />
+        </label>
       </div>
     </section>
   );
