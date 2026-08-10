@@ -194,4 +194,108 @@ describe("DescriptionAutocomplete", () => {
       expect(screen.queryByRole("option", { name: "Newest work" })).not.toBeInTheDocument();
     });
   });
+
+  it("opens typed matches after selecting a recent suggestion", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/time-entries/suggestions?q=") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [
+              { description: "Newest work", projectId: "p2" },
+              { description: "Middle work", projectId: "p3" },
+            ],
+          }),
+        });
+      }
+      if (url === "/api/time-entries/suggestions?q=Newest%20work") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [{ description: "Newest work", projectId: "p2" }],
+          }),
+        });
+      }
+      if (url === "/api/time-entries/suggestions?q=rev") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [{ description: "Design review", projectId: "p2" }],
+          }),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<ControlledAutocomplete onSuggestionSelect={vi.fn()} />);
+
+    const input = screen.getByLabelText(/^description$/i);
+    fireEvent.focus(input);
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Newest work" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("option", { name: "Newest work" }));
+    fireEvent.change(input, { target: { value: "rev" } });
+    await vi.advanceTimersByTimeAsync(300);
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Design review" })).toBeInTheDocument();
+    });
+  });
+
+  it("does not call onBlur when a suggestion is selected", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/time-entries/suggestions?q=") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [{ description: "Newest work", projectId: "p2" }],
+          }),
+        });
+      }
+      if (url === "/api/time-entries/suggestions?q=Newest%20work") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [{ description: "Newest work", projectId: "p2" }],
+          }),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const onBlur = vi.fn();
+    const onSuggestionSelect = vi.fn();
+
+    function ControlledWithBlur() {
+      const [value, setValue] = useState("");
+      return (
+        <DescriptionAutocomplete
+          label="Description"
+          value={value}
+          onChange={setValue}
+          onSuggestionSelect={onSuggestionSelect}
+          onBlur={onBlur}
+        />
+      );
+    }
+
+    render(<ControlledWithBlur />);
+
+    fireEvent.focus(screen.getByLabelText(/^description$/i));
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Newest work" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("option", { name: "Newest work" }));
+    fireEvent.blur(screen.getByLabelText(/^description$/i));
+
+    expect(onSuggestionSelect).toHaveBeenCalled();
+    expect(onBlur).not.toHaveBeenCalled();
+  });
 });

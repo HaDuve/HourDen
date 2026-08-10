@@ -60,6 +60,7 @@ export function DescriptionAutocomplete({
   const [open, setOpen] = useState(false);
   const [focused, setFocused] = useState(autoFocus);
   const suppressNextOpenRef = useRef(false);
+  const skipBlurCallbackRef = useRef(false);
 
   useEffect(() => {
     if (!focused) {
@@ -109,6 +110,7 @@ export function DescriptionAutocomplete({
 
   const handleSelect = (suggestion: DescriptionSuggestion) => {
     suppressNextOpenRef.current = true;
+    skipBlurCallbackRef.current = true;
     onChange(suggestion.description);
     onSuggestionSelect(suggestion);
     setOpen(false);
@@ -125,11 +127,16 @@ export function DescriptionAutocomplete({
       value={value}
       autoFocus={autoFocus}
       onChange={(event) => {
+        suppressNextOpenRef.current = false;
         onChange(event.target.value);
       }}
       onFocus={() => setFocused(true)}
       onBlur={() => {
         setFocused(false);
+        if (skipBlurCallbackRef.current) {
+          skipBlurCallbackRef.current = false;
+          return;
+        }
         onBlur?.();
       }}
       onKeyDown={onKeyDown}

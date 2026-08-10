@@ -1,6 +1,6 @@
 import type { DescriptionSuggestion, TimeEntry, UpdateTimeEntryInput } from "@hourden/domain";
 import { useTranslation } from "react-i18next";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { DescriptionAutocomplete } from "../DescriptionAutocomplete.js";
 import {
   destructiveOutlineButtonClass,
@@ -58,7 +58,6 @@ export function TrackerEntryRow({
   const [endDraft, setEndDraft] = useState(
     entry.endedAt ? localDatetimeValue(new Date(entry.endedAt)) : "",
   );
-  const skipDescriptionBlurSaveRef = useRef(false);
 
   const saveDescription = async () => {
     setActiveField(null);
@@ -74,7 +73,6 @@ export function TrackerEntryRow({
   };
 
   const applyDescriptionSuggestion = async (suggestion: DescriptionSuggestion) => {
-    skipDescriptionBlurSaveRef.current = true;
     setDescriptionDraft(suggestion.description);
     setProjectDraft(suggestion.projectId ?? "");
     setActiveField(null);
@@ -174,10 +172,6 @@ export function TrackerEntryRow({
                   void applyDescriptionSuggestion(suggestion);
                 }}
                 onBlur={() => {
-                  if (skipDescriptionBlurSaveRef.current) {
-                    skipDescriptionBlurSaveRef.current = false;
-                    return;
-                  }
                   void saveDescription();
                 }}
                 onKeyDown={(event) => {
