@@ -17,10 +17,6 @@ function timerBar() {
   return screen.getByRole("region", { name: /timer bar/i });
 }
 
-function manualEntryDialog() {
-  return screen.getByRole("dialog", { name: /manual entry/i });
-}
-
 function editEntryDialog() {
   return screen.getByRole("dialog", { name: /edit entry/i });
 }
@@ -53,24 +49,23 @@ describeWithAuthenticatedWorkspace(
       expect(within(entryRow!).getByText(/1 h/i)).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /add manual entry/i }));
-    const manualDialog = manualEntryDialog();
-    fireEvent.change(within(manualDialog).getByLabelText(/^description$/i), {
+    const bar = timerBar();
+    fireEvent.change(within(bar).getByLabelText(/^description$/i), {
       target: { value: "Follow-up work" },
     });
-    fireEvent.change(within(manualDialog).getByLabelText(/^start$/i), {
+    fireEvent.change(within(bar).getByLabelText(/^start$/i), {
       target: { value: `${today}T10:00` },
     });
-    fireEvent.change(within(manualDialog).getByLabelText(/^end$/i), {
+    fireEvent.change(within(bar).getByLabelText(/^end$/i), {
       target: { value: `${today}T11:00` },
     });
-    fireEvent.click(within(manualDialog).getByRole("button", { name: /^save$/i }));
+    fireEvent.click(within(bar).getByRole("button", { name: /add entry/i }));
 
     await waitFor(() => {
       expect(screen.getByText("Follow-up work")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /start timer/i }));
+    fireEvent.click(within(timerBar()).getByRole("button", { name: /start timer/i }));
 
     await waitFor(
       async () => {
@@ -197,10 +192,8 @@ describeWithAuthenticatedWorkspace(
       expect(screen.getByText("Past planning session")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /add manual entry/i }));
-    const manualDialog = manualEntryDialog();
-
-    const descriptionInput = within(manualDialog).getByLabelText(/^description$/i);
+    const bar = timerBar();
+    const descriptionInput = within(bar).getByLabelText(/^description$/i);
     fireEvent.change(descriptionInput, { target: { value: "plan" } });
 
     await waitFor(() => {
@@ -210,7 +203,7 @@ describeWithAuthenticatedWorkspace(
     fireEvent.click(screen.getByRole("option", { name: "Past planning session" }));
 
     expect(descriptionInput).toHaveValue("Past planning session");
-    expect(within(manualDialog).getByLabelText(/project \(optional\)/i)).toHaveValue(project.id);
+    expect(within(bar).getByLabelText(/project \(optional\)/i)).toHaveValue(project.id);
   });
 
   it("prefills description and project when picking a suggestion on edit entry", async () => {

@@ -224,7 +224,7 @@ export async function startTimer(
           started_at,
           description
         )
-        VALUES ($1, $2, now(), $3)
+        VALUES ($1, $2, $3, $4)
         RETURNING
           id,
           project_id,
@@ -239,6 +239,7 @@ export async function startTimer(
       [
         workspaceId,
         input.projectId ?? null,
+        input.startedAt ? new Date(input.startedAt) : new Date(),
         input.description?.trim() || null,
       ],
     );

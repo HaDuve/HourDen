@@ -55,6 +55,24 @@ describeWithAuthenticatedWorkspace("Time Entry API", (getWorkspace) => {
     expect(entry.durationMinutes).toBeGreaterThanOrEqual(0);
   });
 
+  it("starts a Running Timer with an explicit startedAt", async () => {
+    const startedAt = "2026-07-02T08:00:00.000Z";
+    const res = await getWorkspace().app.request("/api/time-entries/timer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ startedAt, description: "Backdated start" }),
+    });
+
+    expect(res.status).toBe(201);
+    const entry = await res.json();
+    expect(entry).toMatchObject({
+      description: "Backdated start",
+      startedAt,
+      endedAt: null,
+      isRunning: true,
+    });
+  });
+
   it("publishes timer-changed when a Running Timer is started", async () => {
     const streamRes = await getWorkspace().app.request(
       "/api/events",

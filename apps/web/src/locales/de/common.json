@@ -217,6 +217,7 @@
     "dayTotal": "Summe",
     "showEntries": "Einträge anzeigen",
     "addManualEntry": "Manuellen Eintrag hinzufügen",
+    "addEntry": "Eintrag hinzufügen",
     "startTimer": "Timer starten",
     "stopTimer": "Timer stoppen",
     "timerBar": "Timer-Leiste",
@@ -242,6 +243,7 @@
     "saveFailed": "Eintrag konnte nicht gespeichert werden",
     "deleteFailed": "Eintrag konnte nicht gelöscht werden",
     "startFailed": "Timer konnte nicht gestartet werden",
+    "startRequired": "Start ist erforderlich, wenn Ende gesetzt ist",
     "stopFailed": "Timer konnte nicht gestoppt werden",
     "remoteStopNotice": "Timer gestoppt — auf einem anderen Gerät wurde ein neuer gestartet",
     "dismissNotice": "Schließen"
