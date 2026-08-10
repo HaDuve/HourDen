@@ -138,6 +138,7 @@ export function TrackerTimerBar({
           <input
             type="datetime-local"
             value={startedAt}
+            disabled={saving}
             onChange={(event) => onStartedAtChange(event.target.value)}
             className={inputClass}
           />
@@ -148,6 +149,7 @@ export function TrackerTimerBar({
           <input
             type="datetime-local"
             value={endedAt}
+            disabled={saving}
             onChange={(event) => onEndedAtChange(event.target.value)}
             className={inputClass}
           />

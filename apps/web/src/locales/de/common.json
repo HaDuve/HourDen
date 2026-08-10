@@ -244,6 +244,7 @@
     "deleteFailed": "Eintrag konnte nicht gelöscht werden",
     "startFailed": "Timer konnte nicht gestartet werden",
     "startRequired": "Start ist erforderlich, wenn Ende gesetzt ist",
+    "invalidRange": "Ende muss nach Start liegen",
     "stopFailed": "Timer konnte nicht gestoppt werden",
     "remoteStopNotice": "Timer gestoppt — auf einem anderen Gerät wurde ein neuer gestartet",
     "dismissNotice": "Schließen"

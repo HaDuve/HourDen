@@ -244,6 +244,7 @@
     "deleteFailed": "Failed to delete entry",
     "startFailed": "Failed to start timer",
     "startRequired": "Start is required when End is set",
+    "invalidRange": "endedAt must be after startedAt",
     "stopFailed": "Failed to stop timer",
     "remoteStopNotice": "Timer stopped — a new one was started on another device",
     "dismissNotice": "Dismiss"

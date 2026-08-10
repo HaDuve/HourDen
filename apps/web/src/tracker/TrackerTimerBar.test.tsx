@@ -201,6 +201,32 @@ describe("TrackerTimerBar", () => {
     expect(onStart).toHaveBeenCalledOnce();
   });
 
+  it("disables Start and End fields while saving", () => {
+    render(
+      <TrackerTimerBar
+        running={null}
+        liveCounter="0:00:00"
+        description=""
+        projectId=""
+        projectGroups={[]}
+        saving={true}
+        startedAt=""
+        endedAt=""
+        onDescriptionChange={vi.fn()}
+        onDescriptionSuggestionSelect={vi.fn()}
+        onProjectChange={vi.fn()}
+        onStartedAtChange={vi.fn()}
+        onEndedAtChange={vi.fn()}
+        onStart={vi.fn()}
+        onStop={vi.fn()}
+        onAddManual={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText(/^start$/i)).toBeDisabled();
+    expect(screen.getByLabelText(/^end$/i)).toBeDisabled();
+  });
+
   it("replaces Start timer with Add entry when both Start and End are set", () => {
     const onAddManual = vi.fn();
     const onStart = vi.fn();

@@ -349,7 +349,12 @@ export default function TrackerPage() {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        throw new Error(`Stop failed (${res.status})`);
+        const responseBody = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        const message = responseBody?.error ?? t("tracker.stopFailed");
+        setError(message);
+        throw new Error(message);
       }
       setBarForm((current) => ({
         ...current,
@@ -359,7 +364,7 @@ export default function TrackerPage() {
       await load();
       await refreshRunningTimer();
     } catch {
-      setError(t("tracker.stopFailed"));
+      setError((current) => current ?? t("tracker.stopFailed"));
     } finally {
       setSaving(false);
     }
@@ -383,19 +388,23 @@ export default function TrackerPage() {
 
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(body?.error ?? `Save failed (${res.status})`);
+        const message = body?.error ?? t("tracker.saveFailed");
+        setError(message);
+        throw new Error(message);
       }
 
       setBarForm(emptyBarForm());
       await load();
     } catch {
-      setError(t("tracker.saveFailed"));
+      // Error banner already set for API failures; network failures fall through.
+      setError((current) => current ?? t("tracker.saveFailed"));
     } finally {
       setSaving(false);
     }
   };
 
   const handleStartedAtChange = (startedAt: string) => {
+    if (saving) return;
     setBarForm((current) => ({ ...current, startedAt }));
     if (running && startedAt) {
       void patchEntry(running.id, {
@@ -409,8 +418,13 @@ export default function TrackerPage() {
   };
 
   const handleEndedAtChange = (endedAt: string) => {
+    if (saving) return;
     setBarForm((current) => ({ ...current, endedAt }));
     if (running && endedAt) {
+      if (new Date(endedAt).getTime() <= new Date(running.startedAt).getTime()) {
+        setError(t("tracker.invalidRange"));
+        return;
+      }
       void stopTimer(endedAt);
     }
   };
