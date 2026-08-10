@@ -28,6 +28,7 @@ describe("DescriptionAutocomplete", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it("shows placeholder and aria-label without visible label when hideLabel is set", () => {
@@ -64,6 +65,12 @@ describe("DescriptionAutocomplete", () => {
 
   it("fetches matching suggestions after debounce and applies selection", async () => {
     const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/time-entries/suggestions?q=") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ suggestions: [] }),
+        });
+      }
       if (url === "/api/time-entries/suggestions?q=rev") {
         return Promise.resolve({
           ok: true,
@@ -83,7 +90,9 @@ describe("DescriptionAutocomplete", () => {
 
     render(<ControlledAutocomplete onSuggestionSelect={onSuggestionSelect} />);
 
-    fireEvent.change(screen.getByLabelText(/^description$/i), {
+    const input = screen.getByLabelText(/^description$/i);
+    fireEvent.focus(input);
+    fireEvent.change(input, {
       target: { value: "rev" },
     });
 
@@ -100,6 +109,89 @@ describe("DescriptionAutocomplete", () => {
     expect(onSuggestionSelect).toHaveBeenCalledWith({
       description: "Design review",
       projectId: "p2",
+    });
+  });
+
+  it("opens last recent descriptions on focus when the field is empty", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/time-entries/suggestions?q=") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [
+              { description: "Fourth distinct", projectId: "p1" },
+              { description: "Newest work", projectId: "p2" },
+              { description: "Middle work", projectId: "p3" },
+            ],
+          }),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const onSuggestionSelect = vi.fn();
+
+    render(<ControlledAutocomplete onSuggestionSelect={onSuggestionSelect} />);
+
+    fireEvent.focus(screen.getByLabelText(/^description$/i));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/time-entries/suggestions?q=");
+      expect(screen.getByRole("option", { name: "Newest work" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("option", { name: "Newest work" }));
+
+    expect(screen.getByLabelText(/^description$/i)).toHaveValue("Newest work");
+    expect(onSuggestionSelect).toHaveBeenCalledWith({
+      description: "Newest work",
+      projectId: "p2",
+    });
+  });
+
+  it("replaces recent suggestions with typed matches", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/time-entries/suggestions?q=") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [
+              { description: "Fourth distinct", projectId: "p1" },
+              { description: "Newest work", projectId: "p2" },
+              { description: "Middle work", projectId: "p3" },
+            ],
+          }),
+        });
+      }
+      if (url === "/api/time-entries/suggestions?q=rev") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [{ description: "Design review", projectId: "p2" }],
+          }),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<ControlledAutocomplete onSuggestionSelect={vi.fn()} />);
+
+    const input = screen.getByLabelText(/^description$/i);
+    fireEvent.focus(input);
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Newest work" })).toBeInTheDocument();
+    });
+
+    fireEvent.change(input, { target: { value: "rev" } });
+    await vi.advanceTimersByTimeAsync(300);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/time-entries/suggestions?q=rev");
+      expect(screen.getByRole("option", { name: "Design review" })).toBeInTheDocument();
+      expect(screen.queryByRole("option", { name: "Newest work" })).not.toBeInTheDocument();
     });
   });
 });

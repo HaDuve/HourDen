@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import i18n from "../i18n/i18n.js";
 import { createMatchMedia } from "../test/match-media.js";
@@ -64,6 +64,10 @@ describe("TrackerEntryRow", () => {
     window.matchMedia = createMatchMedia(true) as typeof window.matchMedia;
   });
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("patches description when the inline field is saved on desktop", async () => {
     const { onPatch } = renderRow();
 
@@ -75,6 +79,53 @@ describe("TrackerEntryRow", () => {
 
     await waitFor(() => {
       expect(onPatch).toHaveBeenCalledWith({ description: "Updated work" });
+    });
+  });
+
+  it("applies a recent description suggestion and its project on empty description edit", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/time-entries/suggestions?q=") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [
+              { description: "Pairing session", projectId: project.id },
+              { description: "Standup notes", projectId: null },
+              { description: "Docs pass", projectId: project.id },
+            ],
+          }),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { onPatch } = renderRow({
+      entry: {
+        ...stoppedEntry,
+        description: "",
+        projectId: null,
+        billableComplete: false,
+        amount: null,
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /no description/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/time-entries/suggestions?q=");
+      expect(
+        screen.getByRole("option", { name: "Pairing session" }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("option", { name: "Pairing session" }));
+
+    await waitFor(() => {
+      expect(onPatch).toHaveBeenCalledWith({
+        description: "Pairing session",
+        projectId: project.id,
+      });
     });
   });
 

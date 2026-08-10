@@ -459,6 +459,7 @@ export async function listTimeEntriesForDate(
 }
 
 const DESCRIPTION_SUGGESTION_LIMIT = 10;
+const RECENT_DESCRIPTION_SUGGESTION_LIMIT = 3;
 
 export async function listDescriptionSuggestions(
   pool: Pool,
@@ -466,9 +467,9 @@ export async function listDescriptionSuggestions(
   query: string,
 ): Promise<DescriptionSuggestion[]> {
   const trimmedQuery = query.trim();
-  if (!trimmedQuery) {
-    return [];
-  }
+  const limit = trimmedQuery
+    ? DESCRIPTION_SUGGESTION_LIMIT
+    : RECENT_DESCRIPTION_SUGGESTION_LIMIT;
 
   const result = await pool.query<{ description: string; project_id: string | null }>(
     `
@@ -485,7 +486,10 @@ export async function listDescriptionSuggestions(
         WHERE workspace_id = $1
           AND description IS NOT NULL
           AND trim(description) <> ''
-          AND trim(description) ILIKE '%' || $2 || '%'
+          AND (
+            $2 = ''
+            OR trim(description) ILIKE '%' || $2 || '%'
+          )
       )
       SELECT description, project_id
       FROM ranked
@@ -493,7 +497,7 @@ export async function listDescriptionSuggestions(
       ORDER BY started_at DESC
       LIMIT $3
     `,
-    [workspaceId, trimmedQuery, DESCRIPTION_SUGGESTION_LIMIT],
+    [workspaceId, trimmedQuery, limit],
   );
 
   return result.rows.map((row) => ({
