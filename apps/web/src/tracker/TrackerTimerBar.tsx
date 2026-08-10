@@ -1,4 +1,5 @@
 import type { TimeEntry } from "@hourden/domain";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DescriptionAutocomplete } from "../DescriptionAutocomplete.js";
 import {
@@ -9,7 +10,15 @@ import {
   primaryButtonClass,
   selectClass,
 } from "../layout/ui-classes.js";
+import {
+  EntryScheduleFields,
+  type EntryScheduleValue,
+} from "./EntryScheduleFields.js";
 import type { ProjectClientGroup } from "./groupProjectsByClient.js";
+import {
+  applyScheduleFieldsChange,
+  localDateValue,
+} from "./localDatetimeValue.js";
 
 type TrackerTimerBarProps = {
   running: TimeEntry | null;
@@ -33,6 +42,35 @@ type TrackerTimerBarProps = {
   onAddManual: () => void;
 };
 
+function scheduleFromBar(
+  startedAt: string,
+  endedAt: string,
+  fallbackDate: string,
+): EntryScheduleValue {
+  return {
+    date: startedAt.slice(0, 10) || endedAt.slice(0, 10) || fallbackDate,
+    startTime: startedAt.length >= 16 ? startedAt.slice(11, 16) : "",
+    endTime: endedAt.length >= 16 ? endedAt.slice(11, 16) : "",
+  };
+}
+
+function datetimesFromSchedule(
+  previous: { startedAt: string; endedAt: string },
+  schedule: EntryScheduleValue,
+): { startedAt: string; endedAt: string } {
+  const baseStarted = previous.startedAt || `${schedule.date}T00:00`;
+  const baseEnded =
+    previous.endedAt || previous.startedAt || `${schedule.date}T00:00`;
+  const applied = applyScheduleFieldsChange(
+    { startedAt: baseStarted, endedAt: baseEnded },
+    schedule,
+  );
+  return {
+    startedAt: schedule.startTime ? applied.startedAt : "",
+    endedAt: schedule.endTime ? applied.endedAt : "",
+  };
+}
+
 export function TrackerTimerBar({
   running,
   liveCounter,
@@ -54,6 +92,40 @@ export function TrackerTimerBar({
   const { t } = useTranslation();
   const isRunning = running !== null;
   const isManualReady = !isRunning && startedAt !== "" && endedAt !== "";
+  const today = localDateValue(new Date());
+  const [pickedDate, setPickedDate] = useState<string | null>(null);
+  const hadScheduleValuesRef = useRef(startedAt !== "" || endedAt !== "");
+  const schedule = scheduleFromBar(
+    startedAt,
+    endedAt,
+    pickedDate ?? today,
+  );
+
+  useEffect(() => {
+    const hasValues = startedAt !== "" || endedAt !== "";
+    if (hasValues) {
+      hadScheduleValuesRef.current = true;
+      return;
+    }
+    if (hadScheduleValuesRef.current) {
+      hadScheduleValuesRef.current = false;
+      setPickedDate(null);
+    }
+  }, [startedAt, endedAt]);
+
+  const handleScheduleChange = (next: EntryScheduleValue) => {
+    setPickedDate(next.date);
+    const nextDatetimes = datetimesFromSchedule(
+      { startedAt, endedAt },
+      next,
+    );
+    if (nextDatetimes.startedAt !== startedAt) {
+      onStartedAtChange(nextDatetimes.startedAt);
+    }
+    if (nextDatetimes.endedAt !== endedAt) {
+      onEndedAtChange(nextDatetimes.endedAt);
+    }
+  };
 
   return (
     <section
@@ -132,28 +204,12 @@ export function TrackerTimerBar({
         </div>
       </div>
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <label className="grid gap-1 text-sm text-content">
-          <span>{t("tracker.start")}</span>
-          <input
-            type="datetime-local"
-            value={startedAt}
-            disabled={saving}
-            onChange={(event) => onStartedAtChange(event.target.value)}
-            className={inputClass}
-          />
-        </label>
-
-        <label className="grid gap-1 text-sm text-content">
-          <span>{t("tracker.end")}</span>
-          <input
-            type="datetime-local"
-            value={endedAt}
-            disabled={saving}
-            onChange={(event) => onEndedAtChange(event.target.value)}
-            className={inputClass}
-          />
-        </label>
+      <div className="mt-3">
+        <EntryScheduleFields
+          value={schedule}
+          disabled={saving}
+          onChange={handleScheduleChange}
+        />
       </div>
     </section>
   );

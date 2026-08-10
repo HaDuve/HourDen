@@ -6,6 +6,10 @@ import { createMatchMedia } from "./test/match-media.js";
 import { MockEventSource, resetMockEventSources } from "./test/mock-event-source.js";
 import { renderWithRunningTimer } from "./test/render-with-running-timer.js";
 import { resetWorkspaceEventsConnectionForTests } from "./workspace-events-connection.js";
+import {
+  localDateAndTime,
+  setTimerBarSchedule,
+} from "./test/set-timer-bar-schedule.js";
 import { localDatetimeValue, localTimeValue } from "./tracker/localDatetimeValue.js";
 
 vi.mock("./today-date.js", () => ({
@@ -232,11 +236,10 @@ describe("TrackerPage", () => {
     fireEvent.change(within(bar).getByLabelText(/^description$/i), {
       target: { value: "Backfill" },
     });
-    fireEvent.change(within(bar).getByLabelText(/^start$/i), {
-      target: { value: "2026-07-02T08:00" },
-    });
-    fireEvent.change(within(bar).getByLabelText(/^end$/i), {
-      target: { value: "2026-07-02T09:00" },
+    setTimerBarSchedule(bar, {
+      date: "2026-07-02",
+      startTime: "08:00",
+      endTime: "09:00",
     });
 
     fireEvent.click(within(bar).getByRole("button", { name: /add entry/i }));
@@ -285,9 +288,7 @@ describe("TrackerPage", () => {
     });
 
     const bar = screen.getByRole("region", { name: /timer bar/i });
-    fireEvent.change(within(bar).getByLabelText(/^start$/i), {
-      target: { value: "2026-07-02T08:00" },
-    });
+    setTimerBarSchedule(bar, { date: "2026-07-02", startTime: "08:00" });
     fireEvent.click(within(bar).getByRole("button", { name: /start timer/i }));
 
     await waitFor(() => {
@@ -316,9 +317,7 @@ describe("TrackerPage", () => {
     });
 
     const bar = screen.getByRole("region", { name: /timer bar/i });
-    fireEvent.change(within(bar).getByLabelText(/^end$/i), {
-      target: { value: "2026-07-02T09:00" },
-    });
+    setTimerBarSchedule(bar, { date: "2026-07-02", endTime: "09:00" });
     fireEvent.click(within(bar).getByRole("button", { name: /start timer/i }));
 
     await waitFor(() => {
@@ -362,9 +361,9 @@ describe("TrackerPage", () => {
     });
 
     const bar = screen.getByRole("region", { name: /timer bar/i });
-    fireEvent.change(within(bar).getByLabelText(/^start$/i), {
-      target: { value: localDatetimeValue(new Date(updatedStart)) },
-    });
+    const startLocal = localDatetimeValue(new Date(updatedStart));
+    const { date, time } = localDateAndTime(startLocal);
+    setTimerBarSchedule(bar, { date, startTime: time });
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -372,7 +371,7 @@ describe("TrackerPage", () => {
         expect.objectContaining({
           method: "PATCH",
           body: JSON.stringify({
-            startedAt: new Date(localDatetimeValue(new Date(updatedStart))).toISOString(),
+            startedAt: new Date(startLocal).toISOString(),
           }),
         }),
       );
@@ -422,9 +421,8 @@ describe("TrackerPage", () => {
     });
 
     const bar = screen.getByRole("region", { name: /timer bar/i });
-    fireEvent.change(within(bar).getByLabelText(/^end$/i), {
-      target: { value: endedAtLocal },
-    });
+    const { date, time } = localDateAndTime(endedAtLocal);
+    setTimerBarSchedule(bar, { date, endTime: time });
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -460,9 +458,9 @@ describe("TrackerPage", () => {
     });
 
     const bar = screen.getByRole("region", { name: /timer bar/i });
-    fireEvent.change(within(bar).getByLabelText(/^end$/i), {
-      target: { value: localDatetimeValue(new Date("2026-07-02T09:00:00.000Z")) },
-    });
+    const earlyEnd = localDatetimeValue(new Date("2026-07-02T09:00:00.000Z"));
+    const { date, time } = localDateAndTime(earlyEnd);
+    setTimerBarSchedule(bar, { date, endTime: time });
 
     await waitFor(() => {
       expect(screen.getByText(/endedat must be after startedat/i)).toBeInTheDocument();
@@ -510,9 +508,8 @@ describe("TrackerPage", () => {
     });
 
     const bar = screen.getByRole("region", { name: /timer bar/i });
-    fireEvent.change(within(bar).getByLabelText(/^end$/i), {
-      target: { value: endedAtLocal },
-    });
+    const { date, time } = localDateAndTime(endedAtLocal);
+    setTimerBarSchedule(bar, { date, endTime: time });
 
     await waitFor(() => {
       expect(resolveStop).toBeTypeOf("function");
@@ -527,11 +524,12 @@ describe("TrackerPage", () => {
         (init as RequestInit | undefined)?.method === "POST",
     ).length;
 
-    fireEvent.change(within(bar).getByLabelText(/^end$/i), {
-      target: { value: localDatetimeValue(new Date("2026-07-02T09:30:00.000Z")) },
-    });
-    fireEvent.change(within(bar).getByLabelText(/^start$/i), {
-      target: { value: localDatetimeValue(new Date("2026-07-02T07:30:00.000Z")) },
+    const laterEnd = localDatetimeValue(new Date("2026-07-02T09:30:00.000Z"));
+    const earlierStart = localDatetimeValue(new Date("2026-07-02T07:30:00.000Z"));
+    setTimerBarSchedule(bar, {
+      date: localDateAndTime(laterEnd).date,
+      endTime: localDateAndTime(laterEnd).time,
+      startTime: localDateAndTime(earlierStart).time,
     });
 
     expect(
@@ -581,11 +579,10 @@ describe("TrackerPage", () => {
     fireEvent.change(within(bar).getByLabelText(/^description$/i), {
       target: { value: "Bad range" },
     });
-    fireEvent.change(within(bar).getByLabelText(/^start$/i), {
-      target: { value: "2026-07-02T10:00" },
-    });
-    fireEvent.change(within(bar).getByLabelText(/^end$/i), {
-      target: { value: "2026-07-02T09:00" },
+    setTimerBarSchedule(bar, {
+      date: "2026-07-02",
+      startTime: "10:00",
+      endTime: "09:00",
     });
     fireEvent.click(within(bar).getByRole("button", { name: /add entry/i }));
 
