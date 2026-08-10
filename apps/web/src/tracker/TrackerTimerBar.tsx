@@ -1,5 +1,5 @@
 import type { TimeEntry } from "@hourden/domain";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DescriptionAutocomplete } from "../DescriptionAutocomplete.js";
 import {
@@ -94,11 +94,24 @@ export function TrackerTimerBar({
   const isManualReady = !isRunning && startedAt !== "" && endedAt !== "";
   const today = localDateValue(new Date());
   const [pickedDate, setPickedDate] = useState<string | null>(null);
+  const hadScheduleValuesRef = useRef(startedAt !== "" || endedAt !== "");
   const schedule = scheduleFromBar(
     startedAt,
     endedAt,
     pickedDate ?? today,
   );
+
+  useEffect(() => {
+    const hasValues = startedAt !== "" || endedAt !== "";
+    if (hasValues) {
+      hadScheduleValuesRef.current = true;
+      return;
+    }
+    if (hadScheduleValuesRef.current) {
+      hadScheduleValuesRef.current = false;
+      setPickedDate(null);
+    }
+  }, [startedAt, endedAt]);
 
   const handleScheduleChange = (next: EntryScheduleValue) => {
     setPickedDate(next.date);

@@ -365,4 +365,95 @@ describe("TrackerTimerBar", () => {
     expect(onStartedAtChange).toHaveBeenCalledWith("2026-07-05T22:00");
     expect(onEndedAtChange).toHaveBeenCalledWith("2026-07-06T02:00");
   });
+
+  it("resets calendar day to today after parent clears Start and End", () => {
+    const today = localDateValue(new Date());
+    const onStartedAtChange = vi.fn();
+    const props = {
+      running: null,
+      liveCounter: "0:00:00",
+      description: "",
+      projectId: "",
+      projectGroups: [] as ProjectClientGroup[],
+      saving: false,
+      onDescriptionChange: vi.fn(),
+      onDescriptionSuggestionSelect: vi.fn(),
+      onProjectChange: vi.fn(),
+      onStartedAtChange,
+      onEndedAtChange: vi.fn(),
+      onStart: vi.fn(),
+      onStop: vi.fn(),
+      onAddManual: vi.fn(),
+    };
+    const { rerender } = render(
+      <TrackerTimerBar
+        {...props}
+        startedAt="2026-07-02T08:00"
+        endedAt="2026-07-02T09:00"
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /^change date: 2026-07-02$/i }),
+    );
+    const dateInput = screen.getByLabelText(/^date$/i);
+    fireEvent.change(dateInput, {
+      target: { value: "2026-07-05" },
+    });
+    fireEvent.blur(dateInput);
+
+    rerender(<TrackerTimerBar {...props} startedAt="" endedAt="" />);
+
+    expect(
+      screen.getByRole("button", { name: new RegExp(`^change date: ${today}$`, "i") }),
+    ).toHaveAttribute("title", today);
+
+    fireEvent.change(screen.getByLabelText(/^start$/i), {
+      target: { value: "10:00" },
+    });
+    expect(onStartedAtChange).toHaveBeenLastCalledWith(`${today}T10:00`);
+  });
+
+  it("keeps a calendar-only day pick while Start and End stay empty", () => {
+    const onStartedAtChange = vi.fn();
+    const today = localDateValue(new Date());
+    render(
+      <TrackerTimerBar
+        running={null}
+        liveCounter="0:00:00"
+        description=""
+        projectId=""
+        projectGroups={[]}
+        saving={false}
+        startedAt=""
+        endedAt=""
+        onDescriptionChange={vi.fn()}
+        onDescriptionSuggestionSelect={vi.fn()}
+        onProjectChange={vi.fn()}
+        onStartedAtChange={onStartedAtChange}
+        onEndedAtChange={vi.fn()}
+        onStart={vi.fn()}
+        onStop={vi.fn()}
+        onAddManual={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: new RegExp(`^change date: ${today}$`, "i") }),
+    );
+    const dateInput = screen.getByLabelText(/^date$/i);
+    fireEvent.change(dateInput, {
+      target: { value: "2026-07-05" },
+    });
+    fireEvent.blur(dateInput);
+
+    expect(
+      screen.getByRole("button", { name: /^change date: 2026-07-05$/i }),
+    ).toHaveAttribute("title", "2026-07-05");
+
+    fireEvent.change(screen.getByLabelText(/^start$/i), {
+      target: { value: "08:00" },
+    });
+    expect(onStartedAtChange).toHaveBeenCalledWith("2026-07-05T08:00");
+  });
 });
