@@ -12,10 +12,10 @@ import {
 } from "../layout/ui-classes.js";
 import type { ProjectClientGroup } from "./groupProjectsByClient.js";
 import {
-  applyLocalDate,
   localDateAndTimeToIso,
   localDateValue,
   localTimeValue,
+  shiftInstantByLocalDateDelta,
 } from "./localDatetimeValue.js";
 
 type EditableField = "description" | "project" | "start" | "end" | "date";
@@ -138,10 +138,18 @@ export function TrackerEntryRow({
       return;
     }
     const patch: UpdateTimeEntryInput = {
-      startedAt: applyLocalDate(entry.startedAt, dateDraft),
+      startedAt: shiftInstantByLocalDateDelta(
+        entry.startedAt,
+        originalDate,
+        dateDraft,
+      ),
     };
     if (entry.endedAt) {
-      patch.endedAt = applyLocalDate(entry.endedAt, dateDraft);
+      patch.endedAt = shiftInstantByLocalDateDelta(
+        entry.endedAt,
+        originalDate,
+        dateDraft,
+      );
     }
     try {
       await onPatch(patch);

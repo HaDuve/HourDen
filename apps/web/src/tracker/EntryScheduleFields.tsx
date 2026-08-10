@@ -76,7 +76,8 @@ export function EntryScheduleFields({
         ) : (
           <button
             type="button"
-            aria-label={t("tracker.changeDate")}
+            aria-label={`${t("tracker.changeDate")}: ${value.date}`}
+            title={value.date}
             onClick={() => setDateOpen(true)}
             className="inline-flex h-10 items-center justify-center px-2 text-muted hover:text-content"
           >

@@ -21,7 +21,10 @@ describe("EntryScheduleFields", () => {
     expect(screen.getByLabelText(/^end$/i)).toHaveAttribute("type", "time");
     expect(screen.queryByLabelText(/^date$/i)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /^change date$/i }));
+    const calendar = screen.getByRole("button", { name: /^change date: 2026-07-02$/i });
+    expect(calendar).toHaveAttribute("title", "2026-07-02");
+
+    fireEvent.click(calendar);
     const dateInput = screen.getByLabelText(/^date$/i);
     expect(dateInput).toHaveAttribute("type", "date");
     fireEvent.change(dateInput, { target: { value: "2026-07-05" } });

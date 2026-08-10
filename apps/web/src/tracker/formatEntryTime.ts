@@ -1,6 +1,6 @@
 import type { SupportedLocale } from "@hourden/domain";
 
-export function formatEntryDateTime(iso: string, locale: SupportedLocale): string {
+export function formatEntryTime(iso: string, locale: SupportedLocale): string {
   const intlLocale = locale === "de" ? "de-DE" : "en-US";
   return new Intl.DateTimeFormat(intlLocale, {
     hour: "2-digit",

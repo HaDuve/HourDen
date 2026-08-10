@@ -29,9 +29,12 @@ import {
 } from "./tracker-entry-limit.js";
 import { DescriptionAutocomplete } from "./DescriptionAutocomplete.js";
 import { EntryScheduleFields } from "./tracker/EntryScheduleFields.js";
-import { formatEntryDateTime } from "./tracker/formatEntryDateTime.js";
+import { formatEntryTime } from "./tracker/formatEntryTime.js";
 import { groupProjectsByClient } from "./tracker/groupProjectsByClient.js";
-import { localDatetimeValue } from "./tracker/localDatetimeValue.js";
+import {
+  applyScheduleFieldsChange,
+  localDatetimeValue,
+} from "./tracker/localDatetimeValue.js";
 import {
   TrackerEntryEditForm,
   entryToEditForm,
@@ -528,7 +531,7 @@ export default function TrackerPage() {
                           isMobile={isMobile}
                           formatDurationMinutes={formatDurationMinutes}
                           formatCurrency={formatCurrency}
-                          formatDateTime={(iso) => formatEntryDateTime(iso, locale)}
+                          formatDateTime={(iso) => formatEntryTime(iso, locale)}
                           saving={saving}
                           onPatch={async (patch) => {
                             await patchEntry(entry.id, patch);
@@ -598,11 +601,16 @@ export default function TrackerPage() {
                   startTime: manualForm.startedAt.slice(11, 16),
                   endTime: manualForm.endedAt.slice(11, 16),
                 }}
-                onChange={({ date, startTime, endTime }) =>
+                onChange={(schedule) =>
                   setManualForm((current) => ({
                     ...current,
-                    startedAt: `${date}T${startTime}`,
-                    endedAt: `${date}T${endTime}`,
+                    ...applyScheduleFieldsChange(
+                      {
+                        startedAt: current.startedAt,
+                        endedAt: current.endedAt,
+                      },
+                      schedule,
+                    ),
                   }))
                 }
               />

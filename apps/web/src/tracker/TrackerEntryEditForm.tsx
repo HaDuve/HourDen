@@ -9,7 +9,10 @@ import {
 } from "../layout/ui-classes.js";
 import type { ProjectClientGroup } from "./groupProjectsByClient.js";
 import { EntryScheduleFields } from "./EntryScheduleFields.js";
-import { localDatetimeValue } from "./localDatetimeValue.js";
+import {
+  applyScheduleFieldsChange,
+  localDatetimeValue,
+} from "./localDatetimeValue.js";
 
 export type TrackerEntryEditFormData = {
   description: string;
@@ -91,11 +94,13 @@ export function TrackerEntryEditForm({
         <EntryScheduleFields
           required
           value={scheduleFromForm(form)}
-          onChange={({ date, startTime, endTime }) =>
+          onChange={(schedule) =>
             onChange({
               ...form,
-              startedAt: `${date}T${startTime}`,
-              endedAt: `${date}T${endTime}`,
+              ...applyScheduleFieldsChange(
+                { startedAt: form.startedAt, endedAt: form.endedAt },
+                schedule,
+              ),
             })
           }
         />

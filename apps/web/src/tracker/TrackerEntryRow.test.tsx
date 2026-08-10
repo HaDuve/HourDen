@@ -211,6 +211,28 @@ describe("TrackerEntryRow", () => {
     });
   });
 
+  it("shifts an overnight entry by the calendar delta instead of collapsing it", async () => {
+    const overnight = {
+      ...stoppedEntry,
+      startedAt: new Date(2026, 6, 2, 22, 0).toISOString(),
+      endedAt: new Date(2026, 6, 3, 2, 0).toISOString(),
+    };
+    const { onPatch } = renderRow({ entry: overnight });
+
+    fireEvent.click(screen.getByRole("button", { name: /^change date$/i }));
+    fireEvent.change(screen.getByLabelText(/^date$/i), {
+      target: { value: "2026-07-05" },
+    });
+    fireEvent.blur(screen.getByLabelText(/^date$/i));
+
+    await waitFor(() => {
+      expect(onPatch).toHaveBeenCalledWith({
+        startedAt: new Date(2026, 6, 5, 22, 0).toISOString(),
+        endedAt: new Date(2026, 6, 6, 2, 0).toISOString(),
+      });
+    });
+  });
+
   it("does not offer inline edit controls for running entries", () => {
     renderRow({
       entry: {
