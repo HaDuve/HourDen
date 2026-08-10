@@ -126,6 +126,7 @@ export function DescriptionAutocomplete({
       value={value}
       autoFocus={autoFocus}
       onChange={(event) => {
+        setFocused(true);
         onChange(event.target.value);
         if (event.target.value.trim()) {
           setOpen(true);
