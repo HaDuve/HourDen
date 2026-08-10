@@ -36,6 +36,7 @@ import {
 import { TrackerEntryRow } from "./tracker/TrackerEntryRow.js";
 import { TrackerTimerBar } from "./tracker/TrackerTimerBar.js";
 import { useLiveCounter } from "./tracker/useLiveCounter.js";
+import { localDatetimeValue } from "./tracker/localDatetimeValue.js";
 import { todayDateInTimeZone } from "./today-date.js";
 import { useDeleteDialog } from "./useDeleteDialog.js";
 import { useRunningTimer } from "./running-timer/RunningTimerContext.js";
@@ -220,7 +221,7 @@ export default function TrackerPage() {
     setBarForm({
       description: running.description ?? "",
       projectId: running.projectId ?? "",
-      startedAt: "",
+      startedAt: localDatetimeValue(new Date(running.startedAt)),
       endedAt: "",
     });
   }, [running?.id]);
@@ -356,11 +357,7 @@ export default function TrackerPage() {
         setError(message);
         throw new Error(message);
       }
-      setBarForm((current) => ({
-        ...current,
-        startedAt: "",
-        endedAt: "",
-      }));
+      setBarForm(emptyBarForm());
       await load();
       await refreshRunningTimer();
     } catch {
@@ -560,7 +557,9 @@ export default function TrackerPage() {
                     </div>
 
                     <ul className={listPanelClass}>
-                      {day.entries.map((entry) => (
+                      {day.entries
+                        .filter((entry) => !entry.isRunning)
+                        .map((entry) => (
                         <TrackerEntryRow
                           key={entry.id}
                           entry={entry}

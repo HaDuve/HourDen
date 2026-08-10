@@ -8,6 +8,18 @@ describe("EntryScheduleFields", () => {
     await i18n.changeLanguage("en");
   });
 
+  it("shows hh:mm placeholder when start and end are empty", () => {
+    render(
+      <EntryScheduleFields
+        value={{ date: "2026-07-02", startTime: "", endTime: "" }}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText(/^start$/i)).toHaveAttribute("placeholder", "hh:mm");
+    expect(screen.getByLabelText(/^end$/i)).toHaveAttribute("placeholder", "hh:mm");
+  });
+
   it("edits start and end as times and the shared date only via the calendar icon", () => {
     const onChange = vi.fn();
     render(
