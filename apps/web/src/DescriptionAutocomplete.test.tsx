@@ -87,7 +87,9 @@ describe("DescriptionAutocomplete", () => {
       target: { value: "rev" },
     });
 
-    await vi.advanceTimersByTimeAsync(300);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith("/api/time-entries/suggestions?q=rev");
@@ -134,7 +136,9 @@ describe("DescriptionAutocomplete", () => {
       target: { value: "rev" },
     });
 
-    await vi.advanceTimersByTimeAsync(300);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
 
     await waitFor(() => {
       expect(
@@ -160,7 +164,6 @@ describe("DescriptionAutocomplete", () => {
       );
     });
 
-    // Flush the suggestions fetch resolution that would reopen the list.
     await act(async () => {
       await Promise.resolve();
     });
@@ -170,5 +173,41 @@ describe("DescriptionAutocomplete", () => {
       "aria-expanded",
       "false",
     );
+  });
+
+  it("shows suggestions after focus when description already has text", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/time-entries/suggestions?q=rev") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [{ description: "Code review", projectId: "p1" }],
+          }),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DescriptionAutocomplete
+        label="Description"
+        value="rev"
+        onChange={vi.fn()}
+        onSuggestionSelect={vi.fn()}
+      />,
+    );
+
+    fireEvent.focus(screen.getByLabelText(/^description$/i));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("option", { name: "Code review" }),
+      ).toBeInTheDocument();
+    });
   });
 });
