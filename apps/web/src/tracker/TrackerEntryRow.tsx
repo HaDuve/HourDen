@@ -1,7 +1,8 @@
-import type { TimeEntry, UpdateTimeEntryInput } from "@hourden/domain";
+import type { DescriptionSuggestion, TimeEntry, UpdateTimeEntryInput } from "@hourden/domain";
 import Calendar from "lucide-react/icons/calendar";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
+import { DescriptionAutocomplete } from "../DescriptionAutocomplete.js";
 import {
   destructiveOutlineButtonClass,
   inputClass,
@@ -80,6 +81,21 @@ export function TrackerEntryRow({
       await onPatch({ description: trimmed });
     } catch {
       setDescriptionDraft(entry.description ?? "");
+    }
+  };
+
+  const applyDescriptionSuggestion = async (suggestion: DescriptionSuggestion) => {
+    setDescriptionDraft(suggestion.description);
+    setProjectDraft(suggestion.projectId ?? "");
+    setActiveField(null);
+    try {
+      await onPatch({
+        description: suggestion.description,
+        projectId: suggestion.projectId,
+      });
+    } catch {
+      setDescriptionDraft(entry.description ?? "");
+      setProjectDraft(entry.projectId ?? "");
     }
   };
 
@@ -192,11 +208,17 @@ export function TrackerEntryRow({
         ) : (
           <>
             {editable && activeField === "description" ? (
-              <input
-                aria-label={t("tracker.description")}
+              <DescriptionAutocomplete
+                label={t("tracker.description")}
+                hideLabel
                 value={descriptionDraft}
-                onChange={(event) => setDescriptionDraft(event.target.value)}
-                onBlur={() => void saveDescription()}
+                onChange={setDescriptionDraft}
+                onSuggestionSelect={(suggestion) => {
+                  void applyDescriptionSuggestion(suggestion);
+                }}
+                onBlur={() => {
+                  void saveDescription();
+                }}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.currentTarget.blur();
@@ -207,7 +229,7 @@ export function TrackerEntryRow({
                   }
                 }}
                 autoFocus
-                className={inputClass}
+                inputClassName={inputClass}
               />
             ) : (
               <p className="font-medium text-content">

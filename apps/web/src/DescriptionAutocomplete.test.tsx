@@ -28,6 +28,7 @@ describe("DescriptionAutocomplete", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it("shows placeholder and aria-label without visible label when hideLabel is set", () => {
@@ -64,6 +65,12 @@ describe("DescriptionAutocomplete", () => {
 
   it("fetches matching suggestions after debounce and applies selection", async () => {
     const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/time-entries/suggestions?q=") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ suggestions: [] }),
+        });
+      }
       if (url === "/api/time-entries/suggestions?q=rev") {
         return Promise.resolve({
           ok: true,
@@ -83,7 +90,9 @@ describe("DescriptionAutocomplete", () => {
 
     render(<ControlledAutocomplete onSuggestionSelect={onSuggestionSelect} />);
 
-    fireEvent.change(screen.getByLabelText(/^description$/i), {
+    const input = screen.getByLabelText(/^description$/i);
+    fireEvent.focus(input);
+    fireEvent.change(input, {
       target: { value: "rev" },
     });
 
@@ -105,8 +114,205 @@ describe("DescriptionAutocomplete", () => {
     });
   });
 
+  it("opens last recent descriptions on focus when the field is empty", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/time-entries/suggestions?q=") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [
+              { description: "Fourth distinct", projectId: "p1" },
+              { description: "Newest work", projectId: "p2" },
+              { description: "Middle work", projectId: "p3" },
+            ],
+          }),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const onSuggestionSelect = vi.fn();
+
+    render(<ControlledAutocomplete onSuggestionSelect={onSuggestionSelect} />);
+
+    fireEvent.focus(screen.getByLabelText(/^description$/i));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/time-entries/suggestions?q=");
+      expect(screen.getByRole("option", { name: "Newest work" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("option", { name: "Newest work" }));
+
+    expect(screen.getByLabelText(/^description$/i)).toHaveValue("Newest work");
+    expect(onSuggestionSelect).toHaveBeenCalledWith({
+      description: "Newest work",
+      projectId: "p2",
+    });
+  });
+
+  it("replaces recent suggestions with typed matches", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/time-entries/suggestions?q=") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [
+              { description: "Fourth distinct", projectId: "p1" },
+              { description: "Newest work", projectId: "p2" },
+              { description: "Middle work", projectId: "p3" },
+            ],
+          }),
+        });
+      }
+      if (url === "/api/time-entries/suggestions?q=rev") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [{ description: "Design review", projectId: "p2" }],
+          }),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<ControlledAutocomplete onSuggestionSelect={vi.fn()} />);
+
+    const input = screen.getByLabelText(/^description$/i);
+    fireEvent.focus(input);
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Newest work" })).toBeInTheDocument();
+    });
+
+    fireEvent.change(input, { target: { value: "rev" } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/time-entries/suggestions?q=rev");
+      expect(screen.getByRole("option", { name: "Design review" })).toBeInTheDocument();
+      expect(screen.queryByRole("option", { name: "Newest work" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("opens typed matches after selecting a recent suggestion", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/time-entries/suggestions?q=") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [
+              { description: "Newest work", projectId: "p2" },
+              { description: "Middle work", projectId: "p3" },
+            ],
+          }),
+        });
+      }
+      if (url === "/api/time-entries/suggestions?q=Newest%20work") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [{ description: "Newest work", projectId: "p2" }],
+          }),
+        });
+      }
+      if (url === "/api/time-entries/suggestions?q=rev") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [{ description: "Design review", projectId: "p2" }],
+          }),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<ControlledAutocomplete onSuggestionSelect={vi.fn()} />);
+
+    const input = screen.getByLabelText(/^description$/i);
+    fireEvent.focus(input);
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Newest work" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("option", { name: "Newest work" }));
+    fireEvent.change(input, { target: { value: "rev" } });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Design review" })).toBeInTheDocument();
+    });
+  });
+
+  it("does not call onBlur when a suggestion is selected", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/time-entries/suggestions?q=") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [{ description: "Newest work", projectId: "p2" }],
+          }),
+        });
+      }
+      if (url === "/api/time-entries/suggestions?q=Newest%20work") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [{ description: "Newest work", projectId: "p2" }],
+          }),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const onBlur = vi.fn();
+    const onSuggestionSelect = vi.fn();
+
+    function ControlledWithBlur() {
+      const [value, setValue] = useState("");
+      return (
+        <DescriptionAutocomplete
+          label="Description"
+          value={value}
+          onChange={setValue}
+          onSuggestionSelect={onSuggestionSelect}
+          onBlur={onBlur}
+        />
+      );
+    }
+
+    render(<ControlledWithBlur />);
+
+    fireEvent.focus(screen.getByLabelText(/^description$/i));
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Newest work" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("option", { name: "Newest work" }));
+    fireEvent.blur(screen.getByLabelText(/^description$/i));
+
+    expect(onSuggestionSelect).toHaveBeenCalled();
+    expect(onBlur).not.toHaveBeenCalled();
+  });
+
   it("keeps the suggestion list closed after activating an option", async () => {
     const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/time-entries/suggestions?q=") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ suggestions: [] }),
+        });
+      }
       if (url === "/api/time-entries/suggestions?q=rev") {
         return Promise.resolve({
           ok: true,
@@ -132,7 +338,9 @@ describe("DescriptionAutocomplete", () => {
 
     render(<ControlledAutocomplete onSuggestionSelect={vi.fn()} />);
 
-    fireEvent.change(screen.getByLabelText(/^description$/i), {
+    const input = screen.getByLabelText(/^description$/i);
+    fireEvent.focus(input);
+    fireEvent.change(input, {
       target: { value: "rev" },
     });
 

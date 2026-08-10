@@ -648,20 +648,66 @@ describeWithAuthenticatedWorkspace("Time Entry API", (getWorkspace) => {
     ]);
   });
 
-  it("returns no suggestions when q is empty", async () => {
-    await getWorkspace().app.request("/api/time-entries", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        description: "Some work",
+  it("returns the last 3 distinct descriptions when q is empty", async () => {
+    const client = await createClient(getWorkspace().app, "Recent Suggest Client");
+    const projectA = await createProject(getWorkspace().app, client.id, "Project A");
+    const projectB = await createProject(getWorkspace().app, client.id, "Project B");
+    const projectC = await createProject(getWorkspace().app, client.id, "Project C");
+    const projectD = await createProject(getWorkspace().app, client.id, "Project D");
+
+    const seed = [
+      {
+        description: "Oldest work",
         startedAt: "2026-01-01T10:00:00.000Z",
         endedAt: "2026-01-01T11:00:00.000Z",
-      }),
-    });
+        projectId: projectA.id,
+      },
+      {
+        description: "Middle work",
+        startedAt: "2026-02-01T10:00:00.000Z",
+        endedAt: "2026-02-01T11:00:00.000Z",
+        projectId: projectB.id,
+      },
+      {
+        description: "Newest work",
+        startedAt: "2026-03-01T10:00:00.000Z",
+        endedAt: "2026-03-01T11:00:00.000Z",
+        projectId: projectC.id,
+      },
+      {
+        description: "Newest work",
+        startedAt: "2026-04-01T10:00:00.000Z",
+        endedAt: "2026-04-01T11:00:00.000Z",
+        projectId: projectD.id,
+      },
+      {
+        description: "Fourth distinct",
+        startedAt: "2026-05-01T10:00:00.000Z",
+        endedAt: "2026-05-01T11:00:00.000Z",
+        projectId: projectA.id,
+      },
+    ];
+
+    for (const entry of seed) {
+      await getWorkspace().app.request("/api/time-entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry),
+      });
+    }
 
     const res = await getWorkspace().app.request("/api/time-entries/suggestions?q=");
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ suggestions: [] });
+
+    const { suggestions } = (await res.json()) as {
+      suggestions: Array<{ description: string; projectId: string | null }>;
+    };
+
+    expect(suggestions).toEqual([
+      { description: "Fourth distinct", projectId: projectA.id },
+      { description: "Newest work", projectId: projectD.id },
+      { description: "Middle work", projectId: projectB.id },
+    ]);
   });
 
   it("caps suggestion results at 10 distinct descriptions", async () => {

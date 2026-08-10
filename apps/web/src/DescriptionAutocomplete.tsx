@@ -1,5 +1,11 @@
 import type { DescriptionSuggestion } from "@hourden/domain";
-import { useEffect, useId, useRef, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { inputClass } from "./layout/ui-classes.js";
 import { useDebouncedValue } from "./useDebouncedValue.js";
 
@@ -16,6 +22,9 @@ type DescriptionAutocompleteProps = {
   onChange: (description: string) => void;
   onSuggestionSelect: (suggestion: DescriptionSuggestion) => void;
   inputClassName?: string;
+  autoFocus?: boolean;
+  onBlur?: () => void;
+  onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
 };
 
 async function fetchDescriptionSuggestions(
@@ -40,30 +49,45 @@ export function DescriptionAutocomplete({
   onChange,
   onSuggestionSelect,
   inputClassName = inputClass,
+  autoFocus = false,
+  onBlur,
+  onKeyDown,
 }: DescriptionAutocompleteProps) {
   const listboxId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const debouncedValue = useDebouncedValue(value, SUGGESTION_DEBOUNCE_MS);
   const [suggestions, setSuggestions] = useState<DescriptionSuggestion[]>([]);
   const [open, setOpen] = useState(false);
+  const [focused, setFocused] = useState(autoFocus);
+  const skipBlurCallbackRef = useRef(false);
+  const suppressOpenRef = useRef(false);
+  const valueRef = useRef(value);
+  valueRef.current = value;
 
   useEffect(() => {
-    const trimmed = debouncedValue.trim();
-    if (!trimmed) {
-      setSuggestions([]);
+    if (!focused) {
       setOpen(false);
       return;
     }
 
+    const trimmed = debouncedValue.trim();
     let cancelled = false;
+
     void fetchDescriptionSuggestions(trimmed)
       .then((loaded) => {
-        if (!cancelled) {
-          setSuggestions(loaded);
-          if (loaded.length === 0) {
-            setOpen(false);
-          }
+        if (cancelled) {
+          return;
         }
+        setSuggestions(loaded);
+        if (suppressOpenRef.current) {
+          setOpen(false);
+          return;
+        }
+        // Ignore stale responses when the Operator has already typed further.
+        if (valueRef.current.trim() !== trimmed) {
+          return;
+        }
+        setOpen(loaded.length > 0);
       })
       .catch(() => {
         if (!cancelled) {
@@ -75,7 +99,7 @@ export function DescriptionAutocomplete({
     return () => {
       cancelled = true;
     };
-  }, [debouncedValue]);
+  }, [debouncedValue, focused]);
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
@@ -91,6 +115,8 @@ export function DescriptionAutocomplete({
   }, []);
 
   const handleSelect = (suggestion: DescriptionSuggestion) => {
+    suppressOpenRef.current = true;
+    skipBlurCallbackRef.current = true;
     onChange(suggestion.description);
     onSuggestionSelect(suggestion);
     setOpen(false);
@@ -105,17 +131,30 @@ export function DescriptionAutocomplete({
       aria-controls={open ? listboxId : undefined}
       aria-expanded={open}
       value={value}
+      autoFocus={autoFocus}
       onChange={(event) => {
+        suppressOpenRef.current = false;
+        setFocused(true);
         onChange(event.target.value);
         if (event.target.value.trim()) {
           setOpen(true);
         }
       }}
       onFocus={() => {
+        setFocused(true);
         if (value.trim()) {
           setOpen(true);
         }
       }}
+      onBlur={() => {
+        setFocused(false);
+        if (skipBlurCallbackRef.current) {
+          skipBlurCallbackRef.current = false;
+          return;
+        }
+        onBlur?.();
+      }}
+      onKeyDown={onKeyDown}
       className={`w-full ${inputClassName}`}
     />
   );
