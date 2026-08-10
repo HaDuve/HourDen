@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import i18n from "../i18n/i18n.js";
+import { localDateValue } from "./localDatetimeValue.js";
 import { TrackerTimerBar } from "./TrackerTimerBar.js";
 import type { ProjectClientGroup } from "./groupProjectsByClient.js";
 
@@ -59,7 +60,8 @@ describe("TrackerTimerBar", () => {
     expect(screen.queryByRole("button", { name: /stop timer/i })).not.toBeInTheDocument();
   });
 
-  it("shows empty Start and End fields below the live counter and start control", () => {
+  it("shows empty Start and End as times below the live counter; date only via calendar (defaults to today)", () => {
+    const today = localDateValue(new Date());
     render(
       <TrackerTimerBar
         running={null}
@@ -83,10 +85,14 @@ describe("TrackerTimerBar", () => {
 
     const startField = screen.getByLabelText(/^start$/i);
     const endField = screen.getByLabelText(/^end$/i);
-    expect(startField).toHaveAttribute("type", "datetime-local");
-    expect(endField).toHaveAttribute("type", "datetime-local");
+    expect(startField).toHaveAttribute("type", "time");
+    expect(endField).toHaveAttribute("type", "time");
     expect(startField).toHaveValue("");
     expect(endField).toHaveValue("");
+    expect(screen.queryByLabelText(/^date$/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: new RegExp(`^change date: ${today}$`, "i") }),
+    ).toHaveAttribute("title", today);
 
     const counter = screen.getByText("0:00:00");
     const startButton = screen.getByRole("button", { name: /start timer/i });
@@ -284,5 +290,79 @@ describe("TrackerTimerBar", () => {
     fireEvent.click(screen.getByRole("button", { name: /add entry/i }));
     expect(onAddManual).toHaveBeenCalledOnce();
     expect(onStart).not.toHaveBeenCalled();
+  });
+
+  it("emits local datetimes for time edits using the calendar date (today when empty)", () => {
+    const today = localDateValue(new Date());
+    const onStartedAtChange = vi.fn();
+    const onEndedAtChange = vi.fn();
+    const props = {
+      running: null,
+      liveCounter: "0:00:00",
+      description: "",
+      projectId: "",
+      projectGroups: [] as ProjectClientGroup[],
+      saving: false,
+      startedAt: "",
+      endedAt: "",
+      onDescriptionChange: vi.fn(),
+      onDescriptionSuggestionSelect: vi.fn(),
+      onProjectChange: vi.fn(),
+      onStartedAtChange,
+      onEndedAtChange,
+      onStart: vi.fn(),
+      onStop: vi.fn(),
+      onAddManual: vi.fn(),
+    };
+    const { rerender } = render(<TrackerTimerBar {...props} />);
+
+    fireEvent.change(screen.getByLabelText(/^start$/i), {
+      target: { value: "08:00" },
+    });
+    expect(onStartedAtChange).toHaveBeenCalledWith(`${today}T08:00`);
+    expect(onEndedAtChange).not.toHaveBeenCalled();
+
+    rerender(
+      <TrackerTimerBar {...props} startedAt={`${today}T08:00`} endedAt="" />,
+    );
+    fireEvent.change(screen.getByLabelText(/^end$/i), {
+      target: { value: "09:30" },
+    });
+    expect(onEndedAtChange).toHaveBeenCalledWith(`${today}T09:30`);
+  });
+
+  it("applies calendar icon date to both times when the shared day changes", () => {
+    const onStartedAtChange = vi.fn();
+    const onEndedAtChange = vi.fn();
+    render(
+      <TrackerTimerBar
+        running={null}
+        liveCounter="0:00:00"
+        description=""
+        projectId=""
+        projectGroups={[]}
+        saving={false}
+        startedAt="2026-07-02T22:00"
+        endedAt="2026-07-03T02:00"
+        onDescriptionChange={vi.fn()}
+        onDescriptionSuggestionSelect={vi.fn()}
+        onProjectChange={vi.fn()}
+        onStartedAtChange={onStartedAtChange}
+        onEndedAtChange={onEndedAtChange}
+        onStart={vi.fn()}
+        onStop={vi.fn()}
+        onAddManual={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /^change date: 2026-07-02$/i }),
+    );
+    fireEvent.change(screen.getByLabelText(/^date$/i), {
+      target: { value: "2026-07-05" },
+    });
+
+    expect(onStartedAtChange).toHaveBeenCalledWith("2026-07-05T22:00");
+    expect(onEndedAtChange).toHaveBeenCalledWith("2026-07-06T02:00");
   });
 });

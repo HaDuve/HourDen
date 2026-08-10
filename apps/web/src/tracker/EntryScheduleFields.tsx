@@ -13,6 +13,7 @@ type EntryScheduleFieldsProps = {
   value: EntryScheduleValue;
   onChange: (value: EntryScheduleValue) => void;
   required?: boolean;
+  disabled?: boolean;
 };
 
 const CALENDAR_ICON_SIZE = 16;
@@ -22,6 +23,7 @@ export function EntryScheduleFields({
   value,
   onChange,
   required = false,
+  disabled = false,
 }: EntryScheduleFieldsProps) {
   const { t } = useTranslation();
   const [dateOpen, setDateOpen] = useState(false);
@@ -33,6 +35,7 @@ export function EntryScheduleFields({
           <span>{t("tracker.start")}</span>
           <input
             required={required}
+            disabled={disabled}
             aria-label={t("tracker.start")}
             type="time"
             value={value.startTime}
@@ -47,6 +50,7 @@ export function EntryScheduleFields({
           <span>{t("tracker.end")}</span>
           <input
             required={required}
+            disabled={disabled}
             aria-label={t("tracker.end")}
             type="time"
             value={value.endTime}
@@ -62,6 +66,7 @@ export function EntryScheduleFields({
             <span>{t("tracker.date")}</span>
             <input
               required={required}
+              disabled={disabled}
               aria-label={t("tracker.date")}
               type="date"
               value={value.date}
@@ -78,8 +83,9 @@ export function EntryScheduleFields({
             type="button"
             aria-label={`${t("tracker.changeDate")}: ${value.date}`}
             title={value.date}
+            disabled={disabled}
             onClick={() => setDateOpen(true)}
-            className="inline-flex h-10 items-center justify-center px-2 text-muted hover:text-content"
+            className="inline-flex h-10 items-center justify-center px-2 text-muted hover:text-content disabled:opacity-50"
           >
             <Calendar
               size={CALENDAR_ICON_SIZE}
