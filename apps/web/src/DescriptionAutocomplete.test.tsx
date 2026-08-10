@@ -1,5 +1,5 @@
 import type { DescriptionSuggestion } from "@hourden/domain";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DescriptionAutocomplete } from "./DescriptionAutocomplete.js";
@@ -101,5 +101,74 @@ describe("DescriptionAutocomplete", () => {
       description: "Design review",
       projectId: "p2",
     });
+  });
+
+  it("keeps the suggestion list closed after activating an option", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/time-entries/suggestions?q=rev") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [
+              { description: "Code review", projectId: "p1" },
+              { description: "Design review", projectId: "p2" },
+            ],
+          }),
+        });
+      }
+      if (url === "/api/time-entries/suggestions?q=Design%20review") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [{ description: "Design review", projectId: "p2" }],
+          }),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<ControlledAutocomplete onSuggestionSelect={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText(/^description$/i), {
+      target: { value: "rev" },
+    });
+
+    await vi.advanceTimersByTimeAsync(300);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("option", { name: "Design review" }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("option", { name: "Design review" }));
+
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/^description$/i)).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/time-entries/suggestions?q=Design%20review",
+      );
+    });
+
+    // Flush the suggestions fetch resolution that would reopen the list.
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/^description$/i)).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
   });
 });

@@ -43,6 +43,7 @@ export function DescriptionAutocomplete({
 }: DescriptionAutocompleteProps) {
   const listboxId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
+  const keepClosedAfterSelectRef = useRef(false);
   const debouncedValue = useDebouncedValue(value, SUGGESTION_DEBOUNCE_MS);
   const [suggestions, setSuggestions] = useState<DescriptionSuggestion[]>([]);
   const [open, setOpen] = useState(false);
@@ -60,6 +61,10 @@ export function DescriptionAutocomplete({
       .then((loaded) => {
         if (!cancelled) {
           setSuggestions(loaded);
+          if (keepClosedAfterSelectRef.current) {
+            keepClosedAfterSelectRef.current = false;
+            return;
+          }
           setOpen(loaded.length > 0);
         }
       })
@@ -89,6 +94,7 @@ export function DescriptionAutocomplete({
   }, []);
 
   const handleSelect = (suggestion: DescriptionSuggestion) => {
+    keepClosedAfterSelectRef.current = true;
     onChange(suggestion.description);
     onSuggestionSelect(suggestion);
     setOpen(false);
@@ -104,6 +110,7 @@ export function DescriptionAutocomplete({
       aria-expanded={open}
       value={value}
       onChange={(event) => {
+        keepClosedAfterSelectRef.current = false;
         onChange(event.target.value);
         if (event.target.value.trim()) {
           setOpen(true);
