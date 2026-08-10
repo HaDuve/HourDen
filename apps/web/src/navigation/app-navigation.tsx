@@ -51,7 +51,7 @@ function DesktopNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
   }, [isMoreOpen]);
 
   return (
-    <nav aria-label={t("nav.primary")} className="border-b border-divider bg-surface">
+    <nav aria-label={t("nav.primary")} className="sticky top-0 z-20 border-b border-divider bg-surface">
       <div className="mx-auto flex max-w-3xl items-center gap-1 px-8 py-3">
         <div className="flex flex-1 gap-1">
           <TrackerNavLink />

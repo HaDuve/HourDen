@@ -353,6 +353,26 @@ describe("App", () => {
     expect(primaryNav.closest(".min-h-screen")).toHaveClass("bg-background");
   });
 
+  it("keeps the desktop primary nav sticky above page content", async () => {
+    mockDesktopViewport();
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    renderApp("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
+    });
+
+    const primaryNav = screen.getByRole("navigation", { name: /primary/i });
+    expect(primaryNav.className).toMatch(/sticky/);
+    expect(primaryNav.className).toMatch(/top-0/);
+    expect(primaryNav.className).toMatch(/z-20/);
+
+    fireEvent.click(screen.getByRole("button", { name: /^more$/i }));
+    const menu = screen.getByRole("menu");
+    expect(primaryNav.contains(menu)).toBe(true);
+  });
+
   it("opens the desktop overflow menu with secondary destinations", async () => {
     mockDesktopViewport();
     vi.stubGlobal("fetch", mockAppFetch());

@@ -54,6 +54,30 @@ describe("TrackerTimerBar", () => {
     expect(screen.queryByRole("button", { name: /stop timer/i })).not.toBeInTheDocument();
   });
 
+  it("sticks the timer bar just below the header band", () => {
+    render(
+      <TrackerTimerBar
+        running={null}
+        liveCounter="0:00:00"
+        description=""
+        projectId=""
+        projectGroups={projectGroups}
+        saving={false}
+        onDescriptionChange={vi.fn()}
+        onDescriptionSuggestionSelect={vi.fn()}
+        onProjectChange={vi.fn()}
+        onStart={vi.fn()}
+        onStop={vi.fn()}
+      />,
+    );
+
+    const bar = screen.getByRole("region", { name: /timer bar/i });
+    expect(bar.className).toMatch(/sticky/);
+    expect(bar.className).toMatch(/(?:^|\s)top-0(?:\s|$)/);
+    expect(bar.className).toMatch(/md:top-14/);
+    expect(bar.className).toMatch(/z-10/);
+  });
+
   it("keeps project select and live counter in separate non-overlapping regions", () => {
     render(
       <TrackerTimerBar
