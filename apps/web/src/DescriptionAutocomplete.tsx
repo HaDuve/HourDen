@@ -60,7 +60,9 @@ export function DescriptionAutocomplete({
       .then((loaded) => {
         if (!cancelled) {
           setSuggestions(loaded);
-          setOpen(loaded.length > 0);
+          if (loaded.length === 0) {
+            setOpen(false);
+          }
         }
       })
       .catch(() => {
@@ -110,7 +112,7 @@ export function DescriptionAutocomplete({
         }
       }}
       onFocus={() => {
-        if (suggestions.length > 0) {
+        if (value.trim()) {
           setOpen(true);
         }
       }}
