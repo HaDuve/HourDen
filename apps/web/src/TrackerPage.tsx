@@ -12,7 +12,6 @@ import {
   destructiveButtonClass,
   emptyStateClass,
   errorBannerClass,
-  inputClass,
   listPanelClass,
   metaTextClass,
   numericMetaValueClass,
@@ -28,9 +27,14 @@ import {
   storeTrackerEntryLimit,
   type TrackerEntryLimit,
 } from "./tracker-entry-limit.js";
-import { formatEntryDateTime } from "./tracker/formatEntryDateTime.js";
+import { DescriptionAutocomplete } from "./DescriptionAutocomplete.js";
+import { EntryScheduleFields } from "./tracker/EntryScheduleFields.js";
+import { formatEntryTime } from "./tracker/formatEntryTime.js";
 import { groupProjectsByClient } from "./tracker/groupProjectsByClient.js";
-import { localDatetimeValue } from "./tracker/localDatetimeValue.js";
+import {
+  applyScheduleFieldsChange,
+  localDatetimeValue,
+} from "./tracker/localDatetimeValue.js";
 import {
   TrackerEntryEditForm,
   entryToEditForm,
@@ -44,7 +48,6 @@ import { todayDateInTimeZone } from "./today-date.js";
 import { useDeleteDialog } from "./useDeleteDialog.js";
 import { useRunningTimer } from "./running-timer/RunningTimerContext.js";
 import { useWorkspaceEvents } from "./useWorkspaceEvents.js";
-import { DescriptionAutocomplete } from "./DescriptionAutocomplete.js";
 
 type ManualFormData = {
   description: string;
@@ -528,7 +531,7 @@ export default function TrackerPage() {
                           isMobile={isMobile}
                           formatDurationMinutes={formatDurationMinutes}
                           formatCurrency={formatCurrency}
-                          formatDateTime={(iso) => formatEntryDateTime(iso, locale)}
+                          formatDateTime={(iso) => formatEntryTime(iso, locale)}
                           saving={saving}
                           onPatch={async (patch) => {
                             await patchEntry(entry.id, patch);
@@ -591,37 +594,26 @@ export default function TrackerPage() {
                 }
               />
 
-              <label className="grid gap-1 text-sm text-content">
-                <span>{t("tracker.start")}</span>
-                <input
-                  required
-                  type="datetime-local"
-                  value={manualForm.startedAt}
-                  onChange={(e) =>
-                    setManualForm((current) => ({
-                      ...current,
-                      startedAt: e.target.value,
-                    }))
-                  }
-                  className={inputClass}
-                />
-              </label>
-
-              <label className="grid gap-1 text-sm text-content">
-                <span>{t("tracker.end")}</span>
-                <input
-                  required
-                  type="datetime-local"
-                  value={manualForm.endedAt}
-                  onChange={(e) =>
-                    setManualForm((current) => ({
-                      ...current,
-                      endedAt: e.target.value,
-                    }))
-                  }
-                  className={inputClass}
-                />
-              </label>
+              <EntryScheduleFields
+                required
+                value={{
+                  date: manualForm.startedAt.slice(0, 10),
+                  startTime: manualForm.startedAt.slice(11, 16),
+                  endTime: manualForm.endedAt.slice(11, 16),
+                }}
+                onChange={(schedule) =>
+                  setManualForm((current) => ({
+                    ...current,
+                    ...applyScheduleFieldsChange(
+                      {
+                        startedAt: current.startedAt,
+                        endedAt: current.endedAt,
+                      },
+                      schedule,
+                    ),
+                  }))
+                }
+              />
 
               <label className="grid gap-1 text-sm text-content">
                 <span>{t("tracker.projectOptional")}</span>

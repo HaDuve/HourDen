@@ -59,10 +59,10 @@ describeWithAuthenticatedWorkspace(
       target: { value: "Follow-up work" },
     });
     fireEvent.change(within(manualDialog).getByLabelText(/^start$/i), {
-      target: { value: `${today}T10:00` },
+      target: { value: "10:00" },
     });
     fireEvent.change(within(manualDialog).getByLabelText(/^end$/i), {
-      target: { value: `${today}T11:00` },
+      target: { value: "11:00" },
     });
     fireEvent.click(within(manualDialog).getByRole("button", { name: /^save$/i }));
 

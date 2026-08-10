@@ -2,14 +2,17 @@ import type { TimeEntry, UpdateTimeEntryInput } from "@hourden/domain";
 import { useTranslation } from "react-i18next";
 import { DescriptionAutocomplete } from "../DescriptionAutocomplete.js";
 import {
-  inputClass,
   numericValueClass,
   primaryButtonClass,
   secondaryButtonClass,
   selectClass,
 } from "../layout/ui-classes.js";
 import type { ProjectClientGroup } from "./groupProjectsByClient.js";
-import { localDatetimeValue } from "./localDatetimeValue.js";
+import { EntryScheduleFields } from "./EntryScheduleFields.js";
+import {
+  applyScheduleFieldsChange,
+  localDatetimeValue,
+} from "./localDatetimeValue.js";
 
 export type TrackerEntryEditFormData = {
   description: string;
@@ -28,6 +31,14 @@ type TrackerEntryEditFormProps = {
   onSubmit: (event: React.FormEvent) => void;
   onCancel: () => void;
 };
+
+function scheduleFromForm(form: TrackerEntryEditFormData) {
+  return {
+    date: form.startedAt.slice(0, 10),
+    startTime: form.startedAt.slice(11, 16),
+    endTime: form.endedAt.slice(11, 16),
+  };
+}
 
 export function TrackerEntryEditForm({
   form,
@@ -80,27 +91,19 @@ export function TrackerEntryEditForm({
           </select>
         </label>
 
-        <label className="grid gap-1 text-sm text-content">
-          <span>{t("tracker.start")}</span>
-          <input
-            required
-            type="datetime-local"
-            value={form.startedAt}
-            onChange={(event) => onChange({ ...form, startedAt: event.target.value })}
-            className={inputClass}
-          />
-        </label>
-
-        <label className="grid gap-1 text-sm text-content">
-          <span>{t("tracker.end")}</span>
-          <input
-            required
-            type="datetime-local"
-            value={form.endedAt}
-            onChange={(event) => onChange({ ...form, endedAt: event.target.value })}
-            className={inputClass}
-          />
-        </label>
+        <EntryScheduleFields
+          required
+          value={scheduleFromForm(form)}
+          onChange={(schedule) =>
+            onChange({
+              ...form,
+              ...applyScheduleFieldsChange(
+                { startedAt: form.startedAt, endedAt: form.endedAt },
+                schedule,
+              ),
+            })
+          }
+        />
 
         <p className="text-sm text-content">
           <span>{t("tracker.duration")}: </span>

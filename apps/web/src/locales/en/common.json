@@ -233,6 +233,8 @@
     "description": "Description",
     "start": "Start",
     "end": "End",
+    "date": "Date",
+    "changeDate": "Change date",
     "duration": "Duration",
     "projectOptional": "Project (optional)",
     "noProject": "No project",
