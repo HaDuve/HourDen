@@ -4,6 +4,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { expect, it } from "vitest";
 import { describeWithAuthenticatedWorkspace } from "./test/describe-with-live-api.js";
 import { renderWithRunningTimer } from "./test/render-with-running-timer.js";
+import { setTimerBarSchedule } from "./test/set-timer-bar-schedule.js";
 import TrackerPage from "./TrackerPage.js";
 import { todayDateInTimeZone } from "./today-date.js";
 
@@ -53,11 +54,10 @@ describeWithAuthenticatedWorkspace(
     fireEvent.change(within(bar).getByLabelText(/^description$/i), {
       target: { value: "Follow-up work" },
     });
-    fireEvent.change(within(bar).getByLabelText(/^start$/i), {
-      target: { value: `${today}T10:00` },
-    });
-    fireEvent.change(within(bar).getByLabelText(/^end$/i), {
-      target: { value: `${today}T11:00` },
+    setTimerBarSchedule(bar, {
+      date: today,
+      startTime: "10:00",
+      endTime: "11:00",
     });
     fireEvent.click(within(bar).getByRole("button", { name: /add entry/i }));
 

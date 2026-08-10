@@ -6,6 +6,10 @@ import { createMatchMedia } from "./test/match-media.js";
 import { MockEventSource, resetMockEventSources } from "./test/mock-event-source.js";
 import { renderWithRunningTimer } from "./test/render-with-running-timer.js";
 import { resetWorkspaceEventsConnectionForTests } from "./workspace-events-connection.js";
+import {
+  localDateAndTime,
+  setTimerBarSchedule,
+} from "./test/set-timer-bar-schedule.js";
 import { localDatetimeValue, localTimeValue } from "./tracker/localDatetimeValue.js";
 
 vi.mock("./today-date.js", () => ({
@@ -108,40 +112,6 @@ function createFetchMock(
     }
     return Promise.reject(new Error(`Unexpected fetch: ${url}`));
   });
-}
-
-/** Drive timer-bar schedule: time inputs + calendar icon (not datetime-local). */
-function setTimerBarSchedule(
-  bar: HTMLElement,
-  schedule: { date: string; startTime?: string; endTime?: string },
-) {
-  const calendar = within(bar).queryByRole("button", { name: /change date:/i });
-  const currentDate = calendar?.getAttribute("title") ?? "";
-  if (currentDate !== schedule.date) {
-    if (calendar) {
-      fireEvent.click(calendar);
-    }
-    const dateInput = within(bar).getByLabelText(/^date$/i);
-    fireEvent.change(dateInput, { target: { value: schedule.date } });
-    fireEvent.blur(dateInput);
-  }
-  if (schedule.startTime !== undefined) {
-    fireEvent.change(within(bar).getByLabelText(/^start$/i), {
-      target: { value: schedule.startTime },
-    });
-  }
-  if (schedule.endTime !== undefined) {
-    fireEvent.change(within(bar).getByLabelText(/^end$/i), {
-      target: { value: schedule.endTime },
-    });
-  }
-}
-
-function localDateAndTime(localDatetime: string): { date: string; time: string } {
-  return {
-    date: localDatetime.slice(0, 10),
-    time: localDatetime.slice(11, 16),
-  };
 }
 
 describe("TrackerPage", () => {
