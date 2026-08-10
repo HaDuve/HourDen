@@ -1,4 +1,5 @@
 import type { TimeEntry, UpdateTimeEntryInput } from "@hourden/domain";
+import Calendar from "lucide-react/icons/calendar";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import {
@@ -10,9 +11,14 @@ import {
   selectClass,
 } from "../layout/ui-classes.js";
 import type { ProjectClientGroup } from "./groupProjectsByClient.js";
-import { localDatetimeValue } from "./localDatetimeValue.js";
+import {
+  localDateAndTimeToIso,
+  localDateValue,
+  localTimeValue,
+  shiftInstantByLocalDateDelta,
+} from "./localDatetimeValue.js";
 
-type EditableField = "description" | "project" | "start" | "end";
+type EditableField = "description" | "project" | "start" | "end" | "date";
 
 type TrackerEntryRowProps = {
   entry: TimeEntry;
@@ -27,6 +33,9 @@ type TrackerEntryRowProps = {
   onDelete: () => void;
   onMobileEdit: () => void;
 };
+
+const CALENDAR_ICON_SIZE = 14;
+const CALENDAR_ICON_STROKE = 1.75;
 
 export function TrackerEntryRow({
   entry,
@@ -51,11 +60,14 @@ export function TrackerEntryRow({
   const [activeField, setActiveField] = useState<EditableField | null>(null);
   const [descriptionDraft, setDescriptionDraft] = useState(entry.description ?? "");
   const [projectDraft, setProjectDraft] = useState(entry.projectId ?? "");
-  const [startDraft, setStartDraft] = useState(
-    localDatetimeValue(new Date(entry.startedAt)),
+  const [startTimeDraft, setStartTimeDraft] = useState(
+    localTimeValue(new Date(entry.startedAt)),
   );
-  const [endDraft, setEndDraft] = useState(
-    entry.endedAt ? localDatetimeValue(new Date(entry.endedAt)) : "",
+  const [endTimeDraft, setEndTimeDraft] = useState(
+    entry.endedAt ? localTimeValue(new Date(entry.endedAt)) : "",
+  );
+  const [dateDraft, setDateDraft] = useState(
+    localDateValue(new Date(entry.startedAt)),
   );
 
   const saveDescription = async () => {
@@ -86,30 +98,63 @@ export function TrackerEntryRow({
 
   const saveStart = async () => {
     setActiveField(null);
-    const originalStartDraft = localDatetimeValue(new Date(entry.startedAt));
-    if (startDraft === originalStartDraft) {
+    const originalTime = localTimeValue(new Date(entry.startedAt));
+    if (startTimeDraft === originalTime) {
       return;
     }
+    const dateYmd = localDateValue(new Date(entry.startedAt));
     try {
-      await onPatch({ startedAt: new Date(startDraft).toISOString() });
+      await onPatch({
+        startedAt: localDateAndTimeToIso(dateYmd, startTimeDraft),
+      });
     } catch {
-      setStartDraft(originalStartDraft);
+      setStartTimeDraft(originalTime);
     }
   };
 
   const saveEnd = async () => {
     setActiveField(null);
-    if (!endDraft || !entry.endedAt) {
+    if (!endTimeDraft || !entry.endedAt) {
       return;
     }
-    const originalEndDraft = localDatetimeValue(new Date(entry.endedAt));
-    if (endDraft === originalEndDraft) {
+    const originalTime = localTimeValue(new Date(entry.endedAt));
+    if (endTimeDraft === originalTime) {
       return;
+    }
+    const dateYmd = localDateValue(new Date(entry.endedAt));
+    try {
+      await onPatch({
+        endedAt: localDateAndTimeToIso(dateYmd, endTimeDraft),
+      });
+    } catch {
+      setEndTimeDraft(originalTime);
+    }
+  };
+
+  const saveDate = async () => {
+    setActiveField(null);
+    const originalDate = localDateValue(new Date(entry.startedAt));
+    if (dateDraft === originalDate) {
+      return;
+    }
+    const patch: UpdateTimeEntryInput = {
+      startedAt: shiftInstantByLocalDateDelta(
+        entry.startedAt,
+        originalDate,
+        dateDraft,
+      ),
+    };
+    if (entry.endedAt) {
+      patch.endedAt = shiftInstantByLocalDateDelta(
+        entry.endedAt,
+        originalDate,
+        dateDraft,
+      );
     }
     try {
-      await onPatch({ endedAt: new Date(endDraft).toISOString() });
+      await onPatch(patch);
     } catch {
-      setEndDraft(originalEndDraft);
+      setDateDraft(originalDate);
     }
   };
 
@@ -228,16 +273,16 @@ export function TrackerEntryRow({
               {editable && activeField === "start" ? (
                 <input
                   aria-label={t("tracker.start")}
-                  type="datetime-local"
-                  value={startDraft}
-                  onChange={(event) => setStartDraft(event.target.value)}
+                  type="time"
+                  value={startTimeDraft}
+                  onChange={(event) => setStartTimeDraft(event.target.value)}
                   onBlur={() => void saveStart()}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
                       event.currentTarget.blur();
                     }
                     if (event.key === "Escape") {
-                      setStartDraft(localDatetimeValue(new Date(entry.startedAt)));
+                      setStartTimeDraft(localTimeValue(new Date(entry.startedAt)));
                       setActiveField(null);
                     }
                   }}
@@ -249,7 +294,7 @@ export function TrackerEntryRow({
                   type="button"
                   aria-label={`${t("tracker.start")}: ${formatDateTime(entry.startedAt)}`}
                   onClick={() => {
-                    setStartDraft(localDatetimeValue(new Date(entry.startedAt)));
+                    setStartTimeDraft(localTimeValue(new Date(entry.startedAt)));
                     setActiveField("start");
                   }}
                   className="hover:underline"
@@ -266,16 +311,16 @@ export function TrackerEntryRow({
                   {editable && activeField === "end" ? (
                     <input
                       aria-label={t("tracker.end")}
-                      type="datetime-local"
-                      value={endDraft}
-                      onChange={(event) => setEndDraft(event.target.value)}
+                      type="time"
+                      value={endTimeDraft}
+                      onChange={(event) => setEndTimeDraft(event.target.value)}
                       onBlur={() => void saveEnd()}
                       onKeyDown={(event) => {
                         if (event.key === "Enter") {
                           event.currentTarget.blur();
                         }
                         if (event.key === "Escape") {
-                          setEndDraft(localDatetimeValue(new Date(entry.endedAt!)));
+                          setEndTimeDraft(localTimeValue(new Date(entry.endedAt!)));
                           setActiveField(null);
                         }
                       }}
@@ -287,7 +332,7 @@ export function TrackerEntryRow({
                       type="button"
                       aria-label={`${t("tracker.end")}: ${formatDateTime(entry.endedAt)}`}
                       onClick={() => {
-                        setEndDraft(localDatetimeValue(new Date(entry.endedAt!)));
+                        setEndTimeDraft(localTimeValue(new Date(entry.endedAt!)));
                         setActiveField("end");
                       }}
                       className="hover:underline"
@@ -299,6 +344,43 @@ export function TrackerEntryRow({
                   )}
                 </>
               )}
+
+              {editable && activeField === "date" ? (
+                <input
+                  aria-label={t("tracker.date")}
+                  type="date"
+                  value={dateDraft}
+                  onChange={(event) => setDateDraft(event.target.value)}
+                  onBlur={() => void saveDate()}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
+                    }
+                    if (event.key === "Escape") {
+                      setDateDraft(localDateValue(new Date(entry.startedAt)));
+                      setActiveField(null);
+                    }
+                  }}
+                  autoFocus
+                  className={inputClass}
+                />
+              ) : editable ? (
+                <button
+                  type="button"
+                  aria-label={t("tracker.changeDate")}
+                  onClick={() => {
+                    setDateDraft(localDateValue(new Date(entry.startedAt)));
+                    setActiveField("date");
+                  }}
+                  className="inline-flex items-center text-muted hover:text-content"
+                >
+                  <Calendar
+                    size={CALENDAR_ICON_SIZE}
+                    strokeWidth={CALENDAR_ICON_STROKE}
+                    aria-hidden="true"
+                  />
+                </button>
+              ) : null}
             </div>
           </>
         )}

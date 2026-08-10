@@ -58,7 +58,7 @@ export function TrackerTimerBar({
   return (
     <section
       aria-label={t("tracker.timerBar")}
-      className={`sticky top-0 z-10 ${panelClass} shadow-sm`}
+      className={`sticky top-0 z-10 md:top-14 ${panelClass} shadow-sm`}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">

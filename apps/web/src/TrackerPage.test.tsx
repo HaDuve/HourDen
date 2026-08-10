@@ -6,7 +6,7 @@ import { createMatchMedia } from "./test/match-media.js";
 import { MockEventSource, resetMockEventSources } from "./test/mock-event-source.js";
 import { renderWithRunningTimer } from "./test/render-with-running-timer.js";
 import { resetWorkspaceEventsConnectionForTests } from "./workspace-events-connection.js";
-import { localDatetimeValue } from "./tracker/localDatetimeValue.js";
+import { localDatetimeValue, localTimeValue } from "./tracker/localDatetimeValue.js";
 
 vi.mock("./today-date.js", () => ({
   todayDateInTimeZone: () => "2026-07-02",
@@ -924,10 +924,10 @@ describe("TrackerPage", () => {
 
     const morningRow = screen.getByText("Morning work").closest("li");
     expect(morningRow).not.toBeNull();
-    fireEvent.click(within(morningRow!).getByRole("button", { name: /^start:/i }));
-    const startInput = within(morningRow!).getByLabelText(/^start$/i);
-    fireEvent.change(startInput, { target: { value: "2026-06-25T08:00" } });
-    fireEvent.blur(startInput);
+    fireEvent.click(within(morningRow!).getByRole("button", { name: /^change date$/i }));
+    const dateInput = screen.getByLabelText(/^date$/i);
+    fireEvent.change(dateInput, { target: { value: "2026-06-25" } });
+    fireEvent.blur(dateInput);
 
     await waitFor(() => {
       const jun25Header = screen.getByText("Thu, Jun 25").closest("div");
@@ -1000,7 +1000,7 @@ describe("TrackerPage", () => {
     const morningRow = screen.getByText("Morning work").closest("li");
     fireEvent.click(within(morningRow!).getByRole("button", { name: /^end:/i }));
     const endInput = within(morningRow!).getByLabelText(/^end$/i);
-    fireEvent.change(endInput, { target: { value: "2026-07-02T07:00" } });
+    fireEvent.change(endInput, { target: { value: "07:00" } });
     fireEvent.blur(endInput);
 
     await waitFor(() => {
@@ -1074,7 +1074,7 @@ describe("TrackerPage", () => {
     fireEvent.click(within(morningRow!).getByRole("button", { name: /^end:/i }));
     const endInput = within(morningRow!).getByLabelText(/^end$/i);
     fireEvent.change(endInput, {
-      target: { value: localDatetimeValue(new Date(updatedEndedAt)) },
+      target: { value: localTimeValue(new Date(updatedEndedAt)) },
     });
     fireEvent.blur(endInput);
 

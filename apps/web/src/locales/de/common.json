@@ -234,6 +234,8 @@
     "description": "Beschreibung",
     "start": "Start",
     "end": "Ende",
+    "date": "Datum",
+    "changeDate": "Datum ändern",
     "duration": "Dauer",
     "projectOptional": "Projekt (optional)",
     "noProject": "Kein Projekt",

@@ -47,7 +47,7 @@ function renderRow(
       isMobile={false}
       formatDurationMinutes={(m) => `${m} min`}
       formatCurrency={(amount) => `€${amount.toFixed(2)}`}
-      formatDateTime={() => "Jul 2, 08:00"}
+      formatDateTime={() => "08:00"}
       saving={false}
       onPatch={onPatch}
       onDelete={() => undefined}
@@ -92,23 +92,31 @@ describe("TrackerEntryRow", () => {
     });
   });
 
-  it("patches startedAt when the inline start field is saved on desktop", async () => {
+  it("patches startedAt when the inline start time is saved on desktop", async () => {
     const { onPatch } = renderRow();
 
     fireEvent.click(screen.getByRole("button", { name: /^start:/i }));
 
     const startInput = screen.getByLabelText(/^start$/i);
-    fireEvent.change(startInput, { target: { value: "2026-07-02T07:30" } });
+    expect(startInput).toHaveAttribute("type", "time");
+    fireEvent.change(startInput, { target: { value: "07:30" } });
     fireEvent.blur(startInput);
 
+    const start = new Date(stoppedEntry.startedAt);
+    const expected = new Date(
+      start.getFullYear(),
+      start.getMonth(),
+      start.getDate(),
+      7,
+      30,
+    ).toISOString();
+
     await waitFor(() => {
-      expect(onPatch).toHaveBeenCalledWith({
-        startedAt: new Date("2026-07-02T07:30").toISOString(),
-      });
+      expect(onPatch).toHaveBeenCalledWith({ startedAt: expected });
     });
   });
 
-  it("does not patch start when the inline field is blurred without edits", async () => {
+  it("does not patch start when the inline time is blurred without edits", async () => {
     const entryWithSeconds = {
       ...stoppedEntry,
       startedAt: "2026-07-02T08:34:42.123Z",
@@ -126,23 +134,31 @@ describe("TrackerEntryRow", () => {
     });
   });
 
-  it("patches endedAt when the inline end field is saved on desktop", async () => {
+  it("patches endedAt when the inline end time is saved on desktop", async () => {
     const { onPatch } = renderRow();
 
     fireEvent.click(screen.getByRole("button", { name: /^end:/i }));
 
     const endInput = screen.getByLabelText(/^end$/i);
-    fireEvent.change(endInput, { target: { value: "2026-07-02T10:30" } });
+    expect(endInput).toHaveAttribute("type", "time");
+    fireEvent.change(endInput, { target: { value: "10:30" } });
     fireEvent.blur(endInput);
 
+    const end = new Date(stoppedEntry.endedAt);
+    const expected = new Date(
+      end.getFullYear(),
+      end.getMonth(),
+      end.getDate(),
+      10,
+      30,
+    ).toISOString();
+
     await waitFor(() => {
-      expect(onPatch).toHaveBeenCalledWith({
-        endedAt: new Date("2026-07-02T10:30").toISOString(),
-      });
+      expect(onPatch).toHaveBeenCalledWith({ endedAt: expected });
     });
   });
 
-  it("does not patch end when the inline field is blurred without edits", async () => {
+  it("does not patch end when the inline time is blurred without edits", async () => {
     const entryWithSeconds = {
       ...stoppedEntry,
       endedAt: "2026-07-02T09:45:12.456Z",
@@ -157,6 +173,63 @@ describe("TrackerEntryRow", () => {
 
     await waitFor(() => {
       expect(onPatch).not.toHaveBeenCalled();
+    });
+  });
+
+  it("patches start and end together when the calendar date changes", async () => {
+    const { onPatch } = renderRow();
+
+    fireEvent.click(screen.getByRole("button", { name: /^change date$/i }));
+
+    const dateInput = screen.getByLabelText(/^date$/i);
+    expect(dateInput).toHaveAttribute("type", "date");
+    fireEvent.change(dateInput, { target: { value: "2026-07-05" } });
+    fireEvent.blur(dateInput);
+
+    const start = new Date(stoppedEntry.startedAt);
+    const end = new Date(stoppedEntry.endedAt!);
+    const expectedStart = new Date(
+      2026,
+      6,
+      5,
+      start.getHours(),
+      start.getMinutes(),
+    ).toISOString();
+    const expectedEnd = new Date(
+      2026,
+      6,
+      5,
+      end.getHours(),
+      end.getMinutes(),
+    ).toISOString();
+
+    await waitFor(() => {
+      expect(onPatch).toHaveBeenCalledWith({
+        startedAt: expectedStart,
+        endedAt: expectedEnd,
+      });
+    });
+  });
+
+  it("shifts an overnight entry by the calendar delta instead of collapsing it", async () => {
+    const overnight = {
+      ...stoppedEntry,
+      startedAt: new Date(2026, 6, 2, 22, 0).toISOString(),
+      endedAt: new Date(2026, 6, 3, 2, 0).toISOString(),
+    };
+    const { onPatch } = renderRow({ entry: overnight });
+
+    fireEvent.click(screen.getByRole("button", { name: /^change date$/i }));
+    fireEvent.change(screen.getByLabelText(/^date$/i), {
+      target: { value: "2026-07-05" },
+    });
+    fireEvent.blur(screen.getByLabelText(/^date$/i));
+
+    await waitFor(() => {
+      expect(onPatch).toHaveBeenCalledWith({
+        startedAt: new Date(2026, 6, 5, 22, 0).toISOString(),
+        endedAt: new Date(2026, 6, 6, 2, 0).toISOString(),
+      });
     });
   });
 
@@ -207,7 +280,7 @@ describe("TrackerEntryRow", () => {
 
     expect(
       screen.queryByRole("button", {
-        name: /morning work no project · jul 2, 08:00 – jul 2, 08:00/i,
+        name: /morning work no project · 08:00 – 08:00/i,
       }),
     ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^invoiced$/i })).toBeDisabled();
@@ -234,7 +307,7 @@ describe("TrackerEntryRow", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: /morning work no project · jul 2, 08:00 – jul 2, 08:00/i,
+        name: /morning work no project · 08:00 – 08:00/i,
       }),
     );
 

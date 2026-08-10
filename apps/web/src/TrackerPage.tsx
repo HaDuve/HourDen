@@ -25,7 +25,7 @@ import {
   storeTrackerEntryLimit,
   type TrackerEntryLimit,
 } from "./tracker-entry-limit.js";
-import { formatEntryDateTime } from "./tracker/formatEntryDateTime.js";
+import { formatEntryTime } from "./tracker/formatEntryTime.js";
 import { groupProjectsByClient } from "./tracker/groupProjectsByClient.js";
 import {
   TrackerEntryEditForm,
@@ -573,7 +573,7 @@ export default function TrackerPage() {
                           isMobile={isMobile}
                           formatDurationMinutes={formatDurationMinutes}
                           formatCurrency={formatCurrency}
-                          formatDateTime={(iso) => formatEntryDateTime(iso, locale)}
+                          formatDateTime={(iso) => formatEntryTime(iso, locale)}
                           saving={saving}
                           onPatch={async (patch) => {
                             await patchEntry(entry.id, patch);
