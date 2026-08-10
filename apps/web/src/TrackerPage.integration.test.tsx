@@ -65,6 +65,11 @@ describeWithAuthenticatedWorkspace(
       expect(screen.getByText("Follow-up work")).toBeInTheDocument();
     });
 
+    await waitFor(() => {
+      expect(
+        within(timerBar()).getByRole("button", { name: /start timer/i }),
+      ).toBeEnabled();
+    });
     fireEvent.click(within(timerBar()).getByRole("button", { name: /start timer/i }));
 
     await waitFor(
