@@ -60,6 +60,9 @@ export function DescriptionAutocomplete({
   const [open, setOpen] = useState(false);
   const [focused, setFocused] = useState(autoFocus);
   const skipBlurCallbackRef = useRef(false);
+  const suppressOpenRef = useRef(false);
+  const valueRef = useRef(value);
+  valueRef.current = value;
 
   useEffect(() => {
     if (!focused) {
@@ -72,16 +75,19 @@ export function DescriptionAutocomplete({
 
     void fetchDescriptionSuggestions(trimmed)
       .then((loaded) => {
-        if (!cancelled) {
-          setSuggestions(loaded);
-          if (!trimmed) {
-            // Empty focus: open recent Descriptions when any exist.
-            setOpen(loaded.length > 0);
-          } else if (loaded.length === 0) {
-            // Typed query: never reopen after select; only close when empty.
-            setOpen(false);
-          }
+        if (cancelled) {
+          return;
         }
+        setSuggestions(loaded);
+        if (suppressOpenRef.current) {
+          setOpen(false);
+          return;
+        }
+        // Ignore stale responses when the Operator has already typed further.
+        if (valueRef.current.trim() !== trimmed) {
+          return;
+        }
+        setOpen(loaded.length > 0);
       })
       .catch(() => {
         if (!cancelled) {
@@ -109,6 +115,7 @@ export function DescriptionAutocomplete({
   }, []);
 
   const handleSelect = (suggestion: DescriptionSuggestion) => {
+    suppressOpenRef.current = true;
     skipBlurCallbackRef.current = true;
     onChange(suggestion.description);
     onSuggestionSelect(suggestion);
@@ -126,6 +133,7 @@ export function DescriptionAutocomplete({
       value={value}
       autoFocus={autoFocus}
       onChange={(event) => {
+        suppressOpenRef.current = false;
         setFocused(true);
         onChange(event.target.value);
         if (event.target.value.trim()) {
