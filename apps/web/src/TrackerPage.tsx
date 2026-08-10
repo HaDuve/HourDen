@@ -215,6 +215,12 @@ export default function TrackerPage() {
 
   useEffect(() => {
     if (!running) {
+      setBarForm((current) => {
+        if (current.startedAt === "" && current.endedAt === "") {
+          return current;
+        }
+        return { ...current, startedAt: "", endedAt: "" };
+      });
       return;
     }
 
@@ -316,11 +322,6 @@ export default function TrackerPage() {
       if (!res.ok) {
         throw new Error(`Start failed (${res.status})`);
       }
-      setBarForm((current) => ({
-        ...current,
-        startedAt: "",
-        endedAt: "",
-      }));
       await load();
       await refreshRunningTimer();
     } catch {

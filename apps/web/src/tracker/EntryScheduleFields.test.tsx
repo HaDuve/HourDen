@@ -18,6 +18,8 @@ describe("EntryScheduleFields", () => {
 
     expect(screen.getByLabelText(/^start$/i)).toHaveAttribute("placeholder", "hh:mm");
     expect(screen.getByLabelText(/^end$/i)).toHaveAttribute("placeholder", "hh:mm");
+    expect(screen.getByLabelText(/^start$/i)).toHaveAttribute("type", "text");
+    expect(screen.getByLabelText(/^end$/i)).toHaveAttribute("type", "text");
   });
 
   it("edits start and end as times and the shared date only via the calendar icon", () => {

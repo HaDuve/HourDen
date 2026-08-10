@@ -266,6 +266,50 @@ describe("TrackerPage", () => {
     expect(within(bar).getByLabelText(/^end$/i)).toHaveValue("");
   });
 
+  it("clears Start and End when the Running Timer ends remotely without stopTimer", async () => {
+    const runningEntry = {
+      ...morningEntry,
+      endedAt: null,
+      isRunning: true,
+      billableComplete: false,
+      durationMinutes: 5,
+      amount: null,
+    };
+    let isRunning = true;
+    const fetchMock = createFetchMock([runningEntry], runningEntry);
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/time-entries/running") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ entry: isRunning ? runningEntry : null }),
+        });
+      }
+      return createFetchMock(
+        isRunning ? [runningEntry] : [],
+        isRunning ? runningEntry : null,
+      )(url, init);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTrackerPage();
+
+    const bar = screen.getByRole("region", { name: /timer bar/i });
+    const startLocal = localDatetimeValue(new Date(runningEntry.startedAt));
+    const { time } = localDateAndTime(startLocal);
+    await waitFor(() => {
+      expect(within(bar).getByLabelText(/^start$/i)).toHaveValue(time);
+    });
+
+    isRunning = false;
+    MockEventSource.instances[0]?.emit("timer-changed");
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /start timer/i })).toBeInTheDocument();
+      expect(within(bar).getByLabelText(/^start$/i)).toHaveValue("");
+      expect(within(bar).getByLabelText(/^end$/i)).toHaveValue("");
+    });
+  });
+
   it("creates a Manual Entry from Start and End on the timer bar", async () => {
     const fetchMock = createFetchMock([]);
     fetchMock.mockImplementation((url: string, init?: RequestInit) => {
@@ -507,6 +551,70 @@ describe("TrackerPage", () => {
         }),
       );
     });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /start timer/i })).toBeInTheDocument();
+    });
+    expect(within(bar).getByLabelText(/^start$/i)).toHaveValue("");
+    expect(within(bar).getByLabelText(/^end$/i)).toHaveValue("");
+    expect(within(bar).getByLabelText(/^description$/i)).toHaveValue("");
+  });
+
+  it("clears the timer bar when Stop timer is pressed", async () => {
+    const runningEntry = {
+      ...morningEntry,
+      endedAt: null,
+      isRunning: true,
+      billableComplete: false,
+      durationMinutes: 5,
+      amount: null,
+    };
+    const stoppedEntry = {
+      ...runningEntry,
+      endedAt: "2026-07-02T09:15:00.000Z",
+      isRunning: false,
+      durationMinutes: 75,
+    };
+    let isRunning = true;
+    const fetchMock = createFetchMock([runningEntry], runningEntry);
+    fetchMock.mockImplementation(((url: string, init?: RequestInit) => {
+      if (
+        url === `/api/time-entries/${runningEntry.id}/stop` &&
+        init?.method === "POST"
+      ) {
+        isRunning = false;
+        return Promise.resolve({
+          ok: true,
+          json: async () => stoppedEntry,
+        });
+      }
+      if (url === "/api/time-entries/running") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ entry: isRunning ? runningEntry : null }),
+        });
+      }
+      if (url === "/api/time-entries?limit=50") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            entries: isRunning ? [runningEntry] : [stoppedEntry],
+          }),
+        });
+      }
+      return createFetchMock([runningEntry], runningEntry)(url, init);
+    }) as typeof fetchMock);
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTrackerPage();
+
+    const bar = screen.getByRole("region", { name: /timer bar/i });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /stop timer/i })).toBeInTheDocument();
+      expect(within(bar).getByLabelText(/^description$/i)).toHaveValue("Morning work");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /stop timer/i }));
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /start timer/i })).toBeInTheDocument();
