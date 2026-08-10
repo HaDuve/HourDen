@@ -33,11 +33,16 @@ describe("TrackerTimerBar", () => {
         projectId=""
         projectGroups={projectGroups}
         saving={false}
+        startedAt=""
+        endedAt=""
         onDescriptionChange={vi.fn()}
         onDescriptionSuggestionSelect={vi.fn()}
         onProjectChange={vi.fn()}
+        onStartedAtChange={vi.fn()}
+        onEndedAtChange={vi.fn()}
         onStart={vi.fn()}
         onStop={vi.fn()}
+        onAddManual={vi.fn()}
       />,
     );
 
@@ -54,6 +59,74 @@ describe("TrackerTimerBar", () => {
     expect(screen.queryByRole("button", { name: /stop timer/i })).not.toBeInTheDocument();
   });
 
+  it("shows empty Start and End fields below the live counter and start control", () => {
+    render(
+      <TrackerTimerBar
+        running={null}
+        liveCounter="0:00:00"
+        description=""
+        projectId=""
+        projectGroups={projectGroups}
+        saving={false}
+        startedAt=""
+        endedAt=""
+        onDescriptionChange={vi.fn()}
+        onDescriptionSuggestionSelect={vi.fn()}
+        onProjectChange={vi.fn()}
+        onStartedAtChange={vi.fn()}
+        onEndedAtChange={vi.fn()}
+        onStart={vi.fn()}
+        onStop={vi.fn()}
+        onAddManual={vi.fn()}
+      />,
+    );
+
+    const startField = screen.getByLabelText(/^start$/i);
+    const endField = screen.getByLabelText(/^end$/i);
+    expect(startField).toHaveAttribute("type", "datetime-local");
+    expect(endField).toHaveAttribute("type", "datetime-local");
+    expect(startField).toHaveValue("");
+    expect(endField).toHaveValue("");
+
+    const counter = screen.getByText("0:00:00");
+    const startButton = screen.getByRole("button", { name: /start timer/i });
+    expect(
+      counter.compareDocumentPosition(startField) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      startButton.compareDocumentPosition(startField) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("sticks the timer bar just below the header band", () => {
+    render(
+      <TrackerTimerBar
+        running={null}
+        liveCounter="0:00:00"
+        description=""
+        projectId=""
+        projectGroups={projectGroups}
+        saving={false}
+        startedAt=""
+        endedAt=""
+        onDescriptionChange={vi.fn()}
+        onDescriptionSuggestionSelect={vi.fn()}
+        onProjectChange={vi.fn()}
+        onStartedAtChange={vi.fn()}
+        onEndedAtChange={vi.fn()}
+        onStart={vi.fn()}
+        onStop={vi.fn()}
+        onAddManual={vi.fn()}
+      />,
+    );
+
+    const bar = screen.getByRole("region", { name: /timer bar/i });
+    expect(bar.className).toMatch(/sticky/);
+    expect(bar.className).toMatch(/(?:^|\s)top-0(?:\s|$)/);
+    expect(bar.className).toMatch(/md:top-14/);
+    expect(bar.className).toMatch(/z-10/);
+  });
+
   it("keeps project select and live counter in separate non-overlapping regions", () => {
     render(
       <TrackerTimerBar
@@ -63,11 +136,16 @@ describe("TrackerTimerBar", () => {
         projectId=""
         projectGroups={projectGroups}
         saving={false}
+        startedAt=""
+        endedAt=""
         onDescriptionChange={vi.fn()}
         onDescriptionSuggestionSelect={vi.fn()}
         onProjectChange={vi.fn()}
+        onStartedAtChange={vi.fn()}
+        onEndedAtChange={vi.fn()}
         onStart={vi.fn()}
         onStop={vi.fn()}
+        onAddManual={vi.fn()}
       />,
     );
 
@@ -106,11 +184,16 @@ describe("TrackerTimerBar", () => {
         projectId="p1"
         projectGroups={projectGroups}
         saving={false}
+        startedAt=""
+        endedAt=""
         onDescriptionChange={vi.fn()}
         onDescriptionSuggestionSelect={vi.fn()}
         onProjectChange={vi.fn()}
+        onStartedAtChange={vi.fn()}
+        onEndedAtChange={vi.fn()}
         onStart={vi.fn()}
         onStop={vi.fn()}
+        onAddManual={vi.fn()}
       />,
     );
 
@@ -130,15 +213,76 @@ describe("TrackerTimerBar", () => {
         projectId=""
         projectGroups={[]}
         saving={false}
+        startedAt=""
+        endedAt=""
         onDescriptionChange={vi.fn()}
         onDescriptionSuggestionSelect={vi.fn()}
         onProjectChange={vi.fn()}
+        onStartedAtChange={vi.fn()}
+        onEndedAtChange={vi.fn()}
         onStart={onStart}
         onStop={vi.fn()}
+        onAddManual={vi.fn()}
       />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: /start timer/i }));
     expect(onStart).toHaveBeenCalledOnce();
+  });
+
+  it("disables Start and End fields while saving", () => {
+    render(
+      <TrackerTimerBar
+        running={null}
+        liveCounter="0:00:00"
+        description=""
+        projectId=""
+        projectGroups={[]}
+        saving={true}
+        startedAt=""
+        endedAt=""
+        onDescriptionChange={vi.fn()}
+        onDescriptionSuggestionSelect={vi.fn()}
+        onProjectChange={vi.fn()}
+        onStartedAtChange={vi.fn()}
+        onEndedAtChange={vi.fn()}
+        onStart={vi.fn()}
+        onStop={vi.fn()}
+        onAddManual={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText(/^start$/i)).toBeDisabled();
+    expect(screen.getByLabelText(/^end$/i)).toBeDisabled();
+  });
+
+  it("replaces Start timer with Add entry when both Start and End are set", () => {
+    const onAddManual = vi.fn();
+    const onStart = vi.fn();
+    render(
+      <TrackerTimerBar
+        running={null}
+        liveCounter="0:00:00"
+        description="Backfill"
+        projectId=""
+        projectGroups={[]}
+        saving={false}
+        startedAt="2026-07-02T08:00"
+        endedAt="2026-07-02T09:00"
+        onDescriptionChange={vi.fn()}
+        onDescriptionSuggestionSelect={vi.fn()}
+        onProjectChange={vi.fn()}
+        onStartedAtChange={vi.fn()}
+        onEndedAtChange={vi.fn()}
+        onStart={onStart}
+        onStop={vi.fn()}
+        onAddManual={onAddManual}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: /start timer/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /add entry/i }));
+    expect(onAddManual).toHaveBeenCalledOnce();
+    expect(onStart).not.toHaveBeenCalled();
   });
 });

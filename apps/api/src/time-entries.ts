@@ -90,6 +90,9 @@ export function createTimeEntriesRouter(pool: Pool) {
     if (result === "invalid_project") {
       return c.json({ error: "Project not found" }, 404);
     }
+    if (result === "invalid_started_at") {
+      return c.json({ error: "startedAt is invalid" }, 400);
+    }
 
     notifyTimerMutation(getCurrentWorkspaceId());
     return c.json(result, 201);
@@ -111,6 +114,9 @@ export function createTimeEntriesRouter(pool: Pool) {
     }
     if (result === "not_running") {
       return c.json({ error: "Time Entry is not running" }, 409);
+    }
+    if (result === "invalid_range") {
+      return c.json({ error: "endedAt must be after startedAt" }, 400);
     }
 
     notifyTimerMutation(getCurrentWorkspaceId());

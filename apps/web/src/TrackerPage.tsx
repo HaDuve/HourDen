@@ -5,14 +5,11 @@ import { PageMain } from "./layout/PageMain.js";
 import { ResponsiveOverlay } from "./layout/ResponsiveOverlay.js";
 import {
   mobileActionButtonClass,
-  mobilePrimaryButtonClass,
-  mobileSecondaryButtonClass,
 } from "./layout/tap-targets.js";
 import {
   destructiveButtonClass,
   emptyStateClass,
   errorBannerClass,
-  inputClass,
   listPanelClass,
   metaTextClass,
   numericMetaValueClass,
@@ -28,9 +25,8 @@ import {
   storeTrackerEntryLimit,
   type TrackerEntryLimit,
 } from "./tracker-entry-limit.js";
-import { formatEntryDateTime } from "./tracker/formatEntryDateTime.js";
+import { formatEntryTime } from "./tracker/formatEntryTime.js";
 import { groupProjectsByClient } from "./tracker/groupProjectsByClient.js";
-import { localDatetimeValue } from "./tracker/localDatetimeValue.js";
 import {
   TrackerEntryEditForm,
   entryToEditForm,
@@ -44,14 +40,6 @@ import { todayDateInTimeZone } from "./today-date.js";
 import { useDeleteDialog } from "./useDeleteDialog.js";
 import { useRunningTimer } from "./running-timer/RunningTimerContext.js";
 import { useWorkspaceEvents } from "./useWorkspaceEvents.js";
-import { DescriptionAutocomplete } from "./DescriptionAutocomplete.js";
-
-type ManualFormData = {
-  description: string;
-  startedAt: string;
-  endedAt: string;
-  projectId: string;
-};
 
 type EditFormData = TrackerEntryEditFormData;
 
@@ -67,16 +55,16 @@ function durationFromEditForm(form: EditFormData): number {
 type BarFormData = {
   description: string;
   projectId: string;
+  startedAt: string;
+  endedAt: string;
 };
 
-function emptyManualForm(): ManualFormData {
-  const now = new Date();
-  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+function emptyBarForm(): BarFormData {
   return {
     description: "",
-    startedAt: localDatetimeValue(oneHourAgo),
-    endedAt: localDatetimeValue(now),
     projectId: "",
+    startedAt: "",
+    endedAt: "",
   };
 }
 
@@ -129,8 +117,6 @@ export default function TrackerPage() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showManualForm, setShowManualForm] = useState(false);
-  const [manualForm, setManualForm] = useState<ManualFormData>(emptyManualForm);
   const [saving, setSaving] = useState(false);
   const {
     pendingDelete,
@@ -146,10 +132,7 @@ export default function TrackerPage() {
     startedAt: "",
     endedAt: "",
   });
-  const [barForm, setBarForm] = useState<BarFormData>({
-    description: "",
-    projectId: "",
-  });
+  const [barForm, setBarForm] = useState<BarFormData>(emptyBarForm);
 
   const liveCounter = useLiveCounter(running?.startedAt ?? null);
   const projectGroups = useMemo(
@@ -237,6 +220,8 @@ export default function TrackerPage() {
     setBarForm({
       description: running.description ?? "",
       projectId: running.projectId ?? "",
+      startedAt: "",
+      endedAt: "",
     });
   }, [running?.id]);
 
@@ -287,6 +272,8 @@ export default function TrackerPage() {
         description:
           patch.description !== undefined ? patch.description : current.description,
         projectId: updated.projectId ?? "",
+        startedAt: current.startedAt,
+        endedAt: current.endedAt,
       }));
     } catch {
       setError(t("tracker.saveFailed"));
@@ -299,21 +286,40 @@ export default function TrackerPage() {
   };
 
   const startTimer = async () => {
+    if (barForm.endedAt && !barForm.startedAt) {
+      setError(t("tracker.startRequired"));
+      return;
+    }
+
     setSaving(true);
     setError(null);
     suppressRemoteStopNotice();
     try {
+      const body: {
+        description: string | null;
+        projectId: string | null;
+        startedAt?: string;
+      } = {
+        description: barForm.description.trim() || null,
+        projectId: barForm.projectId || null,
+      };
+      if (barForm.startedAt) {
+        body.startedAt = new Date(barForm.startedAt).toISOString();
+      }
+
       const res = await fetch("/api/time-entries/timer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          description: barForm.description.trim() || null,
-          projectId: barForm.projectId || null,
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         throw new Error(`Start failed (${res.status})`);
       }
+      setBarForm((current) => ({
+        ...current,
+        startedAt: "",
+        endedAt: "",
+      }));
       await load();
       await refreshRunningTimer();
     } catch {
@@ -323,34 +329,48 @@ export default function TrackerPage() {
     }
   };
 
-  const stopTimer = async () => {
+  const stopTimer = async (endedAt?: string) => {
     if (!running) return;
 
     setSaving(true);
     setError(null);
     suppressRemoteStopNotice();
     try {
+      const body: { description?: string; endedAt?: string } = {
+        description: barForm.description.trim() || undefined,
+      };
+      if (endedAt) {
+        body.endedAt = new Date(endedAt).toISOString();
+      }
+
       const res = await fetch(`/api/time-entries/${running.id}/stop`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          description: barForm.description.trim() || undefined,
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
-        throw new Error(`Stop failed (${res.status})`);
+        const responseBody = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        const message = responseBody?.error ?? t("tracker.stopFailed");
+        setError(message);
+        throw new Error(message);
       }
+      setBarForm((current) => ({
+        ...current,
+        startedAt: "",
+        endedAt: "",
+      }));
       await load();
       await refreshRunningTimer();
     } catch {
-      setError(t("tracker.stopFailed"));
+      setError((current) => current ?? t("tracker.stopFailed"));
     } finally {
       setSaving(false);
     }
   };
 
-  const saveManualEntry = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const saveManualEntry = async () => {
     setSaving(true);
     setError(null);
 
@@ -359,25 +379,53 @@ export default function TrackerPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          description: manualForm.description.trim(),
-          startedAt: new Date(manualForm.startedAt).toISOString(),
-          endedAt: new Date(manualForm.endedAt).toISOString(),
-          projectId: manualForm.projectId || null,
+          description: barForm.description.trim(),
+          startedAt: new Date(barForm.startedAt).toISOString(),
+          endedAt: new Date(barForm.endedAt).toISOString(),
+          projectId: barForm.projectId || null,
         }),
       });
 
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(body?.error ?? `Save failed (${res.status})`);
+        const message = body?.error ?? t("tracker.saveFailed");
+        setError(message);
+        throw new Error(message);
       }
 
-      setShowManualForm(false);
-      setManualForm(emptyManualForm());
+      setBarForm(emptyBarForm());
       await load();
     } catch {
-      setError(t("tracker.saveFailed"));
+      // Error banner already set for API failures; network failures fall through.
+      setError((current) => current ?? t("tracker.saveFailed"));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleStartedAtChange = (startedAt: string) => {
+    if (saving) return;
+    setBarForm((current) => ({ ...current, startedAt }));
+    if (running && startedAt) {
+      void patchEntry(running.id, {
+        startedAt: new Date(startedAt).toISOString(),
+      }).then((updated) => {
+        replaceRunning(updated);
+      }).catch(() => {
+        // Error banner already set by patchEntry.
+      });
+    }
+  };
+
+  const handleEndedAtChange = (endedAt: string) => {
+    if (saving) return;
+    setBarForm((current) => ({ ...current, endedAt }));
+    if (running && endedAt) {
+      if (new Date(endedAt).getTime() <= new Date(running.startedAt).getTime()) {
+        setError(t("tracker.invalidRange"));
+        return;
+      }
+      void stopTimer(endedAt);
     }
   };
 
@@ -426,8 +474,6 @@ export default function TrackerPage() {
 
   const isMobile = useIsMobile();
   const actionButtonClass = mobileActionButtonClass(isMobile);
-  const primaryButtonClass = mobilePrimaryButtonClass(isMobile);
-  const secondaryButtonClass = mobileSecondaryButtonClass(isMobile);
   const monthGroups =
     calendarTimezone && today
       ? groupTrackerEntriesByMonth(entries, {
@@ -444,13 +490,6 @@ export default function TrackerPage() {
           <h1 className={pageTitleLargeClass}>{t("tracker.title")}</h1>
           <p className={pageSubtitleClass}>{t("tracker.subtitle")}</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowManualForm(true)}
-          className={secondaryButtonClass}
-        >
-          {t("tracker.addManualEntry")}
-        </button>
       </header>
 
       <TrackerTimerBar
@@ -460,14 +499,17 @@ export default function TrackerPage() {
         projectId={barForm.projectId}
         projectGroups={projectGroups}
         saving={saving}
+        startedAt={barForm.startedAt}
+        endedAt={barForm.endedAt}
         onDescriptionChange={(description) =>
           setBarForm((current) => ({ ...current, description }))
         }
         onDescriptionSuggestionSelect={(suggestion) => {
-          setBarForm({
+          setBarForm((current) => ({
+            ...current,
             description: suggestion.description,
             projectId: suggestion.projectId ?? "",
-          });
+          }));
           if (running) {
             void patchRunningEntry({
               description: suggestion.description,
@@ -481,8 +523,11 @@ export default function TrackerPage() {
             void patchRunningEntry({ projectId: projectId || null });
           }
         }}
+        onStartedAtChange={handleStartedAtChange}
+        onEndedAtChange={handleEndedAtChange}
         onStart={() => void startTimer()}
         onStop={() => void stopTimer()}
+        onAddManual={() => void saveManualEntry()}
       />
 
       {error && <p className={errorBannerClass}>{error}</p>}
@@ -528,7 +573,7 @@ export default function TrackerPage() {
                           isMobile={isMobile}
                           formatDurationMinutes={formatDurationMinutes}
                           formatCurrency={formatCurrency}
-                          formatDateTime={(iso) => formatEntryDateTime(iso, locale)}
+                          formatDateTime={(iso) => formatEntryTime(iso, locale)}
                           saving={saving}
                           onPatch={async (patch) => {
                             await patchEntry(entry.id, patch);
@@ -565,108 +610,6 @@ export default function TrackerPage() {
           </select>
         </label>
       </div>
-
-      {showManualForm && (
-        <ResponsiveOverlay ariaLabel={t("tracker.manualEntry")}>
-          <form onSubmit={saveManualEntry} className="w-full">
-            <h2 className="text-lg font-semibold text-content">{t("tracker.manualEntry")}</h2>
-
-            <div className="mt-4 grid gap-3">
-              <DescriptionAutocomplete
-                label={t("tracker.description")}
-                value={manualForm.description}
-                required
-                onChange={(description) =>
-                  setManualForm((current) => ({
-                    ...current,
-                    description,
-                  }))
-                }
-                onSuggestionSelect={(suggestion) =>
-                  setManualForm((current) => ({
-                    ...current,
-                    description: suggestion.description,
-                    projectId: suggestion.projectId ?? "",
-                  }))
-                }
-              />
-
-              <label className="grid gap-1 text-sm text-content">
-                <span>{t("tracker.start")}</span>
-                <input
-                  required
-                  type="datetime-local"
-                  value={manualForm.startedAt}
-                  onChange={(e) =>
-                    setManualForm((current) => ({
-                      ...current,
-                      startedAt: e.target.value,
-                    }))
-                  }
-                  className={inputClass}
-                />
-              </label>
-
-              <label className="grid gap-1 text-sm text-content">
-                <span>{t("tracker.end")}</span>
-                <input
-                  required
-                  type="datetime-local"
-                  value={manualForm.endedAt}
-                  onChange={(e) =>
-                    setManualForm((current) => ({
-                      ...current,
-                      endedAt: e.target.value,
-                    }))
-                  }
-                  className={inputClass}
-                />
-              </label>
-
-              <label className="grid gap-1 text-sm text-content">
-                <span>{t("tracker.projectOptional")}</span>
-                <select
-                  value={manualForm.projectId}
-                  onChange={(e) =>
-                    setManualForm((current) => ({
-                      ...current,
-                      projectId: e.target.value,
-                    }))
-                  }
-                  className={selectClass}
-                >
-                  <option value="">{t("tracker.noProject")}</option>
-                  {projects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowManualForm(false);
-                  setManualForm(emptyManualForm());
-                }}
-                className={secondaryButtonClass}
-              >
-                {t("common.cancel")}
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className={primaryButtonClass}
-              >
-                {saving ? t("common.saving") : t("common.save")}
-              </button>
-            </div>
-          </form>
-        </ResponsiveOverlay>
-      )}
 
       {editing && isMobile && (
         <ResponsiveOverlay ariaLabel={t("tracker.editEntry")}>

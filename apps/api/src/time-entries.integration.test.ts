@@ -55,6 +55,35 @@ describeWithAuthenticatedWorkspace("Time Entry API", (getWorkspace) => {
     expect(entry.durationMinutes).toBeGreaterThanOrEqual(0);
   });
 
+  it("starts a Running Timer with an explicit startedAt", async () => {
+    const startedAt = "2026-07-02T08:00:00.000Z";
+    const res = await getWorkspace().app.request("/api/time-entries/timer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ startedAt, description: "Backdated start" }),
+    });
+
+    expect(res.status).toBe(201);
+    const entry = await res.json();
+    expect(entry).toMatchObject({
+      description: "Backdated start",
+      startedAt,
+      endedAt: null,
+      isRunning: true,
+    });
+  });
+
+  it("rejects starting a Running Timer with an invalid startedAt", async () => {
+    const res = await getWorkspace().app.request("/api/time-entries/timer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ startedAt: "not-a-date" }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "startedAt is invalid" });
+  });
+
   it("publishes timer-changed when a Running Timer is started", async () => {
     const streamRes = await getWorkspace().app.request(
       "/api/events",
@@ -167,6 +196,29 @@ describeWithAuthenticatedWorkspace("Time Entry API", (getWorkspace) => {
     ).json();
 
     expect(completed.billableComplete).toBe(true);
+  });
+
+  it("rejects stopping a Running Timer when endedAt is not after startedAt", async () => {
+    const started = await (
+      await getWorkspace().app.request("/api/time-entries/timer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ startedAt: "2026-07-02T10:00:00.000Z" }),
+      })
+    ).json();
+
+    const res = await getWorkspace().app.request(`/api/time-entries/${started.id}/stop`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ endedAt: "2026-07-02T09:00:00.000Z" }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "endedAt must be after startedAt" });
+
+    const runningRes = await getWorkspace().app.request("/api/time-entries/running");
+    const { entry: running } = await runningRes.json();
+    expect(running.id).toBe(started.id);
   });
 
   it("rejects a Project from another workspace", async () => {

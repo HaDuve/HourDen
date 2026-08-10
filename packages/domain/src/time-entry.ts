@@ -18,6 +18,7 @@ export type TimeEntry = {
 export type StartTimerInput = {
   projectId?: string | null;
   description?: string | null;
+  startedAt?: string;
 };
 
 export type StopTimerInput = {

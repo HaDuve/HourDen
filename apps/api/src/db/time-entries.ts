@@ -157,9 +157,17 @@ export async function startTimer(
   pool: Pool,
   workspaceId: string,
   input: StartTimerInput,
-): Promise<TimeEntry | "invalid_project"> {
+): Promise<TimeEntry | "invalid_project" | "invalid_started_at"> {
   const projectCheck = await validateProjectId(pool, workspaceId, input.projectId);
   if (projectCheck === "invalid_project") return "invalid_project";
+
+  let startedAt = new Date();
+  if (input.startedAt !== undefined) {
+    startedAt = new Date(input.startedAt);
+    if (Number.isNaN(startedAt.getTime())) {
+      return "invalid_started_at";
+    }
+  }
 
   const client = await pool.connect();
   try {
@@ -224,7 +232,7 @@ export async function startTimer(
           started_at,
           description
         )
-        VALUES ($1, $2, now(), $3)
+        VALUES ($1, $2, $3, $4)
         RETURNING
           id,
           project_id,
@@ -239,6 +247,7 @@ export async function startTimer(
       [
         workspaceId,
         input.projectId ?? null,
+        startedAt,
         input.description?.trim() || null,
       ],
     );
@@ -284,12 +293,16 @@ export async function stopTimer(
   workspaceId: string,
   entryId: string,
   input: StopTimerInput,
-): Promise<TimeEntry | "not_found" | "not_running"> {
+): Promise<TimeEntry | "not_found" | "not_running" | "invalid_range"> {
   const row = await getTimeEntryRow(pool, workspaceId, entryId);
   if (!row) return "not_found";
   if (row.ended_at) return "not_running";
 
   const endedAt = input.endedAt ? new Date(input.endedAt) : new Date();
+  if (endedAt <= row.started_at) {
+    return "invalid_range";
+  }
+
   const description =
     input.description !== undefined
       ? input.description?.trim() || null
