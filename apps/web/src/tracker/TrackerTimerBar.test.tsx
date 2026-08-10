@@ -85,10 +85,13 @@ describe("TrackerTimerBar", () => {
 
     const startField = screen.getByLabelText(/^start$/i);
     const endField = screen.getByLabelText(/^end$/i);
-    expect(startField).toHaveAttribute("type", "time");
-    expect(endField).toHaveAttribute("type", "time");
+    expect(startField).toHaveAttribute("placeholder", "hh:mm");
+    expect(endField).toHaveAttribute("placeholder", "hh:mm");
     expect(startField).toHaveValue("");
     expect(endField).toHaveValue("");
+    fireEvent.focus(startField);
+    expect(startField).toHaveAttribute("type", "time");
+    fireEvent.blur(startField);
     expect(screen.queryByLabelText(/^date$/i)).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: new RegExp(`^change date: ${today}$`, "i") }),
