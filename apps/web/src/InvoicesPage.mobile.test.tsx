@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import InvoicesPage from "./InvoicesPage.js";
 import { mockMobileViewport } from "./test/viewport.js";
 
@@ -84,7 +84,7 @@ describe("InvoicesPage mobile layout", () => {
     expect(screen.getByRole("list")).toBeInTheDocument();
   });
 
-  it("shows invoice preview in a bottom sheet on mobile", async () => {
+  it("shows invoice preview inline on mobile after auto-preview", async () => {
     mockMobileViewport();
     vi.stubGlobal(
       "fetch",
@@ -144,12 +144,13 @@ describe("InvoicesPage mobile layout", () => {
       expect(screen.getByLabelText(/^client$/i)).toHaveValue(bandaoClient.id);
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
-
     await waitFor(() => {
-      const dialog = screen.getByRole("dialog", { name: /invoice preview/i });
-      expect(dialog).toHaveAttribute("data-presentation", "sheet");
-      expect(within(dialog).getByTitle(/invoice preview/i)).toBeInTheDocument();
+      const region = screen.getByRole("region", { name: /invoice preview/i });
+      expect(region).toBeInTheDocument();
+      expect(screen.getByTitle(/invoice preview/i)).toBeInTheDocument();
+      expect(
+        screen.queryByRole("dialog", { name: /invoice preview/i }),
+      ).not.toBeInTheDocument();
     });
   });
 });

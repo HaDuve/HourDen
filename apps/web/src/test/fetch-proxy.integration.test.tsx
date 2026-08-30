@@ -1,6 +1,6 @@
 import "./load-env.js";
 
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import InvoicesPage from "../InvoicesPage.js";
@@ -16,7 +16,12 @@ async function waitForClientReady(clientName: string, clientId: string) {
       within(clientSelect).getByRole("option", { name: clientName }),
     ).toBeInTheDocument();
     expect(clientSelect).toHaveValue(clientId);
-    expect(screen.getByRole("button", { name: /^preview$/i })).toBeEnabled();
+  });
+}
+
+async function waitForAutoPreview() {
+  await waitFor(() => {
+    expect(screen.getByTitle(/invoice preview/i)).toBeInTheDocument();
   });
 }
 
@@ -151,9 +156,7 @@ describeWithAuthenticatedWorkspace(
       await waitForClientReady("Bandao", bandao.id);
       fireEvent.click(screen.getByRole("button", { name: /last month/i }));
 
-      await act(async () => {
-        fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
-      });
+      await waitForAutoPreview();
 
       await waitFor(
         () => {
