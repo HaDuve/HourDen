@@ -71,8 +71,10 @@ async function waitForQuietBillingMonthPreview() {
     () => {
       expect(screen.queryByTitle(/invoice preview/i)).not.toBeInTheDocument();
       expect(
-        within(previewRegion()).getByText((_, element) =>
-          isQuietInvoiceConflictMessage(element?.textContent ?? ""),
+        within(previewRegion()).getByText(
+          (content, element) =>
+            element?.tagName === "P" &&
+            isQuietInvoiceConflictMessage(content),
         ),
       ).toBeInTheDocument();
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
