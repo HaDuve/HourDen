@@ -97,6 +97,7 @@
     "invoiceNumberSettingsHelpLine2": "You can edit the number before issuing and choose how future invoices continue. Prefix and sequence order apply to this Client after you issue.",
     "invoiceNumberAfterPreview": "After preview",
     "usesSmallBusinessRule": "Uses Kleinunternehmerregelung (§19 UStG)",
+    "moreSettings": "More settings",
     "invoicePrefix": "Invoice Prefix",
     "invoiceNumber": "Invoice Number",
     "invoiceNumberExists": "Invoice Number already exists in this Workspace.",
