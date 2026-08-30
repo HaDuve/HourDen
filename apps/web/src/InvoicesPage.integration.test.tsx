@@ -61,6 +61,22 @@ async function waitForAutoPreview() {
   });
 }
 
+function previewRegion() {
+  return screen.getByRole("region", { name: /invoice preview/i });
+}
+
+async function waitForQuietBillingMonthPreview() {
+  await waitFor(() => {
+    expect(screen.queryByTitle(/invoice preview/i)).not.toBeInTheDocument();
+    expect(
+      within(previewRegion()).getByText(
+        /invoice already exists for this client and billing month/i,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+}
+
 describeWithAuthenticatedWorkspace(
   "InvoicesPage with live API",
   (getWorkspace) => {
@@ -129,6 +145,8 @@ describeWithAuthenticatedWorkspace(
         expect(clickSpy).not.toHaveBeenCalled();
       });
       clickSpy.mockRestore();
+
+      await waitForQuietBillingMonthPreview();
 
       const afterIssue = await (
         await fetch("/api/time-entries?date=2026-06-18")

@@ -3,7 +3,8 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { MemoryRouter } from "react-router-dom";
 import i18n from "./i18n/i18n.js";
 import InvoicesPage from "./InvoicesPage.js";
-import { mockMobileViewport, mockWideViewport } from "./test/viewport.js";
+import { mockMobileViewport } from "./test/viewport.js";
+import { createPreviewThenBillingMonthConflictHandler } from "./invoices/invoices-page-preview-fetch.js";
 
 function renderInvoicesPage() {
   return render(
@@ -1031,22 +1032,12 @@ describe("InvoicesPage", () => {
   });
 
   it("issues the invoice without downloading the PDF", async () => {
-    let previewCallCount = 0;
+    const previewHandler = createPreviewThenBillingMonthConflictHandler(() =>
+      previewPdfResponse("BAN2026001"),
+    );
     const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
-      if (url === "/api/invoices/preview" && init?.method === "POST") {
-        previewCallCount += 1;
-        if (previewCallCount === 1) {
-          return Promise.resolve(previewPdfResponse("BAN2026001"));
-        }
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              error: "Invoice already exists for this Client and billing month",
-            }),
-            { status: 409, headers: { "Content-Type": "application/json" } },
-          ),
-        );
-      }
+      const preview = previewHandler(url, init);
+      if (preview !== undefined) return preview;
       if (url === "/api/invoices" && init?.method === "POST") {
         return Promise.resolve(issuePdfResponse("BAN2026001"));
       }
@@ -1113,24 +1104,14 @@ describe("InvoicesPage", () => {
   });
 
   async function previewAndIssue(invoiceNumber = "BAN2026001") {
-    let previewCallCount = 0;
+    const previewHandler = createPreviewThenBillingMonthConflictHandler(() =>
+      previewPdfResponse(invoiceNumber),
+    );
     vi.stubGlobal(
       "fetch",
       createInvoicesPageFetchMock([bandaoClient], (url, init) => {
-        if (url === "/api/invoices/preview" && init?.method === "POST") {
-          previewCallCount += 1;
-          if (previewCallCount === 1) {
-            return Promise.resolve(previewPdfResponse(invoiceNumber));
-          }
-          return Promise.resolve(
-            new Response(
-              JSON.stringify({
-                error: "Invoice already exists for this Client and billing month",
-              }),
-              { status: 409, headers: { "Content-Type": "application/json" } },
-            ),
-          );
-        }
+        const preview = previewHandler(url, init);
+        if (preview !== undefined) return preview;
         if (url === "/api/invoices" && init?.method === "POST") {
           return Promise.resolve(issuePdfResponse(invoiceNumber));
         }
@@ -1149,22 +1130,12 @@ describe("InvoicesPage", () => {
   }
 
   it("issues when the API omits X-Invoice-Export-Path", async () => {
-    let previewCallCount = 0;
+    const previewHandler = createPreviewThenBillingMonthConflictHandler(() =>
+      previewPdfResponse("BAN2026001"),
+    );
     const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
-      if (url === "/api/invoices/preview" && init?.method === "POST") {
-        previewCallCount += 1;
-        if (previewCallCount === 1) {
-          return Promise.resolve(previewPdfResponse("BAN2026001"));
-        }
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              error: "Invoice already exists for this Client and billing month",
-            }),
-            { status: 409, headers: { "Content-Type": "application/json" } },
-          ),
-        );
-      }
+      const preview = previewHandler(url, init);
+      if (preview !== undefined) return preview;
       if (url === "/api/invoices" && init?.method === "POST") {
         return Promise.resolve(issuePdfResponse("BAN2026001"));
       }
@@ -2029,16 +2000,17 @@ describe("InvoicesPage", () => {
       ).toBeTruthy();
     });
 
-    it("uses a two-column layout at wide viewports", async () => {
-      mockWideViewport();
+    it("places compose and issued invoices as direct children of the layout grid", async () => {
       vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
 
       renderInvoicesPage();
       await waitForClientReady("Bandao", bandaoClient.id);
 
-      expect(screen.getByTestId("invoices-layout")).toHaveClass("lg:grid");
-      expect(screen.getByTestId("invoices-compose")).toBeInTheDocument();
-      expect(screen.getByTestId("invoices-issued-panel")).toBeInTheDocument();
+      const layout = screen.getByTestId("invoices-layout");
+      const compose = screen.getByTestId("invoices-compose");
+      const issued = screen.getByTestId("invoices-issued-panel");
+      expect(layout).toHaveClass("lg:grid", "lg:grid-cols-2");
+      expect(Array.from(layout.children)).toEqual([compose, issued]);
     });
 
     it("stacks compose above issued invoices below lg", async () => {
