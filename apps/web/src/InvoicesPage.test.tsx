@@ -137,7 +137,6 @@ function issuePdfResponse(invoiceNumber: string) {
     headers: {
       "Content-Type": "application/pdf",
       "X-Invoice-Number": invoiceNumber,
-      "X-Invoice-Export-Path": `BANDAO/2026/${invoiceNumber}_30_06_26_Invoice_Hannes_Duve_BANDAO.pdf`,
       "Content-Disposition":
         'attachment; filename="BAN2026001_30_06_26_Invoice_Hannes_Duve_BANDAO.pdf"',
     },
@@ -926,6 +925,38 @@ describe("InvoicesPage", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
   }
+
+  it("issues when the API omits X-Invoice-Export-Path", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        return Promise.resolve(previewPdfResponse("BAN2026001"));
+      }
+      if (url === "/api/invoices" && init?.method === "POST") {
+        return Promise.resolve(issuePdfResponse("BAN2026001"));
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click");
+
+    renderInvoicesPage();
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeEnabled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
+
+    await waitFor(() => {
+      expect(clickSpy).toHaveBeenCalled();
+      expect(
+        screen.queryByText(/pdf saved to the archive folder/i),
+      ).not.toBeInTheDocument();
+    });
+
+    clickSpy.mockRestore();
+  });
 
   it("does not show archive folder controls on the issued-invoices section", async () => {
     vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));

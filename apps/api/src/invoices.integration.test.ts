@@ -134,6 +134,7 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
 
     expect(res.status).toBe(201);
     expect(res.headers.get("content-type")).toContain("application/pdf");
+    expect(res.headers.get("X-Invoice-Export-Path")).toBeNull();
 
     const body = await res.arrayBuffer();
     expect(body.byteLength).toBeGreaterThan(0);
