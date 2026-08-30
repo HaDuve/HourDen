@@ -189,6 +189,7 @@ describeWithAuthenticatedWorkspace(
       });
 
       const clickSpy2 = vi.spyOn(HTMLAnchorElement.prototype, "click");
+      fireEvent.click(screen.getByRole("button", { name: /^pdf$/i }));
       fireEvent.click(
         screen.getByRole("button", { name: /download invoice BAN2026001/i }),
       );
