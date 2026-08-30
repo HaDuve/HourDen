@@ -186,7 +186,24 @@ function advancedSettingsDisclosure() {
 }
 
 function expandAdvancedSettings() {
-  fireEvent.click(screen.getByText(advancedSettingsSummaryPattern()));
+  const details = advancedSettingsDisclosure();
+  if (!details.hasAttribute("open")) {
+    fireEvent.click(screen.getByText(advancedSettingsSummaryPattern()));
+  }
+}
+
+function withinAdvancedSettings() {
+  return within(advancedSettingsDisclosure());
+}
+
+function clickAdvancedSetting(label: RegExp) {
+  expandAdvancedSettings();
+  fireEvent.click(withinAdvancedSettings().getByLabelText(label));
+}
+
+function clickAdvancedCheckbox(name: RegExp) {
+  expandAdvancedSettings();
+  fireEvent.click(withinAdvancedSettings().getByRole("checkbox", { name }));
 }
 
 describe("InvoicesPage", () => {
@@ -403,7 +420,10 @@ describe("InvoicesPage", () => {
     await waitForAutoPreview();
     expect(screen.getByTitle(/invoice preview/i)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByLabelText(/^use prefix$/i));
+    expandAdvancedSettings();
+    fireEvent.click(
+      within(advancedSettingsDisclosure()).getByLabelText(/^use prefix$/i),
+    );
 
     await waitFor(() => {
       expect(screen.queryByTitle(/invoice preview/i)).not.toBeInTheDocument();
@@ -434,7 +454,10 @@ describe("InvoicesPage", () => {
     await waitForAutoPreview();
     expect(screen.getByTitle(/invoice preview/i)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByLabelText(/^use prefix$/i));
+    expandAdvancedSettings();
+    fireEvent.click(
+      within(advancedSettingsDisclosure()).getByLabelText(/^use prefix$/i),
+    );
 
     await waitFor(() => {
       expect(screen.queryByTitle(/invoice preview/i)).not.toBeInTheDocument();
@@ -590,10 +613,12 @@ describe("InvoicesPage", () => {
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
-      expect(screen.getByLabelText(/^use prefix$/i)).toBeChecked();
     });
 
-    fireEvent.click(screen.getByLabelText(/^use prefix$/i));
+    expandAdvancedSettings();
+    expect(withinAdvancedSettings().getByLabelText(/^use prefix$/i)).toBeChecked();
+
+    clickAdvancedSetting(/^use prefix$/i);
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
@@ -605,6 +630,37 @@ describe("InvoicesPage", () => {
     expect(previewCalls).toHaveLength(2);
     expect(JSON.parse(previewCalls[1]![1]!.body as string)).toMatchObject({
       usePrefix: false,
+    });
+  });
+
+  it("hides Invoice Prefix in the main flow when Use prefix is off", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        const body = JSON.parse(init.body as string) as { usePrefix?: boolean };
+        const usePrefix = body.usePrefix !== false;
+        return Promise.resolve(
+          previewPdfResponse(
+            usePrefix ? "BAN2026001" : "2026001",
+            "BAN",
+          ),
+        );
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderInvoicesPage();
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    await waitForAutoPreview();
+
+    expect(screen.getByLabelText(/^invoice prefix$/i)).toBeVisible();
+
+    clickAdvancedSetting(/^use prefix$/i);
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText(/^invoice prefix$/i)).not.toBeInTheDocument();
+      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
     });
   });
 
@@ -1045,7 +1101,7 @@ describe("InvoicesPage", () => {
       ([url, init]) => url === "/api/invoices/preview" && init?.method === "POST",
     ).length;
 
-    fireEvent.click(screen.getByLabelText(/^sequence before year$/i));
+    clickAdvancedSetting(/^sequence before year$/i);
 
     await waitFor(() => {
       const previewCalls = fetchMock.mock.calls.filter(
@@ -1077,11 +1133,7 @@ describe("InvoicesPage", () => {
     await waitForClientReady("Bandao", bandaoClient.id);
     await waitForAutoPreview();
 
-    fireEvent.click(
-      screen.getByRole("checkbox", {
-        name: /uses kleinunternehmerregelung/i,
-      }),
-    );
+    clickAdvancedCheckbox(/uses kleinunternehmerregelung/i);
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -1679,12 +1731,15 @@ describe("InvoicesPage", () => {
     });
 
     await waitFor(() => {
+      expandAdvancedSettings();
       expect(
-        screen.getByText(/continue suggested sequence/i),
+        withinAdvancedSettings().getByText(/continue suggested sequence/i),
       ).toBeInTheDocument();
-      expect(screen.getByText(/next: BAN2026002/i)).toBeInTheDocument();
-      expect(screen.getByText(/continue from this number/i)).toBeInTheDocument();
-      expect(screen.getByText(/next: BAN2026001/i)).toBeInTheDocument();
+      expect(withinAdvancedSettings().getByText(/next: BAN2026002/i)).toBeInTheDocument();
+      expect(
+        withinAdvancedSettings().getByText(/continue from this number/i),
+      ).toBeInTheDocument();
+      expect(withinAdvancedSettings().getByText(/next: BAN2026001/i)).toBeInTheDocument();
     });
   });
 
@@ -1733,18 +1788,29 @@ describe("InvoicesPage", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/continue suggested sequence/i)).toBeInTheDocument();
+      expandAdvancedSettings();
+      expect(
+        withinAdvancedSettings().getByText(/continue suggested sequence/i),
+      ).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByLabelText(/continue from this number/i));
+    expandAdvancedSettings();
+    fireEvent.click(
+      withinAdvancedSettings().getByLabelText(/continue from this number/i),
+    );
 
     fireEvent.change(screen.getByLabelText(/^invoice number$/i), {
       target: { value: "BAN2026001" },
     });
 
     await waitFor(() => {
-      expect(screen.queryByText(/continue suggested sequence/i)).not.toBeInTheDocument();
-      expect(screen.queryByText(/continue from this number/i)).not.toBeInTheDocument();
+      expandAdvancedSettings();
+      expect(
+        withinAdvancedSettings().queryByText(/continue suggested sequence/i),
+      ).not.toBeInTheDocument();
+      expect(
+        withinAdvancedSettings().queryByText(/continue from this number/i),
+      ).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: /^issue invoice$/i })).not.toBeDisabled();
     });
   });
@@ -1799,10 +1865,16 @@ describe("InvoicesPage", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/continue from this number/i)).toBeInTheDocument();
+      expandAdvancedSettings();
+      expect(
+        withinAdvancedSettings().getByLabelText(/continue from this number/i),
+      ).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByLabelText(/continue from this number/i));
+    expandAdvancedSettings();
+    fireEvent.click(
+      withinAdvancedSettings().getByLabelText(/continue from this number/i),
+    );
     fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
 
     await waitFor(() => {
@@ -1869,7 +1941,7 @@ describe("InvoicesPage", () => {
       expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
     });
 
-    fireEvent.click(screen.getByLabelText(/^use prefix$/i));
+    clickAdvancedSetting(/^use prefix$/i);
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
@@ -1885,11 +1957,12 @@ describe("InvoicesPage", () => {
       );
       expect(numberingPreviewCalls).toHaveLength(1);
       expect(numberingPreviewCalls[0]![0]).toMatch(/usePrefix=false/);
+      expandAdvancedSettings();
       expect(
-        screen.getByText(/future plain invoices in this workspace for/i),
+        withinAdvancedSettings().getByText(/future plain invoices in this workspace for/i),
       ).toBeInTheDocument();
-      expect(screen.getByText(/next: 2026002/i)).toBeInTheDocument();
-      expect(screen.getByText(/next: 2026011/i)).toBeInTheDocument();
+      expect(withinAdvancedSettings().getByText(/next: 2026002/i)).toBeInTheDocument();
+      expect(withinAdvancedSettings().getByText(/next: 2026011/i)).toBeInTheDocument();
     });
   });
 
@@ -1941,7 +2014,7 @@ describe("InvoicesPage", () => {
       expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
     });
 
-    fireEvent.click(screen.getByLabelText(/^use prefix$/i));
+    clickAdvancedSetting(/^use prefix$/i);
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("2026001");
@@ -1952,10 +2025,16 @@ describe("InvoicesPage", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByLabelText(/continue from this number/i)).toBeInTheDocument();
+      expandAdvancedSettings();
+      expect(
+        withinAdvancedSettings().getByLabelText(/continue from this number/i),
+      ).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByLabelText(/continue from this number/i));
+    expandAdvancedSettings();
+    fireEvent.click(
+      withinAdvancedSettings().getByLabelText(/continue from this number/i),
+    );
     fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
 
     await waitFor(() => {
