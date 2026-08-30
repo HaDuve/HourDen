@@ -172,6 +172,23 @@ function previewRegion() {
   return screen.getByRole("region", { name: /invoice preview/i });
 }
 
+function advancedSettingsSummaryPattern() {
+  return /^(more settings|weitere einstellungen)$/i;
+}
+
+function advancedSettingsDisclosure() {
+  const summary = screen.getByText(advancedSettingsSummaryPattern());
+  const details = summary.closest("details");
+  if (!details) {
+    throw new Error("More settings disclosure not found");
+  }
+  return details;
+}
+
+function expandAdvancedSettings() {
+  fireEvent.click(screen.getByText(advancedSettingsSummaryPattern()));
+}
+
 describe("InvoicesPage", () => {
   beforeEach(async () => {
     await i18n.changeLanguage("en");
@@ -182,6 +199,112 @@ describe("InvoicesPage", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it("does not show Invoice Sender in the page header", async () => {
+    vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
+
+    renderInvoicesPage();
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+
+    const headerActions = screen.getByRole("button", { name: /^issue invoice$/i })
+      .parentElement;
+    expect(headerActions).toBeTruthy();
+    expect(
+      within(headerActions!).queryByRole("button", { name: /^invoice sender$/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hides advanced invoice settings inside a closed More settings disclosure by default", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        return Promise.resolve(previewPdfResponse("BAN2026001"));
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderInvoicesPage();
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    await waitForAutoPreview();
+
+    const disclosure = advancedSettingsDisclosure();
+    expect(within(disclosure).queryByLabelText(/^use prefix$/i)).not.toBeVisible();
+    expect(
+      within(disclosure).queryByLabelText(/^sequence before year$/i),
+    ).not.toBeVisible();
+    expect(
+      within(disclosure).queryByRole("checkbox", {
+        name: /uses kleinunternehmerregelung/i,
+      }),
+    ).not.toBeVisible();
+    expect(
+      within(disclosure).queryByRole("button", { name: /^invoice sender$/i }),
+    ).not.toBeVisible();
+  });
+
+  it("keeps Invoice Number and Invoice Prefix visible outside the disclosure after preview", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        return Promise.resolve(previewPdfResponse("BAN2026001"));
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderInvoicesPage();
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    await waitForAutoPreview();
+
+    expect(screen.getByLabelText(/^invoice number$/i)).toBeVisible();
+    expect(screen.getByLabelText(/^invoice prefix$/i)).toBeVisible();
+    expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
+    expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
+  });
+
+  it("re-runs preview when an advanced setting changes inside the disclosure", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        return Promise.resolve(previewPdfResponse("BAN2026001"));
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderInvoicesPage();
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    await waitForAutoPreview();
+
+    const callsBefore = fetchMock.mock.calls.filter(
+      ([url, init]) => url === "/api/invoices/preview" && init?.method === "POST",
+    ).length;
+
+    expandAdvancedSettings();
+    fireEvent.click(
+      within(advancedSettingsDisclosure()).getByLabelText(/^use prefix$/i),
+    );
+
+    await waitFor(() => {
+      const callsAfter = fetchMock.mock.calls.filter(
+        ([url, init]) => url === "/api/invoices/preview" && init?.method === "POST",
+      ).length;
+      expect(callsAfter).toBeGreaterThan(callsBefore);
+    });
+  });
+
+  it("shows Weitere Einstellungen when the active locale is de", async () => {
+    await i18n.changeLanguage("de");
+    vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
+
+    renderInvoicesPage();
+
+    await waitFor(() => {
+      expect(screen.getByText(/^weitere einstellungen$/i)).toBeInTheDocument();
+    });
   });
 
   it("does not show a manual Preview button in the header", async () => {
@@ -396,7 +519,12 @@ describe("InvoicesPage", () => {
       ).toBeInTheDocument();
       expect(clientSelect).toHaveValue(bandaoClient.id);
     });
-    fireEvent.click(screen.getByRole("button", { name: /^rechnungsabsender$/i }));
+    expandAdvancedSettings();
+    fireEvent.click(
+      within(advancedSettingsDisclosure()).getByRole("button", {
+        name: /^rechnungsabsender$/i,
+      }),
+    );
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^straße$/i)).toBeInTheDocument();
@@ -988,8 +1116,8 @@ describe("InvoicesPage", () => {
 
     await waitForClientReady("Bandao", bandaoClient.id);
 
-    expect(screen.getByLabelText(/^invoice prefix$/i)).toBeDisabled();
-    expect(screen.getByLabelText(/^invoice number$/i)).toBeDisabled();
+    expect(screen.queryByLabelText(/^invoice prefix$/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^invoice number$/i)).not.toBeInTheDocument();
 
     resolvePreview(previewPdfResponse("BAN2026001"));
     await waitForAutoPreview();
@@ -1871,7 +1999,12 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-    fireEvent.click(screen.getByRole("button", { name: /^invoice sender$/i }));
+    expandAdvancedSettings();
+    fireEvent.click(
+      within(advancedSettingsDisclosure()).getByRole("button", {
+        name: /^invoice sender$/i,
+      }),
+    );
 
     await waitFor(() => {
       expect(screen.getByDisplayValue(defaultInvoiceSender.name)).toBeInTheDocument();

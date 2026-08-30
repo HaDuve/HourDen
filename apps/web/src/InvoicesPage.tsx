@@ -1024,14 +1024,6 @@ export default function InvoicesPage() {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => void openSenderEditor()}
-            disabled={loading || loadingSender}
-            className={secondaryButtonClass}
-          >
-            {t("invoices.invoiceSender")}
-          </button>
-          <button
-            type="button"
             onClick={() => void handleIssue()}
             disabled={issueDisabled}
             className={primaryButtonClass}
@@ -1072,20 +1064,6 @@ export default function InvoicesPage() {
         />
       </div>
 
-      <div className={`mb-8 ${panelClass}`}>
-        <label className={`flex items-center gap-2 ${fieldLabelClass}`}>
-          <input
-            type="checkbox"
-            aria-label={t("invoices.usesSmallBusinessRule")}
-            checked={usesSmallBusinessRule}
-            onChange={(e) => handleUsesSmallBusinessRuleChange(e.target.checked)}
-            disabled={previewing || issuing || !clientId}
-            className="rounded border-input"
-          />
-          {t("invoices.usesSmallBusinessRule")}
-        </label>
-      </div>
-
       {alert ? (
         <InvoiceAlertBanner alert={alert} />
       ) : null}
@@ -1107,116 +1085,146 @@ export default function InvoicesPage() {
         </p>
       ) : null}
 
-      <fieldset className={`mb-8 space-y-3 ${panelClass}`}>
-        <legend className={`px-1 ${fieldLabelClass}`}>
-          {t("invoices.invoiceNumberSettingsTitle")}
-        </legend>
-        <p className={pageSubtitleClass}>{t("invoices.invoiceNumberSettingsHelpLine1")}</p>
-        <p className={pageSubtitleClass}>{t("invoices.invoiceNumberSettingsHelpLine2")}</p>
+      {invoiceNumber ? (
+        <div className={`mb-8 space-y-3 ${panelClass}`}>
+          {usePrefix ? (
+            <label className={`flex max-w-xs flex-col gap-1 ${fieldLabelClass}`}>
+              {t("invoices.invoicePrefix")}
+              <input
+                type="text"
+                aria-label={t("invoices.invoicePrefix")}
+                value={invoicePrefix ?? ""}
+                onChange={(e) => handleInvoicePrefixChange(e.target.value)}
+                disabled={previewing || issuing}
+                className={`${inputClass} font-medium uppercase`}
+              />
+            </label>
+          ) : null}
 
-        <label className={`flex items-center gap-2 ${fieldLabelClass}`}>
-          <input
-            type="checkbox"
-            aria-label={t("invoices.invoiceNumberSeqBeforeYear")}
-            checked={invoiceNumberSeqBeforeYear}
-            onChange={(e) =>
-              handleInvoiceNumberSeqBeforeYearChange(e.target.checked)
-            }
-            disabled={previewing || issuing || !clientId}
-            className="rounded border-input"
-          />
-          {t("invoices.invoiceNumberSeqBeforeYear")}
-        </label>
+          <label className={`flex max-w-xs flex-col gap-1 ${fieldLabelClass}`}>
+            {t("invoices.invoiceNumber")}
+            <input
+              type="text"
+              aria-label={t("invoices.invoiceNumber")}
+              value={invoiceNumber ?? ""}
+              onChange={(e) => handleInvoiceNumberChange(e.target.value)}
+              disabled={previewing || issuing}
+              className={`${inputClass} font-medium`}
+            />
+          </label>
+        </div>
+      ) : null}
 
-        <label className={`flex items-center gap-2 ${fieldLabelClass}`}>
-          <input
-            type="checkbox"
-            aria-label={t("invoices.usePrefix")}
-            checked={usePrefix}
-            onChange={(e) => handleUsePrefixChange(e.target.checked)}
-            disabled={previewing || issuing || !clientId}
-            className="rounded border-input"
-          />
-          {t("invoices.usePrefix")}
-        </label>
+      <details className={`mb-8 ${panelClass}`}>
+        <summary className={`cursor-pointer select-none ${fieldLabelClass}`}>
+          {t("invoices.moreSettings")}
+        </summary>
+        <div className="mt-4 space-y-3">
+          <label className={`flex items-center gap-2 ${fieldLabelClass}`}>
+            <input
+              type="checkbox"
+              aria-label={t("invoices.usesSmallBusinessRule")}
+              checked={usesSmallBusinessRule}
+              onChange={(e) => handleUsesSmallBusinessRuleChange(e.target.checked)}
+              disabled={previewing || issuing || !clientId}
+              className="rounded border-input"
+            />
+            {t("invoices.usesSmallBusinessRule")}
+          </label>
 
-        <label className={`flex max-w-xs flex-col gap-1 ${fieldLabelClass}`}>
-          {t("invoices.invoicePrefix")}
-          <input
-            type="text"
-            aria-label={t("invoices.invoicePrefix")}
-            value={invoicePrefix ?? ""}
-            onChange={(e) => handleInvoicePrefixChange(e.target.value)}
-            disabled={!invoiceNumber || previewing || issuing}
-            placeholder={t("invoices.invoiceNumberAfterPreview")}
-            className={`${inputClass} font-medium uppercase`}
-          />
-        </label>
+          <p className={pageSubtitleClass}>{t("invoices.invoiceNumberSettingsHelpLine1")}</p>
+          <p className={pageSubtitleClass}>{t("invoices.invoiceNumberSettingsHelpLine2")}</p>
 
-        <label className={`flex max-w-xs flex-col gap-1 ${fieldLabelClass}`}>
-          {t("invoices.invoiceNumber")}
-          <input
-            type="text"
-            value={invoiceNumber ?? ""}
-            onChange={(e) => handleInvoiceNumberChange(e.target.value)}
-            disabled={!invoiceNumber || previewing || issuing}
-            placeholder={t("invoices.invoiceNumberAfterPreview")}
-            className={`${inputClass} font-medium`}
-          />
-        </label>
+          <label className={`flex items-center gap-2 ${fieldLabelClass}`}>
+            <input
+              type="checkbox"
+              aria-label={t("invoices.invoiceNumberSeqBeforeYear")}
+              checked={invoiceNumberSeqBeforeYear}
+              onChange={(e) =>
+                handleInvoiceNumberSeqBeforeYearChange(e.target.checked)
+              }
+              disabled={previewing || issuing || !clientId}
+              className="rounded border-input"
+            />
+            {t("invoices.invoiceNumberSeqBeforeYear")}
+          </label>
 
-        {invoiceNumberEdited && numberingPreview ? (
-          <fieldset className="rounded-md border border-accent-border bg-accent-muted px-4 py-3">
-            <legend className={`px-1 ${fieldLabelClass}`}>
-              {usePrefix
-                ? t("invoices.futureInvoicesForClient", {
-                    year: invoiceYearFromPeriodEnd(to),
-                  })
-                : t("invoices.futurePlainInvoices", {
-                    year: invoiceYearFromPeriodEnd(to),
-                  })}
-            </legend>
-            <div className={`mt-2 space-y-2 ${fieldLabelClass}`}>
-              <label className="flex cursor-pointer items-start gap-2">
-                <input
-                  type="radio"
-                  name="numberingStrategy"
-                  value="sequential"
-                  checked={numberingStrategy === "sequential"}
-                  onChange={() => setNumberingStrategy("sequential")}
-                  className="mt-1"
-                />
-                <span>
-                  {t("invoices.continueSuggestedSequence")}
-                  <span className="mt-0.5 block text-muted">
-                    {t("invoices.nextNumber", {
-                      number: numberingPreview.nextIfIssued.sequential,
+          <label className={`flex items-center gap-2 ${fieldLabelClass}`}>
+            <input
+              type="checkbox"
+              aria-label={t("invoices.usePrefix")}
+              checked={usePrefix}
+              onChange={(e) => handleUsePrefixChange(e.target.checked)}
+              disabled={previewing || issuing || !clientId}
+              className="rounded border-input"
+            />
+            {t("invoices.usePrefix")}
+          </label>
+
+          {invoiceNumberEdited && numberingPreview ? (
+            <fieldset className="rounded-md border border-accent-border bg-accent-muted px-4 py-3">
+              <legend className={`px-1 ${fieldLabelClass}`}>
+                {usePrefix
+                  ? t("invoices.futureInvoicesForClient", {
+                      year: invoiceYearFromPeriodEnd(to),
+                    })
+                  : t("invoices.futurePlainInvoices", {
+                      year: invoiceYearFromPeriodEnd(to),
                     })}
+              </legend>
+              <div className={`mt-2 space-y-2 ${fieldLabelClass}`}>
+                <label className="flex cursor-pointer items-start gap-2">
+                  <input
+                    type="radio"
+                    name="numberingStrategy"
+                    value="sequential"
+                    checked={numberingStrategy === "sequential"}
+                    onChange={() => setNumberingStrategy("sequential")}
+                    className="mt-1"
+                  />
+                  <span>
+                    {t("invoices.continueSuggestedSequence")}
+                    <span className="mt-0.5 block text-muted">
+                      {t("invoices.nextNumber", {
+                        number: numberingPreview.nextIfIssued.sequential,
+                      })}
+                    </span>
                   </span>
-                </span>
-              </label>
-              <label className="flex cursor-pointer items-start gap-2">
-                <input
-                  type="radio"
-                  name="numberingStrategy"
-                  value="from_last"
-                  checked={numberingStrategy === "from_last"}
-                  onChange={() => setNumberingStrategy("from_last")}
-                  className="mt-1"
-                />
-                <span>
-                  {t("invoices.continueFromThisNumber")}
-                  <span className="mt-0.5 block text-muted">
-                    {t("invoices.nextNumber", {
-                      number: numberingPreview.nextIfIssued.fromLast,
-                    })}
+                </label>
+                <label className="flex cursor-pointer items-start gap-2">
+                  <input
+                    type="radio"
+                    name="numberingStrategy"
+                    value="from_last"
+                    checked={numberingStrategy === "from_last"}
+                    onChange={() => setNumberingStrategy("from_last")}
+                    className="mt-1"
+                  />
+                  <span>
+                    {t("invoices.continueFromThisNumber")}
+                    <span className="mt-0.5 block text-muted">
+                      {t("invoices.nextNumber", {
+                        number: numberingPreview.nextIfIssued.fromLast,
+                      })}
+                    </span>
                   </span>
-                </span>
-              </label>
-            </div>
-          </fieldset>
-        ) : null}
-      </fieldset>
+                </label>
+              </div>
+            </fieldset>
+          ) : null}
+
+          <div>
+            <button
+              type="button"
+              onClick={() => void openSenderEditor()}
+              disabled={loading || loadingSender}
+              className={secondaryButtonClass}
+            >
+              {t("invoices.invoiceSender")}
+            </button>
+          </div>
+        </div>
+      </details>
 
       {previewUrl && previewFullscreenOpen ? (
         <div

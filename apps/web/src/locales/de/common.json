@@ -97,6 +97,7 @@
     "invoiceNumberSettingsHelpLine2": "Sie können die Nummer vor dem Ausstellen ändern und festlegen, wie künftige Rechnungen weiterzählen. Präfix und Laufnummer-Reihenfolge gelten danach für diesen Kunden.",
     "invoiceNumberAfterPreview": "Nach Vorschau",
     "usesSmallBusinessRule": "Nehmen Sie die Kleinunternehmerregelung in Anspruch?",
+    "moreSettings": "Weitere Einstellungen",
     "invoicePrefix": "Rechnungspräfix",
     "invoiceNumber": "Rechnungsnummer",
     "invoiceNumberExists": "Rechnungsnummer existiert bereits in diesem Workspace.",
