@@ -126,7 +126,7 @@ describeWithAuthenticatedWorkspace(
       fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
 
       await waitFor(() => {
-        expect(clickSpy).toHaveBeenCalled();
+        expect(clickSpy).not.toHaveBeenCalled();
       });
       clickSpy.mockRestore();
 

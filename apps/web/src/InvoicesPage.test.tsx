@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { MemoryRouter } from "react-router-dom";
 import i18n from "./i18n/i18n.js";
 import InvoicesPage from "./InvoicesPage.js";
+import { mockMobileViewport, mockWideViewport } from "./test/viewport.js";
 
 function renderInvoicesPage() {
   return render(
@@ -1029,13 +1030,44 @@ describe("InvoicesPage", () => {
     });
   });
 
-  it("issues the invoice and downloads the PDF", async () => {
+  it("issues the invoice without downloading the PDF", async () => {
+    let previewCallCount = 0;
     const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
       if (url === "/api/invoices/preview" && init?.method === "POST") {
-        return Promise.resolve(previewPdfResponse("BAN2026001"));
+        previewCallCount += 1;
+        if (previewCallCount === 1) {
+          return Promise.resolve(previewPdfResponse("BAN2026001"));
+        }
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              error: "Invoice already exists for this Client and billing month",
+            }),
+            { status: 409, headers: { "Content-Type": "application/json" } },
+          ),
+        );
       }
       if (url === "/api/invoices" && init?.method === "POST") {
         return Promise.resolve(issuePdfResponse("BAN2026001"));
+      }
+      if (url === "/api/invoices" && !init?.method) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            invoices: [
+              {
+                id: "inv-1",
+                clientId: bandaoClient.id,
+                recipient: "BANDAO Guidance GmbH",
+                invoiceNumber: "BAN2026001",
+                periodStart: currentMonthRange().from,
+                periodEnd: currentMonthRange().to,
+                totalAmount: 60,
+                status: "issued",
+              },
+            ],
+          }),
+        });
       }
       return undefined;
     });
@@ -1067,24 +1099,37 @@ describe("InvoicesPage", () => {
           }),
         }),
       );
-      expect(clickSpy).toHaveBeenCalled();
-    });
-
-    await waitFor(() => {
+      expect(clickSpy).not.toHaveBeenCalled();
       expect(screen.queryByTitle(/invoice preview/i)).not.toBeInTheDocument();
-      expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
-      expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
+      expect(
+        within(previewRegion()).getByText(
+          /invoice already exists for this client and billing month/i,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     });
 
     clickSpy.mockRestore();
   });
 
   async function previewAndIssue(invoiceNumber = "BAN2026001") {
+    let previewCallCount = 0;
     vi.stubGlobal(
       "fetch",
       createInvoicesPageFetchMock([bandaoClient], (url, init) => {
         if (url === "/api/invoices/preview" && init?.method === "POST") {
-          return Promise.resolve(previewPdfResponse(invoiceNumber));
+          previewCallCount += 1;
+          if (previewCallCount === 1) {
+            return Promise.resolve(previewPdfResponse(invoiceNumber));
+          }
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                error: "Invoice already exists for this Client and billing month",
+              }),
+              { status: 409, headers: { "Content-Type": "application/json" } },
+            ),
+          );
         }
         if (url === "/api/invoices" && init?.method === "POST") {
           return Promise.resolve(issuePdfResponse(invoiceNumber));
@@ -1092,7 +1137,6 @@ describe("InvoicesPage", () => {
         return undefined;
       }),
     );
-    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
 
     renderInvoicesPage();
 
@@ -1105,9 +1149,21 @@ describe("InvoicesPage", () => {
   }
 
   it("issues when the API omits X-Invoice-Export-Path", async () => {
+    let previewCallCount = 0;
     const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
       if (url === "/api/invoices/preview" && init?.method === "POST") {
-        return Promise.resolve(previewPdfResponse("BAN2026001"));
+        previewCallCount += 1;
+        if (previewCallCount === 1) {
+          return Promise.resolve(previewPdfResponse("BAN2026001"));
+        }
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              error: "Invoice already exists for this Client and billing month",
+            }),
+            { status: 409, headers: { "Content-Type": "application/json" } },
+          ),
+        );
       }
       if (url === "/api/invoices" && init?.method === "POST") {
         return Promise.resolve(issuePdfResponse("BAN2026001"));
@@ -1127,7 +1183,7 @@ describe("InvoicesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
 
     await waitFor(() => {
-      expect(clickSpy).toHaveBeenCalled();
+      expect(clickSpy).not.toHaveBeenCalled();
       expect(
         screen.queryByText(/pdf saved to the archive folder/i),
       ).not.toBeInTheDocument();
@@ -1157,10 +1213,15 @@ describe("InvoicesPage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("after Issue downloads the PDF without archive outcome banners", async () => {
+  it("after Issue shows a quiet preview state without archive outcome banners", async () => {
     await previewAndIssue();
 
     await waitFor(() => {
+      expect(
+        within(previewRegion()).getByText(
+          /invoice already exists for this client and billing month/i,
+        ),
+      ).toBeInTheDocument();
       expect(
         screen.queryByText(/pdf saved to the archive folder/i),
       ).not.toBeInTheDocument();
@@ -1654,7 +1715,6 @@ describe("InvoicesPage", () => {
       return undefined;
     });
     vi.stubGlobal("fetch", fetchMock);
-    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click");
 
     renderInvoicesPage();
 
@@ -1693,8 +1753,6 @@ describe("InvoicesPage", () => {
         }),
       );
     });
-
-    clickSpy.mockRestore();
   });
 
   it("calls numbering-preview with usePrefix=false when editing a plain Invoice Number", async () => {
@@ -1802,7 +1860,6 @@ describe("InvoicesPage", () => {
       return undefined;
     });
     vi.stubGlobal("fetch", fetchMock);
-    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click");
 
     renderInvoicesPage();
 
@@ -1845,8 +1902,6 @@ describe("InvoicesPage", () => {
         numberingStrategy: "from_last",
       });
     });
-
-    clickSpy.mockRestore();
   });
 
   it("loads and saves Invoice Sender settings from a modal", async () => {
@@ -1935,6 +1990,71 @@ describe("InvoicesPage", () => {
       screen.queryByRole("heading", { name: /^invoice sender$/i }),
     ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeDisabled();
+  });
+
+  describe("layout (#145)", () => {
+    it("keeps the page header title-only without Issue Invoice", async () => {
+      vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
+
+      renderInvoicesPage();
+      await waitForClientReady("Bandao", bandaoClient.id);
+
+      const header = screen.getByTestId("invoices-page-header");
+      expect(within(header).getByRole("heading", { level: 1 })).toHaveTextContent(
+        /invoices/i,
+      );
+      expect(
+        within(header).queryByRole("button", { name: /^issue invoice$/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("places Issue Invoice directly under the preview region", async () => {
+      const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+        if (url === "/api/invoices/preview" && init?.method === "POST") {
+          return Promise.resolve(previewPdfResponse("BAN2026001"));
+        }
+        return undefined;
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      renderInvoicesPage();
+      await waitForClientReady("Bandao", bandaoClient.id);
+      await waitForAutoPreview();
+
+      const preview = previewRegion();
+      const issueButton = screen.getByRole("button", { name: /^issue invoice$/i });
+      expect(
+        preview.compareDocumentPosition(issueButton) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it("uses a two-column layout at wide viewports", async () => {
+      mockWideViewport();
+      vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
+
+      renderInvoicesPage();
+      await waitForClientReady("Bandao", bandaoClient.id);
+
+      expect(screen.getByTestId("invoices-layout")).toHaveClass("lg:grid");
+      expect(screen.getByTestId("invoices-compose")).toBeInTheDocument();
+      expect(screen.getByTestId("invoices-issued-panel")).toBeInTheDocument();
+    });
+
+    it("stacks compose above issued invoices below lg", async () => {
+      mockMobileViewport();
+      vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
+
+      renderInvoicesPage();
+      await waitForClientReady("Bandao", bandaoClient.id);
+
+      const compose = screen.getByTestId("invoices-compose");
+      const issued = screen.getByTestId("invoices-issued-panel");
+      expect(
+        compose.compareDocumentPosition(issued) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
   });
 
   it("disables Issue Invoice until Invoice Sender is configured", async () => {

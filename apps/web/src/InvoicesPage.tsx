@@ -778,17 +778,17 @@ export default function InvoicesPage() {
         return;
       }
 
-      const blob = await res.blob();
-      const disposition = res.headers.get("Content-Disposition") ?? "";
-      downloadAttachmentBlob(blob, disposition);
-      setInvoiceNumber(res.headers.get("X-Invoice-Number"));
+      await res.blob();
       clearPreviewBlob();
+      setInvoiceNumber(null);
+      setInvoicePrefix(null);
       setSuggestedInvoiceNumber(null);
       setSuggestedInvoicePrefix(null);
       setInvoiceNumberExists(false);
       setNumberingPreview(null);
       setNumberingStrategy(null);
       await loadIssuedInvoices();
+      await requestPreview();
     } catch (err) {
       setPlainAlert(t("invoices.issueFailed"));
     } finally {
@@ -1019,204 +1019,303 @@ export default function InvoicesPage() {
 
   return (
     <PageMain>
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+      <div
+        data-testid="invoices-page-header"
+        className="mb-8"
+      >
         <h1 className={pageTitleClass}>{t("invoices.title")}</h1>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => void openSenderEditor()}
-            disabled={loading || loadingSender}
-            className={secondaryButtonClass}
-          >
-            {t("invoices.invoiceSender")}
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleIssue()}
-            disabled={issueDisabled}
-            className={primaryButtonClass}
-          >
-            {issuing ? t("invoices.issuing") : t("invoices.issueInvoice")}
-          </button>
-        </div>
       </div>
 
-      <div className={`mb-8 flex flex-wrap gap-6 ${panelClass}`}>
-        <label className={`flex min-w-[12rem] flex-1 flex-col gap-1 ${fieldLabelClass}`}>
-          {t("invoices.client")}
-          <select
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            disabled={loading || clients.length === 0}
-            className={selectClass}
-          >
-            {clients.length === 0 ? (
-              <option value="">{t("invoices.noClients")}</option>
-            ) : (
-              clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name}
-                </option>
-              ))
-            )}
-          </select>
-        </label>
-        <DateRangeFilter
-          from={from}
-          to={to}
-          periodLabel={t("invoices.billingPeriod")}
-          onChange={({ from: nextFrom, to: nextTo }) => {
-            setFrom(nextFrom);
-            setTo(nextTo);
-          }}
-        />
-      </div>
+      <div
+        data-testid="invoices-layout"
+        className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-8"
+      >
+        <div data-testid="invoices-compose">
+          <div className="mb-8 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void openSenderEditor()}
+              disabled={loading || loadingSender}
+              className={secondaryButtonClass}
+            >
+              {t("invoices.invoiceSender")}
+            </button>
+          </div>
 
-      <div className={`mb-8 ${panelClass}`}>
-        <label className={`flex items-center gap-2 ${fieldLabelClass}`}>
-          <input
-            type="checkbox"
-            aria-label={t("invoices.usesSmallBusinessRule")}
-            checked={usesSmallBusinessRule}
-            onChange={(e) => handleUsesSmallBusinessRuleChange(e.target.checked)}
-            disabled={previewing || issuing || !clientId}
-            className="rounded border-input"
+          <div className={`mb-8 flex flex-wrap gap-6 ${panelClass}`}>
+            <label className={`flex min-w-[12rem] flex-1 flex-col gap-1 ${fieldLabelClass}`}>
+              {t("invoices.client")}
+              <select
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                disabled={loading || clients.length === 0}
+                className={selectClass}
+              >
+                {clients.length === 0 ? (
+                  <option value="">{t("invoices.noClients")}</option>
+                ) : (
+                  clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.name}
+                    </option>
+                  ))
+                )}
+              </select>
+            </label>
+            <DateRangeFilter
+              from={from}
+              to={to}
+              periodLabel={t("invoices.billingPeriod")}
+              onChange={({ from: nextFrom, to: nextTo }) => {
+                setFrom(nextFrom);
+                setTo(nextTo);
+              }}
+            />
+          </div>
+
+          <div className={`mb-8 ${panelClass}`}>
+            <label className={`flex items-center gap-2 ${fieldLabelClass}`}>
+              <input
+                type="checkbox"
+                aria-label={t("invoices.usesSmallBusinessRule")}
+                checked={usesSmallBusinessRule}
+                onChange={(e) => handleUsesSmallBusinessRuleChange(e.target.checked)}
+                disabled={previewing || issuing || !clientId}
+                className="rounded border-input"
+              />
+              {t("invoices.usesSmallBusinessRule")}
+            </label>
+          </div>
+
+          {alert ? (
+            <InvoiceAlertBanner alert={alert} />
+          ) : null}
+
+          <InvoicePreviewPane
+            previewing={previewing}
+            previewUrl={previewUrl}
+            previewAlert={previewAlert}
+            previewIframeSrc={previewIframeSrc}
+            buttonClass={secondaryButtonClass}
+            onDownload={handleDownloadPreview}
+            onFullscreen={() => setPreviewFullscreenOpen(true)}
+            onRetry={() => void handleRetryPreview()}
           />
-          {t("invoices.usesSmallBusinessRule")}
-        </label>
-      </div>
 
-      {alert ? (
-        <InvoiceAlertBanner alert={alert} />
-      ) : null}
+          <div className="mb-8">
+            <button
+              type="button"
+              onClick={() => void handleIssue()}
+              disabled={issueDisabled}
+              className={primaryButtonClass}
+            >
+              {issuing ? t("invoices.issuing") : t("invoices.issueInvoice")}
+            </button>
+          </div>
 
-      <InvoicePreviewPane
-        previewing={previewing}
-        previewUrl={previewUrl}
-        previewAlert={previewAlert}
-        previewIframeSrc={previewIframeSrc}
-        buttonClass={secondaryButtonClass}
-        onDownload={handleDownloadPreview}
-        onFullscreen={() => setPreviewFullscreenOpen(true)}
-        onRetry={() => void handleRetryPreview()}
-      />
+          {invoiceNumberExists ? (
+            <p className="mb-4 rounded-md border border-accent-border bg-accent-muted px-4 py-3 text-sm text-accent">
+              {t("invoices.invoiceNumberExists")}
+            </p>
+          ) : null}
 
-      {invoiceNumberExists ? (
-        <p className="mb-4 rounded-md border border-accent-border bg-accent-muted px-4 py-3 text-sm text-accent">
-          {t("invoices.invoiceNumberExists")}
-        </p>
-      ) : null}
-
-      <fieldset className={`mb-8 space-y-3 ${panelClass}`}>
-        <legend className={`px-1 ${fieldLabelClass}`}>
-          {t("invoices.invoiceNumberSettingsTitle")}
-        </legend>
-        <p className={pageSubtitleClass}>{t("invoices.invoiceNumberSettingsHelpLine1")}</p>
-        <p className={pageSubtitleClass}>{t("invoices.invoiceNumberSettingsHelpLine2")}</p>
-
-        <label className={`flex items-center gap-2 ${fieldLabelClass}`}>
-          <input
-            type="checkbox"
-            aria-label={t("invoices.invoiceNumberSeqBeforeYear")}
-            checked={invoiceNumberSeqBeforeYear}
-            onChange={(e) =>
-              handleInvoiceNumberSeqBeforeYearChange(e.target.checked)
-            }
-            disabled={previewing || issuing || !clientId}
-            className="rounded border-input"
-          />
-          {t("invoices.invoiceNumberSeqBeforeYear")}
-        </label>
-
-        <label className={`flex items-center gap-2 ${fieldLabelClass}`}>
-          <input
-            type="checkbox"
-            aria-label={t("invoices.usePrefix")}
-            checked={usePrefix}
-            onChange={(e) => handleUsePrefixChange(e.target.checked)}
-            disabled={previewing || issuing || !clientId}
-            className="rounded border-input"
-          />
-          {t("invoices.usePrefix")}
-        </label>
-
-        <label className={`flex max-w-xs flex-col gap-1 ${fieldLabelClass}`}>
-          {t("invoices.invoicePrefix")}
-          <input
-            type="text"
-            aria-label={t("invoices.invoicePrefix")}
-            value={invoicePrefix ?? ""}
-            onChange={(e) => handleInvoicePrefixChange(e.target.value)}
-            disabled={!invoiceNumber || previewing || issuing}
-            placeholder={t("invoices.invoiceNumberAfterPreview")}
-            className={`${inputClass} font-medium uppercase`}
-          />
-        </label>
-
-        <label className={`flex max-w-xs flex-col gap-1 ${fieldLabelClass}`}>
-          {t("invoices.invoiceNumber")}
-          <input
-            type="text"
-            value={invoiceNumber ?? ""}
-            onChange={(e) => handleInvoiceNumberChange(e.target.value)}
-            disabled={!invoiceNumber || previewing || issuing}
-            placeholder={t("invoices.invoiceNumberAfterPreview")}
-            className={`${inputClass} font-medium`}
-          />
-        </label>
-
-        {invoiceNumberEdited && numberingPreview ? (
-          <fieldset className="rounded-md border border-accent-border bg-accent-muted px-4 py-3">
+          <fieldset className={`mb-8 space-y-3 ${panelClass}`}>
             <legend className={`px-1 ${fieldLabelClass}`}>
-              {usePrefix
-                ? t("invoices.futureInvoicesForClient", {
-                    year: invoiceYearFromPeriodEnd(to),
-                  })
-                : t("invoices.futurePlainInvoices", {
-                    year: invoiceYearFromPeriodEnd(to),
-                  })}
+              {t("invoices.invoiceNumberSettingsTitle")}
             </legend>
-            <div className={`mt-2 space-y-2 ${fieldLabelClass}`}>
-              <label className="flex cursor-pointer items-start gap-2">
-                <input
-                  type="radio"
-                  name="numberingStrategy"
-                  value="sequential"
-                  checked={numberingStrategy === "sequential"}
-                  onChange={() => setNumberingStrategy("sequential")}
-                  className="mt-1"
-                />
-                <span>
-                  {t("invoices.continueSuggestedSequence")}
-                  <span className="mt-0.5 block text-muted">
-                    {t("invoices.nextNumber", {
-                      number: numberingPreview.nextIfIssued.sequential,
-                    })}
-                  </span>
-                </span>
+            <p className={pageSubtitleClass}>{t("invoices.invoiceNumberSettingsHelpLine1")}</p>
+            <p className={pageSubtitleClass}>{t("invoices.invoiceNumberSettingsHelpLine2")}</p>
+
+            <label className={`flex items-center gap-2 ${fieldLabelClass}`}>
+              <input
+                type="checkbox"
+                aria-label={t("invoices.invoiceNumberSeqBeforeYear")}
+                checked={invoiceNumberSeqBeforeYear}
+                onChange={(e) =>
+                  handleInvoiceNumberSeqBeforeYearChange(e.target.checked)
+                }
+                disabled={previewing || issuing || !clientId}
+                className="rounded border-input"
+              />
+              {t("invoices.invoiceNumberSeqBeforeYear")}
+            </label>
+
+            <label className={`flex items-center gap-2 ${fieldLabelClass}`}>
+              <input
+                type="checkbox"
+                aria-label={t("invoices.usePrefix")}
+                checked={usePrefix}
+                onChange={(e) => handleUsePrefixChange(e.target.checked)}
+                disabled={previewing || issuing || !clientId}
+                className="rounded border-input"
+              />
+              {t("invoices.usePrefix")}
+            </label>
+
+            <label className={`flex max-w-xs flex-col gap-1 ${fieldLabelClass}`}>
+              {t("invoices.invoicePrefix")}
+              <input
+                type="text"
+                aria-label={t("invoices.invoicePrefix")}
+                value={invoicePrefix ?? ""}
+                onChange={(e) => handleInvoicePrefixChange(e.target.value)}
+                disabled={!invoiceNumber || previewing || issuing}
+                placeholder={t("invoices.invoiceNumberAfterPreview")}
+                className={`${inputClass} font-medium uppercase`}
+              />
+            </label>
+
+            <label className={`flex max-w-xs flex-col gap-1 ${fieldLabelClass}`}>
+              {t("invoices.invoiceNumber")}
+              <input
+                type="text"
+                value={invoiceNumber ?? ""}
+                onChange={(e) => handleInvoiceNumberChange(e.target.value)}
+                disabled={!invoiceNumber || previewing || issuing}
+                placeholder={t("invoices.invoiceNumberAfterPreview")}
+                className={`${inputClass} font-medium`}
+              />
+            </label>
+
+            {invoiceNumberEdited && numberingPreview ? (
+              <fieldset className="rounded-md border border-accent-border bg-accent-muted px-4 py-3">
+                <legend className={`px-1 ${fieldLabelClass}`}>
+                  {usePrefix
+                    ? t("invoices.futureInvoicesForClient", {
+                        year: invoiceYearFromPeriodEnd(to),
+                      })
+                    : t("invoices.futurePlainInvoices", {
+                        year: invoiceYearFromPeriodEnd(to),
+                      })}
+                </legend>
+                <div className={`mt-2 space-y-2 ${fieldLabelClass}`}>
+                  <label className="flex cursor-pointer items-start gap-2">
+                    <input
+                      type="radio"
+                      name="numberingStrategy"
+                      value="sequential"
+                      checked={numberingStrategy === "sequential"}
+                      onChange={() => setNumberingStrategy("sequential")}
+                      className="mt-1"
+                    />
+                    <span>
+                      {t("invoices.continueSuggestedSequence")}
+                      <span className="mt-0.5 block text-muted">
+                        {t("invoices.nextNumber", {
+                          number: numberingPreview.nextIfIssued.sequential,
+                        })}
+                      </span>
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer items-start gap-2">
+                    <input
+                      type="radio"
+                      name="numberingStrategy"
+                      value="from_last"
+                      checked={numberingStrategy === "from_last"}
+                      onChange={() => setNumberingStrategy("from_last")}
+                      className="mt-1"
+                    />
+                    <span>
+                      {t("invoices.continueFromThisNumber")}
+                      <span className="mt-0.5 block text-muted">
+                        {t("invoices.nextNumber", {
+                          number: numberingPreview.nextIfIssued.fromLast,
+                        })}
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </fieldset>
+            ) : null}
+          </fieldset>
+        </div>
+
+        <section data-testid="invoices-issued-panel" className="lg:mt-0 mt-10">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+            <h2 className="text-lg font-medium text-content">{t("invoices.issuedInvoices")}</h2>
+            <div
+              className={`flex gap-3 ${
+                isMobile
+                  ? "w-full flex-col items-stretch"
+                  : "flex-wrap items-end"
+              }`}
+            >
+              <label
+                className={`flex flex-col gap-1 ${fieldLabelClass} ${
+                  isMobile ? "min-w-0 flex-1" : "min-w-[10rem]"
+                }`}
+              >
+                {t("invoices.exportClient")}
+                <select
+                  value={exportClientId}
+                  onChange={(e) => setExportClientId(e.target.value)}
+                  disabled={loading || clients.length === 0}
+                  className={`${selectClass}${isMobile ? " min-h-11 w-full" : ""}`}
+                >
+                  <option value="">{t("invoices.allClients")}</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.name}
+                    </option>
+                  ))}
+                </select>
               </label>
-              <label className="flex cursor-pointer items-start gap-2">
+              <label className={`flex flex-col gap-1 ${fieldLabelClass}`}>
+                {t("invoices.exportYear")}
                 <input
-                  type="radio"
-                  name="numberingStrategy"
-                  value="from_last"
-                  checked={numberingStrategy === "from_last"}
-                  onChange={() => setNumberingStrategy("from_last")}
-                  className="mt-1"
+                  type="number"
+                  min={2000}
+                  max={2100}
+                  placeholder={t("invoices.allYears")}
+                  value={exportYear}
+                  onChange={(e) => setExportYear(e.target.value)}
+                  className={`${inputClass}${isMobile ? " min-h-11 w-full" : " w-28"}`}
                 />
-                <span>
-                  {t("invoices.continueFromThisNumber")}
-                  <span className="mt-0.5 block text-muted">
-                    {t("invoices.nextNumber", {
-                      number: numberingPreview.nextIfIssued.fromLast,
-                    })}
-                  </span>
-                </span>
               </label>
             </div>
-          </fieldset>
-        ) : null}
-      </fieldset>
+          </div>
+          <div className="mb-4">
+            <button
+              type="button"
+              onClick={() => void handleExportOutgoing()}
+              disabled={exporting || loading}
+              className="text-sm text-muted underline hover:text-content disabled:opacity-50"
+            >
+              {exporting ? t("invoices.exporting") : t("invoices.exportOutgoing")}
+            </button>
+          </div>
+          {issuedInvoices.length === 0 ? (
+            <p className={`${emptyStateClass} py-6`}>
+              {t("invoices.noIssuedInvoices")}
+            </p>
+          ) : (
+            <IssuedInvoicesList
+              invoices={issuedInvoices}
+              downloadingId={downloadingId}
+              selectedId={selectedInvoiceId}
+              onSelect={setSelectedInvoiceId}
+              onDownload={(invoice) => void handleDownloadIssued(invoice)}
+              onRefreshLines={(invoice) => handlePatchIssued(invoice)}
+              onSaveNumber={(invoice, invoiceNumber, strategy) =>
+                handlePatchIssued(invoice, {
+                  invoiceNumber,
+                  numberingStrategy: strategy,
+                })
+              }
+              onPrepareEmail={(invoice) => handlePrepareEmail(invoice)}
+              onMarkSent={(invoice) => handleMarkSent(invoice)}
+              onVoid={(invoice) => handleVoid(invoice)}
+              loadClientMail={loadClientMail}
+              loadWorkspaceTemplate={loadWorkspaceTemplate}
+              operatorName={invoiceSenderName}
+              formatBillingPeriod={formatBillingPeriod}
+              formatAmount={formatCurrency}
+              pdfUrl={(id) => `/api/invoices/${id}/pdf`}
+            />
+          )}
+        </section>
+      </div>
 
       {previewUrl && previewFullscreenOpen ? (
         <div
@@ -1240,91 +1339,6 @@ export default function InvoicesPage() {
           />
         </div>
       ) : null}
-
-      <section className="mt-10">
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
-          <h2 className="text-lg font-medium text-content">{t("invoices.issuedInvoices")}</h2>
-          <div
-            className={`flex gap-3 ${
-              isMobile
-                ? "w-full flex-col items-stretch"
-                : "flex-wrap items-end"
-            }`}
-          >
-            <label
-              className={`flex flex-col gap-1 ${fieldLabelClass} ${
-                isMobile ? "min-w-0 flex-1" : "min-w-[10rem]"
-              }`}
-            >
-              {t("invoices.exportClient")}
-              <select
-                value={exportClientId}
-                onChange={(e) => setExportClientId(e.target.value)}
-                disabled={loading || clients.length === 0}
-                className={`${selectClass}${isMobile ? " min-h-11 w-full" : ""}`}
-              >
-                <option value="">{t("invoices.allClients")}</option>
-                {clients.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className={`flex flex-col gap-1 ${fieldLabelClass}`}>
-              {t("invoices.exportYear")}
-              <input
-                type="number"
-                min={2000}
-                max={2100}
-                placeholder={t("invoices.allYears")}
-                value={exportYear}
-                onChange={(e) => setExportYear(e.target.value)}
-                className={`${inputClass}${isMobile ? " min-h-11 w-full" : " w-28"}`}
-              />
-            </label>
-          </div>
-        </div>
-        <div className="mb-4">
-          <button
-            type="button"
-            onClick={() => void handleExportOutgoing()}
-            disabled={exporting || loading}
-            className="text-sm text-muted underline hover:text-content disabled:opacity-50"
-          >
-            {exporting ? t("invoices.exporting") : t("invoices.exportOutgoing")}
-          </button>
-        </div>
-        {issuedInvoices.length === 0 ? (
-          <p className={`${emptyStateClass} py-6`}>
-            {t("invoices.noIssuedInvoices")}
-          </p>
-        ) : (
-          <IssuedInvoicesList
-            invoices={issuedInvoices}
-            downloadingId={downloadingId}
-            selectedId={selectedInvoiceId}
-            onSelect={setSelectedInvoiceId}
-            onDownload={(invoice) => void handleDownloadIssued(invoice)}
-            onRefreshLines={(invoice) => handlePatchIssued(invoice)}
-            onSaveNumber={(invoice, invoiceNumber, strategy) =>
-              handlePatchIssued(invoice, {
-                invoiceNumber,
-                numberingStrategy: strategy,
-              })
-            }
-            onPrepareEmail={(invoice) => handlePrepareEmail(invoice)}
-            onMarkSent={(invoice) => handleMarkSent(invoice)}
-            onVoid={(invoice) => handleVoid(invoice)}
-            loadClientMail={loadClientMail}
-            loadWorkspaceTemplate={loadWorkspaceTemplate}
-            operatorName={invoiceSenderName}
-            formatBillingPeriod={formatBillingPeriod}
-            formatAmount={formatCurrency}
-            pdfUrl={(id) => `/api/invoices/${id}/pdf`}
-          />
-        )}
-      </section>
 
       {editingSender && (
         <ResponsiveOverlay ariaLabel={t("invoices.senderTitle")}>
