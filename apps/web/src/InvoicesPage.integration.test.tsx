@@ -6,6 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { describeWithAuthenticatedWorkspace } from "./test/describe-with-live-api.js";
 import InvoicesPage from "./InvoicesPage.js";
+import { isQuietInvoiceConflictMessage } from "./invoices/invoice-preview-quiet.js";
 
 /** July so “last month” quick control selects June (fixture entry month). */
 const JULY_2026 = new Date("2026-07-15T12:00:00.000Z");
@@ -59,6 +60,27 @@ async function waitForAutoPreview() {
   await waitFor(() => {
     expect(screen.getByTitle(/invoice preview/i)).toBeInTheDocument();
   });
+}
+
+function previewRegion() {
+  return screen.getByRole("region", { name: /invoice preview/i });
+}
+
+async function waitForQuietBillingMonthPreview() {
+  await waitFor(
+    () => {
+      expect(screen.queryByTitle(/invoice preview/i)).not.toBeInTheDocument();
+      expect(
+        within(previewRegion()).getByText(
+          (content, element) =>
+            element?.tagName === "P" &&
+            isQuietInvoiceConflictMessage(content),
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    },
+    { timeout: 10_000 },
+  );
 }
 
 describeWithAuthenticatedWorkspace(
@@ -126,9 +148,11 @@ describeWithAuthenticatedWorkspace(
       fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
 
       await waitFor(() => {
-        expect(clickSpy).toHaveBeenCalled();
+        expect(clickSpy).not.toHaveBeenCalled();
       });
       clickSpy.mockRestore();
+
+      await waitForQuietBillingMonthPreview();
 
       const afterIssue = await (
         await fetch("/api/time-entries?date=2026-06-18")
