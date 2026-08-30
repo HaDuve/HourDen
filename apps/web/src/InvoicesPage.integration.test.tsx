@@ -6,6 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { describeWithAuthenticatedWorkspace } from "./test/describe-with-live-api.js";
 import InvoicesPage from "./InvoicesPage.js";
+import { isQuietInvoiceConflictMessage } from "./invoices/invoice-preview-quiet.js";
 
 /** July so “last month” quick control selects June (fixture entry month). */
 const JULY_2026 = new Date("2026-07-15T12:00:00.000Z");
@@ -70,8 +71,8 @@ async function waitForQuietBillingMonthPreview() {
     () => {
       expect(screen.queryByTitle(/invoice preview/i)).not.toBeInTheDocument();
       expect(
-        within(previewRegion()).getByText(
-          /invoice already exists for this client and billing month/i,
+        within(previewRegion()).getByText((_, element) =>
+          isQuietInvoiceConflictMessage(element?.textContent ?? ""),
         ),
       ).toBeInTheDocument();
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
