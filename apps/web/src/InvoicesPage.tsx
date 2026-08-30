@@ -268,6 +268,10 @@ export default function InvoicesPage() {
     setAlert({ kind: "plain", message });
   }, []);
 
+  const clearPostIssueEmailHandoff = useCallback(() => {
+    setPostIssueEmailHandoff(null);
+  }, []);
+
   const applyPreviewApiError = useCallback(
     async (res: Response, options?: { clientId?: string }) => {
       const apiError = await readApiErrorBody(res);
@@ -1336,9 +1340,7 @@ export default function InvoicesPage() {
               formatAmount={formatCurrency}
               pdfUrl={(id) => `/api/invoices/${id}/pdf`}
               postIssueEmailHandoff={postIssueEmailHandoff}
-              onPostIssueEmailHandoffComplete={() =>
-                setPostIssueEmailHandoff(null)
-              }
+              onPostIssueEmailHandoffComplete={clearPostIssueEmailHandoff}
             />
           )}
         </section>

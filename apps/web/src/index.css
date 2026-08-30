@@ -86,3 +86,9 @@ body {
 .prepare-email-attention {
   animation: prepare-email-attention 0.75s ease-in-out 4;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .prepare-email-attention {
+    animation: none;
+  }
+}

@@ -142,6 +142,10 @@ export function IssuedInvoicesList({
   const prepareEmailBlinkTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const onPostIssueEmailHandoffCompleteRef = useRef(
+    onPostIssueEmailHandoffComplete,
+  );
+  onPostIssueEmailHandoffCompleteRef.current = onPostIssueEmailHandoffComplete;
   const [tab, setTab] = useState<Tab>("pdf");
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [emailConfirmStep, setEmailConfirmStep] =
@@ -238,12 +242,8 @@ export function IssuedInvoicesList({
       }, POST_ISSUE_PREPARE_EMAIL_BLINK_MS);
     }
 
-    onPostIssueEmailHandoffComplete?.();
-  }, [
-    postIssueEmailHandoff,
-    selected?.id,
-    onPostIssueEmailHandoffComplete,
-  ]);
+    onPostIssueEmailHandoffCompleteRef.current?.();
+  }, [postIssueEmailHandoff, selected?.id]);
 
   useLayoutEffect(() => {
     if (!handoffScrollPending || tab !== "email") return;

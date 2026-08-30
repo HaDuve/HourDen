@@ -479,5 +479,48 @@ describe("IssuedInvoicesList", () => {
         screen.getByRole("button", { name: /prepare email/i }),
       ).not.toHaveClass("prepare-email-attention");
     });
+
+    it("does not re-run handoff when only the complete callback identity changes", async () => {
+      const onComplete1 = vi.fn();
+      const onComplete2 = vi.fn();
+      const handoff = {
+        invoiceId: issuedInvoice.id,
+        blinkPrepareEmail: false,
+      };
+
+      const { rerender } = renderList([issuedInvoice], {
+        postIssueEmailHandoff: handoff,
+        onPostIssueEmailHandoffComplete: onComplete1,
+      });
+      await act(async () => undefined);
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+      expect(onComplete1).toHaveBeenCalledTimes(1);
+
+      rerender(
+        <IssuedInvoicesList
+          invoices={[issuedInvoice]}
+          downloadingId={null}
+          selectedId={issuedInvoice.id}
+          onSelect={() => undefined}
+          onDownload={() => undefined}
+          onRefreshLines={noopAsync}
+          onSaveNumber={noopAsync}
+          onPrepareEmail={noopAsync}
+          onMarkSent={noopAsync}
+          onVoid={noopAsync}
+          {...mailLoaders}
+          formatBillingPeriod={(start, end) => `${start} – ${end}`}
+          formatAmount={(amount) => `${amount.toFixed(2)} EUR`}
+          operatorName=""
+          pdfUrl={(id) => `/api/invoices/${id}/pdf`}
+          postIssueEmailHandoff={handoff}
+          onPostIssueEmailHandoffComplete={onComplete2}
+        />,
+      );
+      await act(async () => undefined);
+
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+      expect(onComplete2).not.toHaveBeenCalled();
+    });
   });
 });
