@@ -111,8 +111,8 @@ _Avoid_: Analytics, Overview, Insights (in nav copy — the label is "Dashboard"
 **Report** — a date-range view of Time Entries grouped by Client with duration and amount totals, used to review before invoicing. Can be exported as a Clockify-compatible CSV (full Clockify column set) that the existing `generate_invoice.py` consumes unchanged. Month quick controls (`< last this >`) above the date pickers set this/last calendar month or step one month from the current filter.
 _Avoid_: Summary, timesheet
 
-**Outgoing export** — download a zip of invoices laid out as `Outgoing/{RECIPIENT}/{year}/{number}_{dd_mm_yy}_Invoice_….pdf`, or (Chromium) auto-file a single PDF into an Operator-chosen local archive root on **Issue** as `{RECIPIENT}/{year}/…` under that root (same relative path; typically today’s `Outgoing/`). Zip remains a demoted escape hatch (“Download all outgoing invoices”). Issue never blocks on folder access; missing root or permission → Issue succeeds + prompt/retry; existing archive file → skip write + warn. Safari/Firefox hide local-archive controls. Forward-only (no backfill of already-issued invoices). Intended zip use after **Sent**; excludes voided and snapshot-less rows.
-_Avoid_: server-side write into the Operator’s Mac filesystem; silent overwrite of existing archive PDFs
+**Outgoing export** — download a zip of invoices laid out as `Outgoing/{RECIPIENT}/{year}/{number}_{dd_mm_yy}_Invoice_….pdf`, or download individual PDFs per invoice from the issued-invoices list. No local auto-filing on **Issue** — the Operator saves PDFs through explicit download only (per invoice or filtered zip: “Download all outgoing invoices”). Forward-only (no backfill of already-issued invoices). Intended zip use after **Sent**; excludes voided and snapshot-less rows.
+_Avoid_: server-side write into the Operator’s local filesystem; File System Access archive folder
 
 ## Flagged ambiguities
 

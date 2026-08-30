@@ -37,7 +37,7 @@ import {
   voidInvoice,
 } from "./db/invoice-writes.js";
 import { buildIssuedInvoicesZip } from "./invoice-export.js";
-import { invoiceExportPath, invoiceFilename } from "./invoice-path.js";
+import { invoiceFilename } from "./invoice-path.js";
 import { getWorkspaceCalendarTimezone, getWorkspaceInvoiceOperator } from "./db/workspaces.js";
 import { getCurrentWorkspaceId } from "./workspace.js";
 
@@ -396,13 +396,11 @@ function invoicePdfHeadersFromSnapshot(
     clientName: invoice.clientName,
   };
   const filename = invoiceFilename(pathInput);
-  const exportPath = invoiceExportPath(pathInput);
 
   return {
     "Content-Type": "application/pdf",
     "Content-Disposition": `inline; filename="${filename}"`,
     "X-Invoice-Number": invoice.invoiceNumber,
-    "X-Invoice-Export-Path": exportPath,
   };
 }
 
@@ -417,13 +415,11 @@ function invoicePdfHeaders(
     clientName: prepared.client.name,
   };
   const filename = invoiceFilename(pathInput);
-  const exportPath = invoiceExportPath(pathInput);
 
   return {
     "Content-Type": "application/pdf",
     "Content-Disposition": `attachment; filename="${filename}"`,
     "X-Invoice-Number": invoiceNumber,
-    "X-Invoice-Export-Path": exportPath,
   };
 }
 

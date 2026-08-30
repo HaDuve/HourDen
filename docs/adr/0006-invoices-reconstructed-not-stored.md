@@ -7,7 +7,7 @@ Migrating from `generate_invoice.py` (which writes PDFs to `Outgoing/{RECIPIENT}
 - Do **not** store PDF bytes. Reconstruct on demand from stored metadata plus an **issuance snapshot**.
 - On **Issue**, persist a working snapshot (recipient block, invoice sender, grouped lines, totals) as `jsonb` on the `invoices` row; **rewrite it on edits** while status is `issued`; **freeze at Sent**. Reconstruction renders from the snapshot (plus invoice number), not from live Clients/entries/Workspace settings.
 - **Forward-only ownership:** HourDen reconstructs/exports only invoices it issued. Pre-switch history stays in the parent `Invoices/` repo's `Outgoing/` archive (the legal record of what was sent).
-- The folder layout (`Outgoing/{RECIPIENT}/{year}/{number}_{dd_mm_yy}_Invoice_….pdf`) is a shared convention (`invoiceExportPath` in `@hourden/domain`: Invoice Sender name with spaces → `_`, Client name casing preserved; quotes/path separators sanitized); export yields a single PDF or the whole tree zipped. Chromium clients may also write that relative path under an Operator-chosen local archive root on **Issue** (File System Access API) — that is a browser-side archive assist, not a server write into the parent `Invoices/` repo filesystem.
+- The folder layout (`Outgoing/{RECIPIENT}/{year}/{number}_{dd_mm_yy}_Invoice_….pdf`) is a shared convention (`invoiceExportPath` in `@hourden/domain`: Invoice Sender name with spaces → `_`, Client name casing preserved; quotes/path separators sanitized). **Issue** returns downloadable PDF bytes; **Outgoing export** yields the whole tree as a zip. The web app does not auto-file into a local directory — the Operator saves PDFs through explicit download only (per invoice or filtered zip).
 
 **Considered options:**
 
@@ -23,4 +23,3 @@ Migrating from `generate_invoice.py` (which writes PDFs to `Outgoing/{RECIPIENT}
 - Locking **Invoiced Entries** read-only applies at **Sent** (and while voided coverage rules hold); while `issued`, membership may change (ADR-0014).
 - The PDF template/layout (`invoice-pdf.ts`) is **not** snapshotted: a future layout change re-renders past invoices differently. Add a `template_version` if true byte-stability is ever required.
 - New users have no legacy split — only the single existing operator has history, which lives in the Python `Outgoing/` archive.
-- Local archive-on-Issue (Chromium) updates the old “no auto-sync to Outgoing” guidance: HourDen still does not write server-side into the Operator’s disk; the Operator grants a directory handle and the client files PDFs there after Issue.
