@@ -52,7 +52,12 @@ async function waitForClientReady(clientName: string, clientId: string) {
       within(clientSelect).getByRole("option", { name: clientName }),
     ).toBeInTheDocument();
     expect(clientSelect).toHaveValue(clientId);
-    expect(screen.getByRole("button", { name: /^preview$/i })).toBeEnabled();
+  });
+}
+
+async function waitForAutoPreview() {
+  await waitFor(() => {
+    expect(screen.getByTitle(/invoice preview/i)).toBeInTheDocument();
   });
 }
 
@@ -101,9 +106,7 @@ describeWithAuthenticatedWorkspace(
 
       fireEvent.click(screen.getByRole("button", { name: /last month/i }));
 
-      await act(async () => {
-        fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
-      });
+      await waitForAutoPreview();
 
       await waitFor(
         () => {
@@ -162,10 +165,6 @@ describeWithAuthenticatedWorkspace(
 
       await waitForClientReady("Hannah", hannah.id);
 
-      await act(async () => {
-        fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
-      });
-
       await waitFor(
         () => {
           expect(screen.getByRole("link", { name: /clients page/i })).toHaveAttribute(
@@ -189,10 +188,6 @@ describeWithAuthenticatedWorkspace(
 
       await waitForClientReady("Bandao", bandao.id);
       expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeDisabled();
-
-      await act(async () => {
-        fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
-      });
 
       await waitFor(
         () => {

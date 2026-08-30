@@ -5,8 +5,9 @@ import { useTranslation } from "react-i18next";
 import { useLocaleFormat } from "./locale/use-locale-format.js";
 import { DateRangeFilter } from "./DateRangeFilter.js";
 import { currentMonthRange } from "./date-range.js";
-import { InvoiceAlertBanner } from "./invoices/InvoiceAlertBanner.js";
+import { InvoicePreviewPane } from "./invoices/InvoicePreviewPane.js";
 import type { InvoiceAlert } from "./invoices/invoice-alert.js";
+import { InvoiceAlertBanner } from "./invoices/InvoiceAlertBanner.js";
 import {
   ArchiveFolderStatusLine,
   ArchiveOutcomeBanner,
@@ -226,6 +227,7 @@ export default function InvoicesPage() {
   const [to, setTo] = useState(initialRange.to);
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState<InvoiceAlert | null>(null);
+  const [previewAlert, setPreviewAlert] = useState<InvoiceAlert | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [issuing, setIssuing] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null);
@@ -247,7 +249,6 @@ export default function InvoicesPage() {
     useState(false);
   const [usesSmallBusinessRule, setUsesSmallBusinessRule] = useState(true);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewSheetOpen, setPreviewSheetOpen] = useState(false);
   const [previewFullscreenOpen, setPreviewFullscreenOpen] = useState(false);
   const [issuedInvoices, setIssuedInvoices] = useState<IssuedInvoice[]>([]);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
@@ -292,6 +293,22 @@ export default function InvoicesPage() {
     setAlert({ kind: "plain", message });
   }, []);
 
+  const applyPreviewApiError = useCallback(
+    async (res: Response, options?: { clientId?: string }) => {
+      const apiError = await readApiErrorBody(res);
+      if (apiError.code) {
+        setPreviewAlert({
+          kind: "blocker",
+          code: apiError.code,
+          clientId: options?.clientId,
+        });
+        return;
+      }
+      setPreviewAlert({ kind: "plain", message: apiError.message });
+    },
+    [],
+  );
+
   const applyApiErrorAlert = useCallback(
     async (res: Response, options?: { clientId?: string }) => {
       const apiError = await readApiErrorBody(res);
@@ -316,12 +333,12 @@ export default function InvoicesPage() {
     previewBlobRef.current = null;
     previewFilenameRef.current = null;
     setPreviewUrl(null);
-    setPreviewSheetOpen(false);
     setPreviewFullscreenOpen(false);
   }, []);
 
   const clearPreview = useCallback(() => {
     clearPreviewBlob();
+    setPreviewAlert(null);
     setInvoiceNumber(null);
     setInvoicePrefix(null);
     setSuggestedInvoiceNumber(null);
@@ -449,7 +466,7 @@ export default function InvoicesPage() {
       if (loaded.length > 0) {
         setClientId((current) => current || loaded[0]!.id);
       } else {
-        setAlert({ kind: "blocker", code: "NO_CLIENTS" });
+        setPreviewAlert({ kind: "blocker", code: "NO_CLIENTS" });
       }
       await Promise.all([loadIssuedInvoices(), loadInvoiceSenderStatus()]);
     } catch (err) {
@@ -462,10 +479,6 @@ export default function InvoicesPage() {
   useEffect(() => {
     void loadClients();
   }, [loadClients]);
-
-  useEffect(() => {
-    clearPreview();
-  }, [clientId, from, to, clearPreview]);
 
   useEffect(() => {
     const selectedClient = clients.find((client) => client.id === clientId);
@@ -547,13 +560,12 @@ export default function InvoicesPage() {
       usesSmallBusinessRule?: boolean;
     }) => {
       if (!clientId) {
-        setPlainAlert(t("invoices.selectClientBeforePreview"));
         return;
       }
 
       const requestId = ++previewRequestIdRef.current;
       setPreviewing(true);
-      setAlert(null);
+      setPreviewAlert(null);
 
       try {
         const body: {
@@ -598,7 +610,7 @@ export default function InvoicesPage() {
         }
 
         if (!res.ok) {
-          await applyApiErrorAlert(res, { clientId });
+          await applyPreviewApiError(res, { clientId });
           return;
         }
 
@@ -627,7 +639,6 @@ export default function InvoicesPage() {
         previewBlobRef.current = blob;
         previewFilenameRef.current = filename;
         setPreviewUrl(url);
-        setPreviewSheetOpen(true);
         setInvoiceNumber(nextInvoiceNumber);
         setInvoicePrefix(nextPrefix);
         setSuggestedInvoiceNumber(nextSuggested);
@@ -645,13 +656,13 @@ export default function InvoicesPage() {
           setNumberingPreview(null);
           setNumberingStrategy(null);
         }
-
-        if (!invoiceSenderConfigured) {
-          void openSenderEditor();
-        }
       } catch (err) {
         if (requestId === previewRequestIdRef.current) {
-          setPlainAlert(t("invoices.previewFailed"));
+          setPreviewAlert({
+            kind: "plain",
+            message: t("invoices.previewFailed"),
+            canRetry: true,
+          });
         }
       } finally {
         if (requestId === previewRequestIdRef.current) {
@@ -669,20 +680,27 @@ export default function InvoicesPage() {
       usesSmallBusinessRule,
       clearPreviewBlob,
       refreshNumberingPreview,
-      invoiceSenderConfigured,
-      openSenderEditor,
-      applyApiErrorAlert,
-      setPlainAlert,
+      applyPreviewApiError,
       t,
     ],
   );
+
+  const requestPreviewRef = useRef(requestPreview);
+  requestPreviewRef.current = requestPreview;
+
+  useEffect(() => {
+    clearPreview();
+    if (!loading && clientId) {
+      void requestPreviewRef.current();
+    }
+  }, [clientId, from, to, loading, clearPreview]);
 
   function handleInvoiceNumberSeqBeforeYearChange(checked: boolean) {
     setInvoiceNumberSeqBeforeYear(checked);
     setNumberingStrategy(null);
     setNumberingPreview(null);
 
-    if (previewUrl) {
+    if (clientId) {
       void requestPreview({
         invoiceNumberSeqBeforeYear: checked,
         invoiceNumber:
@@ -697,7 +715,7 @@ export default function InvoicesPage() {
   function handleUsesSmallBusinessRuleChange(checked: boolean) {
     setUsesSmallBusinessRule(checked);
 
-    if (previewUrl) {
+    if (clientId) {
       void requestPreview({ usesSmallBusinessRule: checked });
     }
   }
@@ -707,7 +725,7 @@ export default function InvoicesPage() {
     setNumberingStrategy(null);
     setNumberingPreview(null);
 
-    if (previewUrl) {
+    if (clientId) {
       void requestPreview({
         usePrefix: checked,
         invoiceNumber:
@@ -719,7 +737,7 @@ export default function InvoicesPage() {
     }
   }
 
-  async function handlePreview() {
+  async function handleRetryPreview() {
     await requestPreview();
   }
 
@@ -1126,14 +1144,6 @@ export default function InvoicesPage() {
           </button>
           <button
             type="button"
-            onClick={() => void handlePreview()}
-            disabled={previewing || issuing || loading || !clientId}
-            className={secondaryButtonClass}
-          >
-            {previewing ? t("invoices.previewing") : t("invoices.preview")}
-          </button>
-          <button
-            type="button"
             onClick={() => void handleIssue()}
             disabled={issueDisabled}
             className={primaryButtonClass}
@@ -1203,6 +1213,17 @@ export default function InvoicesPage() {
           onGrantAndRetry={() => void handleRetryArchiveWithPermission()}
         />
       ) : null}
+
+      <InvoicePreviewPane
+        previewing={previewing}
+        previewUrl={previewUrl}
+        previewAlert={previewAlert}
+        previewIframeSrc={previewIframeSrc}
+        buttonClass={secondaryButtonClass}
+        onDownload={handleDownloadPreview}
+        onFullscreen={() => setPreviewFullscreenOpen(true)}
+        onRetry={() => void handleRetryPreview()}
+      />
 
       {invoiceNumberExists ? (
         <p className="mb-4 rounded-md border border-accent-border bg-accent-muted px-4 py-3 text-sm text-accent">
@@ -1320,45 +1341,6 @@ export default function InvoicesPage() {
           </fieldset>
         ) : null}
       </fieldset>
-
-      {previewUrl && !isMobile ? (
-        <div className="space-y-3">
-          <InvoicePdfToolbar
-            buttonClass={secondaryButtonClass}
-            fullscreenAriaLabel={t("invoices.fullscreenPreview")}
-            downloadAriaLabel={t("invoices.downloadPreviewPdf")}
-            onFullscreen={() => setPreviewFullscreenOpen(true)}
-            onDownload={handleDownloadPreview}
-          />
-          <iframe
-            title={t("invoices.invoicePreview")}
-            src={previewIframeSrc(previewUrl)}
-            className="h-[70vh] w-full rounded-md border border-divider"
-          />
-        </div>
-      ) : null}
-
-      {previewUrl && isMobile && previewSheetOpen ? (
-        <ResponsiveOverlay
-          ariaLabel={t("invoices.invoicePreview")}
-          onBackdropClick={() => setPreviewSheetOpen(false)}
-        >
-          <div className="space-y-3">
-            <InvoicePdfToolbar
-              buttonClass={secondaryButtonClass}
-              fullscreenAriaLabel={t("invoices.fullscreenPreview")}
-              downloadAriaLabel={t("invoices.downloadPreviewPdf")}
-              onFullscreen={() => setPreviewFullscreenOpen(true)}
-              onDownload={handleDownloadPreview}
-            />
-            <iframe
-              title={t("invoices.invoicePreview")}
-              src={previewIframeSrc(previewUrl)}
-              className="h-[70vh] w-full rounded-md border border-divider"
-            />
-          </div>
-        </ResponsiveOverlay>
-      ) : null}
 
       {previewUrl && previewFullscreenOpen ? (
         <div

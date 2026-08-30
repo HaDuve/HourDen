@@ -204,6 +204,16 @@ async function waitForClientReady(clientName: string, clientId: string) {
   });
 }
 
+async function waitForAutoPreview() {
+  await waitFor(() => {
+    expect(screen.getByTitle(/invoice preview/i)).toBeInTheDocument();
+  });
+}
+
+function previewRegion() {
+  return screen.getByRole("region", { name: /invoice preview/i });
+}
+
 describe("InvoicesPage", () => {
   beforeEach(async () => {
     await i18n.changeLanguage("en");
@@ -218,6 +228,75 @@ describe("InvoicesPage", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it("does not show a manual Preview button in the header", async () => {
+    vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
+
+    renderInvoicesPage();
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+
+    expect(
+      screen.queryByRole("button", { name: /^preview$/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("auto-runs preview once clients are loaded", async () => {
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        return Promise.resolve(previewPdfResponse("BAN2026001"));
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderInvoicesPage();
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    await waitForAutoPreview();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/invoices/preview",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          clientId: bandaoClient.id,
+          from: currentMonthRange().from,
+          to: currentMonthRange().to,
+        }),
+      }),
+    );
+  });
+
+  it("auto-runs preview again when the billing period changes", async () => {
+    vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
+    vi.setSystemTime(new Date(2026, 5, 18));
+
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        return Promise.resolve(previewPdfResponse("BAN2026001"));
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderInvoicesPage();
+    await waitForClientReady("Bandao", bandaoClient.id);
+    await waitForAutoPreview();
+
+    const callsBefore = fetchMock.mock.calls.filter(
+      ([url, init]) => url === "/api/invoices/preview" && init?.method === "POST",
+    ).length;
+
+    fireEvent.click(screen.getByRole("button", { name: /^last month$/i }));
+
+    await waitFor(() => {
+      const callsAfter = fetchMock.mock.calls.filter(
+        ([url, init]) => url === "/api/invoices/preview" && init?.method === "POST",
+      ).length;
+      expect(callsAfter).toBeGreaterThan(callsBefore);
+    });
   });
 
   it("labels the billing period and shows a clear issued-invoices empty state", async () => {
@@ -355,7 +434,7 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitForAutoPreview();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
@@ -395,10 +474,11 @@ describe("InvoicesPage", () => {
 
     renderInvoicesPage();
     await waitForClientReady("Bandao", bandaoClient.id);
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
+      expect(
+        within(previewRegion()).getByText(/something went wrong/i),
+      ).toBeInTheDocument();
     });
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
@@ -409,14 +489,10 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Hannah", clientWithoutRecipient.id);
-
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
-
     await waitFor(() => {
-      expect(screen.getByRole("link", { name: /clients page/i })).toHaveAttribute(
-        "href",
-        `/clients?edit=${clientWithoutRecipient.id}`,
-      );
+      expect(
+        within(previewRegion()).getByRole("link", { name: /clients page/i }),
+      ).toHaveAttribute("href", `/clients?edit=${clientWithoutRecipient.id}`);
     });
   });
 
@@ -442,12 +518,10 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-
-    expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeDisabled();
-
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitForAutoPreview();
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
+      expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeEnabled();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
@@ -478,7 +552,6 @@ describe("InvoicesPage", () => {
 
     renderInvoicesPage();
     await waitForClientReady("Bandao", bandaoClient.id);
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
 
     await waitFor(() => {
       expect(screen.getByRole("link", { name: /projects page/i })).toHaveAttribute(
@@ -506,7 +579,6 @@ describe("InvoicesPage", () => {
 
     renderInvoicesPage();
     await waitForClientReady("Bandao", bandaoClient.id);
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
 
     await waitFor(() => {
       expect(screen.getByRole("link", { name: /^tracker$/i })).toHaveAttribute(
@@ -522,14 +594,45 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitFor(() => {
-      expect(screen.getByRole("link", { name: /clients page/i })).toHaveAttribute(
-        "href",
-        "/clients?new=1",
-      );
+      expect(
+        within(previewRegion()).getByRole("link", { name: /clients page/i }),
+      ).toHaveAttribute("href", "/clients?new=1");
     });
   });
 
-  it("shows an inline error for a duplicate Billing Period", async () => {
+  it("shows a quiet billing-month conflict in the preview pane", async () => {
+    vi.stubGlobal(
+      "fetch",
+      createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+        if (url === "/api/invoices/preview" && init?.method === "POST") {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                error: "Invoice already exists for this Client and billing month",
+              }),
+              { status: 409, headers: { "Content-Type": "application/json" } },
+            ),
+          );
+        }
+        return undefined;
+      }),
+    );
+
+    renderInvoicesPage();
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+
+    await waitFor(() => {
+      expect(
+        within(previewRegion()).getByText(
+          /invoice already exists for this client and billing month/i,
+        ),
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows an inline error for a duplicate Billing Period on issue", async () => {
     vi.stubGlobal(
       "fetch",
       createInvoicesPageFetchMock([bandaoClient], (url, init) => {
@@ -553,8 +656,7 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitForAutoPreview();
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
       expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
@@ -569,7 +671,7 @@ describe("InvoicesPage", () => {
     });
   });
 
-  it("shows an inline error for a duplicate billing month", async () => {
+  it("shows an inline error for a duplicate billing month on issue", async () => {
     vi.stubGlobal(
       "fetch",
       createInvoicesPageFetchMock([bandaoClient], (url, init) => {
@@ -593,8 +695,7 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitForAutoPreview();
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
       expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
@@ -621,8 +722,7 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitForAutoPreview();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
@@ -670,8 +770,7 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitForAutoPreview();
 
     await waitFor(() => {
       expect(
@@ -705,8 +804,7 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitForAutoPreview();
 
     await waitFor(() => {
       expect(
@@ -750,8 +848,7 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitForAutoPreview();
 
     await waitFor(() => {
       expect(
@@ -790,25 +887,27 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
+    await waitForAutoPreview();
 
-    fireEvent.click(
-      screen.getByRole("checkbox", { name: /sequence before year|laufnummer vor jahr/i }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    const callsBefore = fetchMock.mock.calls.filter(
+      ([url, init]) => url === "/api/invoices/preview" && init?.method === "POST",
+    ).length;
+
+    fireEvent.click(screen.getByLabelText(/^sequence before year$/i));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/invoices/preview",
-        expect.objectContaining({
-          method: "POST",
-          body: JSON.stringify({
-            clientId: bandaoClient.id,
-            from: currentMonthRange().from,
-            to: currentMonthRange().to,
-            invoiceNumberSeqBeforeYear: true,
-          }),
-        }),
+      const previewCalls = fetchMock.mock.calls.filter(
+        ([url, init]) => url === "/api/invoices/preview" && init?.method === "POST",
       );
+      expect(previewCalls.length).toBeGreaterThan(callsBefore);
+      const bodies = previewCalls.map((call) =>
+        JSON.parse(call[1]!.body as string) as {
+          invoiceNumberSeqBeforeYear?: boolean;
+        },
+      );
+      expect(
+        bodies.some((body) => body.invoiceNumberSeqBeforeYear === true),
+      ).toBe(true);
     });
   });
 
@@ -824,13 +923,13 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
+    await waitForAutoPreview();
 
     fireEvent.click(
       screen.getByRole("checkbox", {
         name: /uses kleinunternehmerregelung/i,
       }),
     );
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -849,9 +948,13 @@ describe("InvoicesPage", () => {
   });
 
   it("disables invoice prefix and number fields until the first preview succeeds", async () => {
+    let resolvePreview!: (value: Response) => void;
+    const previewGate = new Promise<Response>((resolve) => {
+      resolvePreview = resolve;
+    });
     const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
       if (url === "/api/invoices/preview" && init?.method === "POST") {
-        return Promise.resolve(previewPdfResponse("BAN2026001"));
+        return previewGate;
       }
       return undefined;
     });
@@ -864,7 +967,8 @@ describe("InvoicesPage", () => {
     expect(screen.getByLabelText(/^invoice prefix$/i)).toBeDisabled();
     expect(screen.getByLabelText(/^invoice number$/i)).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    resolvePreview(previewPdfResponse("BAN2026001"));
+    await waitForAutoPreview();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice prefix$/i)).toBeEnabled();
@@ -873,11 +977,15 @@ describe("InvoicesPage", () => {
   });
 
   it("keeps Issue Invoice disabled until preview succeeds for the current selection", async () => {
+    let resolvePreview!: (value: Response) => void;
+    const previewGate = new Promise<Response>((resolve) => {
+      resolvePreview = resolve;
+    });
     vi.stubGlobal(
       "fetch",
       createInvoicesPageFetchMock([bandaoClient], (url, init) => {
         if (url === "/api/invoices/preview" && init?.method === "POST") {
-          return Promise.resolve(previewPdfResponse("BAN2026001"));
+          return previewGate;
         }
         return undefined;
       }),
@@ -889,7 +997,8 @@ describe("InvoicesPage", () => {
 
     expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    resolvePreview(previewPdfResponse("BAN2026001"));
+    await waitForAutoPreview();
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeEnabled();
@@ -912,8 +1021,7 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitForAutoPreview();
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
       expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
@@ -965,7 +1073,7 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitForAutoPreview();
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeEnabled();
     });
@@ -1298,7 +1406,7 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitForAutoPreview();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
@@ -1358,7 +1466,7 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitForAutoPreview();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
@@ -1421,7 +1529,7 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitForAutoPreview();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
@@ -1474,7 +1582,7 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitForAutoPreview();
 
     await waitFor(() => {
       expect(
@@ -1518,7 +1626,7 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitForAutoPreview();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
@@ -1573,7 +1681,7 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitForAutoPreview();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
@@ -1638,7 +1746,7 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitForAutoPreview();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice prefix$/i)).toHaveValue("BAN");
@@ -1714,7 +1822,7 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitForAutoPreview();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
@@ -1786,7 +1894,7 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitForAutoPreview();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^invoice number$/i)).toHaveValue("BAN2026001");
@@ -1878,7 +1986,7 @@ describe("InvoicesPage", () => {
     });
   });
 
-  it("opens Invoice Sender modal after preview when sender is not configured", async () => {
+  it("does not open Invoice Sender modal automatically after auto-preview when sender is not configured", async () => {
     const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
       if (url === "/api/workspace/invoice-sender" && !init?.method) {
         return invoiceSenderResponse(
@@ -1908,14 +2016,12 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitForAutoPreview();
 
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /^invoice sender$/i })).toBeInTheDocument();
-      expect(
-        screen.getByText(/add your business details before issuing/i),
-      ).toBeInTheDocument();
-    });
+    expect(
+      screen.queryByRole("heading", { name: /^invoice sender$/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeDisabled();
   });
 
   it("disables Issue Invoice until Invoice Sender is configured", async () => {
@@ -1946,7 +2052,7 @@ describe("InvoicesPage", () => {
     renderInvoicesPage();
 
     await waitForClientReady("Bandao", bandaoClient.id);
-    fireEvent.click(screen.getByRole("button", { name: /^preview$/i }));
+    await waitForAutoPreview();
 
     await waitFor(() => {
       expect(screen.getByTitle(/invoice preview/i)).toBeInTheDocument();

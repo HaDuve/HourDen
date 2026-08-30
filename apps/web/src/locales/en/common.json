@@ -147,6 +147,7 @@
     "loadNumberingPreviewFailed": "Failed to load numbering preview",
     "selectClientBeforePreview": "Select a Client before previewing",
     "previewFailed": "Failed to preview invoice",
+    "previewRetry": "Retry",
     "selectClientBeforeIssue": "Select a Client before issuing",
     "setupInvoiceSenderBeforeIssue": "Set up your Invoice Sender before issuing",
     "chooseNumberingStrategy": "Choose how future invoices should be numbered",

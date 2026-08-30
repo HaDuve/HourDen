@@ -147,6 +147,7 @@
     "loadNumberingPreviewFailed": "Nummernvorschau konnte nicht geladen werden",
     "selectClientBeforePreview": "Kunde vor der Vorschau auswählen",
     "previewFailed": "Rechnungsvorschau konnte nicht erstellt werden",
+    "previewRetry": "Erneut versuchen",
     "selectClientBeforeIssue": "Kunde vor dem Ausstellen auswählen",
     "setupInvoiceSenderBeforeIssue": "Rechnungsabsender vor dem Ausstellen einrichten",
     "chooseNumberingStrategy": "Nummernfolge für zukünftige Rechnungen festlegen",
