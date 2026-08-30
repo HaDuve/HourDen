@@ -2278,7 +2278,7 @@ describe("InvoicesPage", () => {
     expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeDisabled();
   });
 
-  describe("layout (#145)", () => {
+  describe("Invoices page layout", () => {
     it("keeps the page header title-only without Issue Invoice", async () => {
       vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
 
