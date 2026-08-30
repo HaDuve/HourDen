@@ -3,7 +3,6 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { MemoryRouter } from "react-router-dom";
 import i18n from "./i18n/i18n.js";
 import InvoicesPage from "./InvoicesPage.js";
-import { mockMobileViewport } from "./test/viewport.js";
 import { createMatchMediaWithOptions } from "./test/match-media.js";
 import { createPreviewThenBillingMonthConflictHandler } from "./invoices/invoices-page-preview-fetch.js";
 import { POST_ISSUE_PREPARE_EMAIL_BLINK_MS } from "./invoices/post-issue-email-handoff.js";
@@ -2316,30 +2315,18 @@ describe("InvoicesPage", () => {
       ).toBeTruthy();
     });
 
-    it("places compose and issued invoices as direct children of the layout grid", async () => {
+    it("shows issued invoices below compose content in a single column", async () => {
       vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
 
       renderInvoicesPage();
       await waitForClientReady("Bandao", bandaoClient.id);
 
-      const layout = screen.getByTestId("invoices-layout");
-      const compose = screen.getByTestId("invoices-compose");
-      const issued = screen.getByTestId("invoices-issued-panel");
-      expect(layout).toHaveClass("lg:grid", "lg:grid-cols-2");
-      expect(Array.from(layout.children)).toEqual([compose, issued]);
-    });
+      expect(screen.queryByTestId("invoices-layout")).not.toBeInTheDocument();
 
-    it("stacks compose above issued invoices below lg", async () => {
-      mockMobileViewport();
-      vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
-
-      renderInvoicesPage();
-      await waitForClientReady("Bandao", bandaoClient.id);
-
-      const compose = screen.getByTestId("invoices-compose");
-      const issued = screen.getByTestId("invoices-issued-panel");
+      const issueButton = screen.getByRole("button", { name: /^issue invoice$/i });
+      const issuedHeading = screen.getByRole("heading", { name: /issued invoices/i });
       expect(
-        compose.compareDocumentPosition(issued) &
+        issueButton.compareDocumentPosition(issuedHeading) &
           Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
     });
