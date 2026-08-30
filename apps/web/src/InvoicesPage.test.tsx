@@ -299,6 +299,76 @@ describe("InvoicesPage", () => {
     });
   });
 
+  it("clears the stale PDF when a re-preview fails with a blocker", async () => {
+    let previewCallCount = 0;
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        previewCallCount += 1;
+        if (previewCallCount === 1) {
+          return Promise.resolve(previewPdfResponse("BAN2026001"));
+        }
+        return Promise.resolve({
+          ok: false,
+          status: 400,
+          json: async () => ({
+            error: "No billable Time Entries in this Billing Period",
+            code: "NO_BILLABLE_ENTRIES",
+          }),
+        });
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderInvoicesPage();
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    await waitForAutoPreview();
+    expect(screen.getByTitle(/invoice preview/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(/^use prefix$/i));
+
+    await waitFor(() => {
+      expect(screen.queryByTitle(/invoice preview/i)).not.toBeInTheDocument();
+      expect(
+        within(previewRegion()).getByRole("link", { name: /^tracker$/i }),
+      ).toHaveAttribute("href", "/tracker");
+      expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeDisabled();
+    });
+  });
+
+  it("clears the stale PDF when a re-preview fails with a transport error", async () => {
+    let previewCallCount = 0;
+    const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
+      if (url === "/api/invoices/preview" && init?.method === "POST") {
+        previewCallCount += 1;
+        if (previewCallCount === 1) {
+          return Promise.resolve(previewPdfResponse("BAN2026001"));
+        }
+        return Promise.reject(new Error("offline"));
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderInvoicesPage();
+
+    await waitForClientReady("Bandao", bandaoClient.id);
+    await waitForAutoPreview();
+    expect(screen.getByTitle(/invoice preview/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(/^use prefix$/i));
+
+    await waitFor(() => {
+      expect(screen.queryByTitle(/invoice preview/i)).not.toBeInTheDocument();
+      expect(
+        within(previewRegion()).getByText(/failed to preview invoice/i),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^retry$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeDisabled();
+    });
+  });
+
   it("labels the billing period and shows a clear issued-invoices empty state", async () => {
     vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
 

@@ -349,6 +349,17 @@ export default function InvoicesPage() {
     setUsePrefix(true);
   }, [clearPreviewBlob]);
 
+  const clearPreviewResult = useCallback(() => {
+    clearPreviewBlob();
+    setInvoiceNumber(null);
+    setInvoicePrefix(null);
+    setSuggestedInvoiceNumber(null);
+    setSuggestedInvoicePrefix(null);
+    setInvoiceNumberExists(false);
+    setNumberingPreview(null);
+    setNumberingStrategy(null);
+  }, [clearPreviewBlob]);
+
   const loadIssuedInvoices = useCallback(async () => {
     try {
       const invoices = await fetchIssuedInvoices();
@@ -610,6 +621,7 @@ export default function InvoicesPage() {
         }
 
         if (!res.ok) {
+          clearPreviewResult();
           await applyPreviewApiError(res, { clientId });
           return;
         }
@@ -658,6 +670,7 @@ export default function InvoicesPage() {
         }
       } catch (err) {
         if (requestId === previewRequestIdRef.current) {
+          clearPreviewResult();
           setPreviewAlert({
             kind: "plain",
             message: t("invoices.previewFailed"),
@@ -679,6 +692,7 @@ export default function InvoicesPage() {
       invoiceNumberSeqBeforeYear,
       usesSmallBusinessRule,
       clearPreviewBlob,
+      clearPreviewResult,
       refreshNumberingPreview,
       applyPreviewApiError,
       t,
