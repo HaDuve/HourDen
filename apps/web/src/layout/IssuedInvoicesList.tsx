@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   fillInvoiceEmailTemplate,
@@ -7,6 +7,7 @@ import {
   resolveInvoiceEmailTemplates,
 } from "../invoices/invoice-email-template.js";
 import { buildMailtoHref } from "../invoices/open-mailto.js";
+import { POST_ISSUE_PREPARE_EMAIL_BLINK_MS } from "../invoices/post-issue-email-handoff.js";
 import { useLocaleFormat } from "../locale/use-locale-format.js";
 import { InvoicePdfToolbar } from "./InvoicePdfToolbar.js";
 import {
@@ -42,6 +43,11 @@ export type WorkspaceMailTemplate = {
   invoiceEmailBody: string | null;
 };
 
+export type PostIssueEmailHandoff = {
+  invoiceId: string;
+  blinkPrepareEmail: boolean;
+};
+
 type Tab = "pdf" | "edit" | "email";
 
 /** Post–Prepare Email confirmation: mail opened? → then sent? */
@@ -73,6 +79,8 @@ type IssuedInvoicesListProps = {
   formatBillingPeriod: (start: string, end: string) => string;
   formatAmount: (amount: number) => string;
   pdfUrl: (invoiceId: string) => string;
+  postIssueEmailHandoff?: PostIssueEmailHandoff | null;
+  onPostIssueEmailHandoffComplete?: () => void;
 };
 
 function buildGroupedRows(
@@ -125,9 +133,15 @@ export function IssuedInvoicesList({
   formatBillingPeriod,
   formatAmount,
   pdfUrl,
+  postIssueEmailHandoff = null,
+  onPostIssueEmailHandoffComplete,
 }: IssuedInvoicesListProps) {
   const { t, i18n } = useTranslation();
   const { locale } = useLocaleFormat();
+  const emailPanelRef = useRef<HTMLDivElement>(null);
+  const prepareEmailBlinkTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const [tab, setTab] = useState<Tab>("pdf");
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [emailConfirmStep, setEmailConfirmStep] =
@@ -142,6 +156,8 @@ export function IssuedInvoicesList({
   const [mail, setMail] = useState<ClientMailSettings | null>(null);
   const [workspaceTemplate, setWorkspaceTemplate] =
     useState<WorkspaceMailTemplate | null>(null);
+  const [prepareEmailBlinking, setPrepareEmailBlinking] = useState(false);
+  const [handoffScrollPending, setHandoffScrollPending] = useState(false);
 
   const selected =
     invoices.find((inv) => inv.id === selectedId) ?? invoices[0] ?? null;
@@ -195,6 +211,48 @@ export function IssuedInvoicesList({
       cancelled = true;
     };
   }, [selected?.id, selected?.clientId, tab, loadClientMail, loadWorkspaceTemplate]);
+
+  useEffect(() => {
+    return () => {
+      if (prepareEmailBlinkTimeoutRef.current) {
+        clearTimeout(prepareEmailBlinkTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!postIssueEmailHandoff || !selected) return;
+    if (postIssueEmailHandoff.invoiceId !== selected.id) return;
+
+    setTab("email");
+    setHandoffScrollPending(true);
+
+    if (postIssueEmailHandoff.blinkPrepareEmail) {
+      setPrepareEmailBlinking(true);
+      if (prepareEmailBlinkTimeoutRef.current) {
+        clearTimeout(prepareEmailBlinkTimeoutRef.current);
+      }
+      prepareEmailBlinkTimeoutRef.current = setTimeout(() => {
+        setPrepareEmailBlinking(false);
+        prepareEmailBlinkTimeoutRef.current = null;
+      }, POST_ISSUE_PREPARE_EMAIL_BLINK_MS);
+    }
+
+    onPostIssueEmailHandoffComplete?.();
+  }, [
+    postIssueEmailHandoff,
+    selected?.id,
+    onPostIssueEmailHandoffComplete,
+  ]);
+
+  useLayoutEffect(() => {
+    if (!handoffScrollPending || tab !== "email") return;
+    emailPanelRef.current?.scrollIntoView?.({
+      behavior: "smooth",
+      block: "nearest",
+    });
+    setHandoffScrollPending(false);
+  }, [handoffScrollPending, tab]);
 
   if (invoices.length === 0) {
     return null;
@@ -444,7 +502,11 @@ export function IssuedInvoicesList({
           ) : null}
 
           {tab === "email" ? (
-            <div className="space-y-3">
+            <div
+              ref={emailPanelRef}
+              data-testid="issued-invoice-email-panel"
+              className="space-y-3"
+            >
               {issued ? (
                 <>
                   <p className={metaTextClass}>
@@ -504,7 +566,9 @@ export function IssuedInvoicesList({
                   ) : null}
                   <button
                     type="button"
-                    className={primaryButtonClass}
+                    className={`${primaryButtonClass}${
+                      prepareEmailBlinking ? " prepare-email-attention" : ""
+                    }`}
                     disabled={busy || !mail?.recipientEmail}
                     onClick={() => {
                       void (async () => {

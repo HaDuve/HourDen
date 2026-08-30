@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, act } from "@testing-library/react";
 import { useState } from "react";
 import { IssuedInvoicesList } from "./IssuedInvoicesList.js";
 import { mockDesktopViewport } from "../test/viewport.js";
+import { createMatchMediaWithOptions } from "../test/match-media.js";
+import { POST_ISSUE_PREPARE_EMAIL_BLINK_MS } from "../invoices/post-issue-email-handoff.js";
 
 const issuedInvoice = {
   id: "inv-00000000-0000-4000-8000-000000000001",
@@ -366,6 +368,116 @@ describe("IssuedInvoicesList", () => {
     fireEvent.click(screen.getByRole("button", { name: /void invoice/i }));
     await waitFor(() => {
       expect(onVoid).toHaveBeenCalledWith(sentInvoice);
+    });
+  });
+
+  describe("post-issue email handoff", () => {
+    beforeEach(() => {
+      Element.prototype.scrollIntoView = vi.fn();
+    });
+
+    it("opens Email tab, scrolls the panel, and blinks Prepare Email when actionable", async () => {
+      vi.useFakeTimers();
+      window.matchMedia = createMatchMediaWithOptions({
+        wide: true,
+        reducedMotion: false,
+      }) as typeof window.matchMedia;
+      const onComplete = vi.fn();
+
+      const { rerender } = renderList([issuedInvoice], {
+        postIssueEmailHandoff: null,
+        onPostIssueEmailHandoffComplete: onComplete,
+      });
+
+      expect(screen.getByRole("button", { name: /^pdf$/i })).toHaveClass(
+        "border-b-2",
+      );
+
+      rerender(
+        <IssuedInvoicesList
+          invoices={[issuedInvoice]}
+          downloadingId={null}
+          selectedId={issuedInvoice.id}
+          onSelect={() => undefined}
+          onDownload={() => undefined}
+          onRefreshLines={noopAsync}
+          onSaveNumber={noopAsync}
+          onPrepareEmail={noopAsync}
+          onMarkSent={noopAsync}
+          onVoid={noopAsync}
+          {...mailLoaders}
+          formatBillingPeriod={(start, end) => `${start} – ${end}`}
+          formatAmount={(amount) => `${amount.toFixed(2)} EUR`}
+          operatorName=""
+          pdfUrl={(id) => `/api/invoices/${id}/pdf`}
+          postIssueEmailHandoff={{
+            invoiceId: issuedInvoice.id,
+            blinkPrepareEmail: true,
+          }}
+          onPostIssueEmailHandoffComplete={onComplete}
+        />,
+      );
+
+      await act(async () => undefined);
+
+      expect(screen.getByTestId("issued-invoice-email-panel")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^email$/i })).toHaveClass(
+        "border-b-2",
+      );
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+
+      const prepareButton = screen.getByRole("button", { name: /prepare email/i });
+      expect(prepareButton).toHaveClass("prepare-email-attention");
+      expect(onComplete).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        vi.advanceTimersByTime(POST_ISSUE_PREPARE_EMAIL_BLINK_MS);
+      });
+      expect(prepareButton).not.toHaveClass("prepare-email-attention");
+      vi.useRealTimers();
+    });
+
+    it("opens Email tab and scrolls without blinking when recipient email is missing", async () => {
+      window.matchMedia = createMatchMediaWithOptions({
+        wide: true,
+        reducedMotion: false,
+      }) as typeof window.matchMedia;
+
+      renderList([issuedInvoice], {
+        postIssueEmailHandoff: {
+          invoiceId: issuedInvoice.id,
+          blinkPrepareEmail: false,
+        },
+      });
+      await act(async () => undefined);
+
+      expect(screen.getByTestId("issued-invoice-email-panel")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^email$/i })).toHaveClass(
+        "border-b-2",
+      );
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+      expect(
+        screen.getByRole("button", { name: /prepare email/i }),
+      ).not.toHaveClass("prepare-email-attention");
+    });
+
+    it("opens Email tab without blinking when prefers-reduced-motion is on", () => {
+      window.matchMedia = createMatchMediaWithOptions({
+        wide: true,
+        reducedMotion: true,
+      }) as typeof window.matchMedia;
+
+      renderList([issuedInvoice], {
+        postIssueEmailHandoff: {
+          invoiceId: issuedInvoice.id,
+          blinkPrepareEmail: false,
+        },
+      });
+
+      expect(screen.getByTestId("issued-invoice-email-panel")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /prepare email/i }),
+      ).not.toHaveClass("prepare-email-attention");
     });
   });
 });
