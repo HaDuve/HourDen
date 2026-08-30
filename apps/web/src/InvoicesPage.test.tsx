@@ -4,7 +4,9 @@ import { MemoryRouter } from "react-router-dom";
 import i18n from "./i18n/i18n.js";
 import InvoicesPage from "./InvoicesPage.js";
 import { mockMobileViewport } from "./test/viewport.js";
+import { createMatchMediaWithOptions } from "./test/match-media.js";
 import { createPreviewThenBillingMonthConflictHandler } from "./invoices/invoices-page-preview-fetch.js";
+import { POST_ISSUE_PREPARE_EMAIL_BLINK_MS } from "./invoices/post-issue-email-handoff.js";
 
 function renderInvoicesPage() {
   return render(
@@ -23,6 +25,10 @@ const bandaoClient = {
   addressLine2: "82319 Starnberg",
   invoicePrefix: null,
   invoiceNumberSeqBeforeYear: false,
+  recipientEmail: null as string | null,
+  emailGreetingName: null as string | null,
+  invoiceEmailSubject: null as string | null,
+  invoiceEmailBody: null as string | null,
 };
 
 const clientWithoutRecipient = {
@@ -77,6 +83,23 @@ function invoiceSenderResponse(
   });
 }
 
+function workspaceEmailTemplateResponse() {
+  return Promise.resolve({
+    ok: true,
+    json: async () => ({
+      invoiceEmailSubject: null,
+      invoiceEmailBody: null,
+    }),
+  });
+}
+
+function clientByIdResponse(client: typeof bandaoClient) {
+  return Promise.resolve({
+    ok: true,
+    json: async () => client,
+  });
+}
+
 function createInvoicesPageFetchMock(clients: unknown[], handler?: FetchHandler) {
   return vi.fn().mockImplementation((url: string, init?: RequestInit) => {
     const custom = handler?.(url, init);
@@ -88,6 +111,20 @@ function createInvoicesPageFetchMock(clients: unknown[], handler?: FetchHandler)
       return invoiceSenderResponse();
     }
     if (url === "/api/workspace/invoice-sender") return invoiceSenderResponse();
+    if (url === "/api/workspace/invoice-email-template") {
+      return workspaceEmailTemplateResponse();
+    }
+    const clientMatch = url.match(/^\/api\/clients\/([^/]+)$/);
+    if (clientMatch) {
+      const client = clients.find(
+        (entry) =>
+          typeof entry === "object" &&
+          entry !== null &&
+          "id" in entry &&
+          entry.id === clientMatch[1],
+      );
+      if (client) return clientByIdResponse(client as typeof bandaoClient);
+    }
     return Promise.reject(new Error(`Unexpected fetch: ${url}`));
   });
 }
@@ -1212,6 +1249,7 @@ describe("InvoicesPage", () => {
   });
 
   it("issues the invoice without downloading the PDF", async () => {
+    Element.prototype.scrollIntoView = vi.fn();
     const previewHandler = createPreviewThenBillingMonthConflictHandler(() =>
       previewPdfResponse("BAN2026001"),
     );
@@ -1278,9 +1316,75 @@ describe("InvoicesPage", () => {
         ),
       ).toBeInTheDocument();
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(screen.getByTestId("issued-invoice-email-panel")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^email$/i })).toHaveClass(
+        "border-b-2",
+      );
     });
 
     clickSpy.mockRestore();
+  });
+
+  it("after issue opens Email tab and blinks Prepare Email when recipient email exists", async () => {
+    Element.prototype.scrollIntoView = vi.fn();
+    window.matchMedia = createMatchMediaWithOptions({
+      wide: true,
+      reducedMotion: false,
+    }) as typeof window.matchMedia;
+    const bandaoWithEmail = {
+      ...bandaoClient,
+      recipientEmail: "billing@bandao.example",
+    };
+    const previewHandler = createPreviewThenBillingMonthConflictHandler(() =>
+      previewPdfResponse("BAN2026001"),
+    );
+    const fetchMock = createInvoicesPageFetchMock([bandaoWithEmail], (url, init) => {
+      const preview = previewHandler(url, init);
+      if (preview !== undefined) return preview;
+      if (url === "/api/invoices" && init?.method === "POST") {
+        return Promise.resolve(issuePdfResponse("BAN2026001"));
+      }
+      if (url === "/api/invoices" && !init?.method) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            invoices: [
+              {
+                id: "inv-1",
+                clientId: bandaoWithEmail.id,
+                recipient: "BANDAO Guidance GmbH",
+                invoiceNumber: "BAN2026001",
+                periodStart: currentMonthRange().from,
+                periodEnd: currentMonthRange().to,
+                totalAmount: 60,
+                status: "issued",
+              },
+            ],
+          }),
+        });
+      }
+      return undefined;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderInvoicesPage();
+    await waitForClientReady("Bandao", bandaoWithEmail.id);
+    await waitForAutoPreview();
+    fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("issued-invoice-email-panel")).toBeInTheDocument();
+    });
+
+    const prepareButton = screen.getByRole("button", { name: /prepare email/i });
+    expect(prepareButton).toHaveClass("prepare-email-attention");
+
+    await waitFor(
+      () => {
+        expect(prepareButton).not.toHaveClass("prepare-email-attention");
+      },
+      { timeout: POST_ISSUE_PREPARE_EMAIL_BLINK_MS + 500 },
+    );
   });
 
   async function previewAndIssue(invoiceNumber = "BAN2026001") {

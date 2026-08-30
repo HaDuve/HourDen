@@ -16,11 +16,12 @@ import {
 } from "./invoices/invoice-email-template.js";
 import { buildMailtoHref } from "./invoices/open-mailto.js";
 import { deliverPrepareEmail } from "./invoices/prepare-email-delivery.js";
+import { shouldBlinkPrepareEmail } from "./invoices/post-issue-email-handoff.js";
 import {
   readApiErrorBody,
   readApiErrorMessage,
 } from "./invoices/read-api-error.js";
-import { IssuedInvoicesList, type IssuedInvoice } from "./layout/IssuedInvoicesList.js";
+import { IssuedInvoicesList, type IssuedInvoice, type PostIssueEmailHandoff } from "./layout/IssuedInvoicesList.js";
 import { InvoicePdfToolbar } from "./layout/InvoicePdfToolbar.js";
 import { PageMain } from "./layout/PageMain.js";
 import { ResponsiveOverlay } from "./layout/ResponsiveOverlay.js";
@@ -238,6 +239,8 @@ export default function InvoicesPage() {
   const [previewFullscreenOpen, setPreviewFullscreenOpen] = useState(false);
   const [issuedInvoices, setIssuedInvoices] = useState<IssuedInvoice[]>([]);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  const [postIssueEmailHandoff, setPostIssueEmailHandoff] =
+    useState<PostIssueEmailHandoff | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [exportClientId, setExportClientId] = useState("");
   const [exportYear, setExportYear] = useState("");
@@ -263,6 +266,10 @@ export default function InvoicesPage() {
 
   const setPlainAlert = useCallback((message: string) => {
     setAlert({ kind: "plain", message });
+  }, []);
+
+  const clearPostIssueEmailHandoff = useCallback(() => {
+    setPostIssueEmailHandoff(null);
   }, []);
 
   const applyPreviewApiError = useCallback(
@@ -332,7 +339,7 @@ export default function InvoicesPage() {
     setNumberingStrategy(null);
   }, [clearPreviewBlob]);
 
-  const loadIssuedInvoices = useCallback(async () => {
+  const loadIssuedInvoices = useCallback(async (): Promise<IssuedInvoice[]> => {
     try {
       const invoices = await fetchIssuedInvoices();
       setIssuedInvoices(invoices);
@@ -340,8 +347,10 @@ export default function InvoicesPage() {
         if (current && invoices.some((inv) => inv.id === current)) return current;
         return invoices[0]?.id ?? null;
       });
+      return invoices;
     } catch (err) {
       setPlainAlert(t("invoices.loadInvoicesFailed"));
+      return [];
     }
   }, [setPlainAlert, t]);
 
@@ -779,6 +788,7 @@ export default function InvoicesPage() {
       }
 
       await res.blob();
+      const issuedNumber = invoiceNumber;
       clearPreviewBlob();
       setInvoiceNumber(null);
       setInvoicePrefix(null);
@@ -787,7 +797,19 @@ export default function InvoicesPage() {
       setInvoiceNumberExists(false);
       setNumberingPreview(null);
       setNumberingStrategy(null);
-      await loadIssuedInvoices();
+      const invoices = await loadIssuedInvoices();
+      const newInvoice = invoices.find((inv) => inv.invoiceNumber === issuedNumber);
+      if (newInvoice) {
+        setSelectedInvoiceId(newInvoice.id);
+        const client = clients.find((entry) => entry.id === clientId);
+        setPostIssueEmailHandoff({
+          invoiceId: newInvoice.id,
+          blinkPrepareEmail: shouldBlinkPrepareEmail(
+            client?.recipientEmail,
+            window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+          ),
+        });
+      }
       await requestPreview();
     } catch (err) {
       setPlainAlert(t("invoices.issueFailed"));
@@ -1317,6 +1339,8 @@ export default function InvoicesPage() {
               formatBillingPeriod={formatBillingPeriod}
               formatAmount={formatCurrency}
               pdfUrl={(id) => `/api/invoices/${id}/pdf`}
+              postIssueEmailHandoff={postIssueEmailHandoff}
+              onPostIssueEmailHandoffComplete={clearPostIssueEmailHandoff}
             />
           )}
         </section>

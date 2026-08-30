@@ -7,6 +7,8 @@ import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { describeWithAuthenticatedWorkspace } from "./test/describe-with-live-api.js";
 import InvoicesPage from "./InvoicesPage.js";
 import { isQuietInvoiceConflictMessage } from "./invoices/invoice-preview-quiet.js";
+import { createMatchMediaWithOptions } from "./test/match-media.js";
+import { POST_ISSUE_PREPARE_EMAIL_BLINK_MS } from "./invoices/post-issue-email-handoff.js";
 
 /** July so “last month” quick control selects June (fixture entry month). */
 const JULY_2026 = new Date("2026-07-15T12:00:00.000Z");
@@ -25,13 +27,23 @@ async function createClient(input: {
   legalName?: string;
   addressLine1?: string;
   addressLine2?: string;
+  recipientEmail?: string;
 }): Promise<{ id: string; name: string }> {
+  const { recipientEmail, ...createInput } = input;
   const res = await fetch("/api/clients", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ defaultRate: 60, ...input }),
+    body: JSON.stringify({ defaultRate: 60, ...createInput }),
   });
-  return res.json() as Promise<{ id: string; name: string }>;
+  const client = (await res.json()) as { id: string; name: string };
+  if (recipientEmail) {
+    await fetch(`/api/clients/${client.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ recipientEmail }),
+    });
+  }
+  return client;
 }
 
 async function createProject(
@@ -108,6 +120,7 @@ describeWithAuthenticatedWorkspace(
         legalName: "BANDAO Guidance GmbH",
         addressLine1: "Schloßbergstraße 1",
         addressLine2: "82319 Starnberg",
+        recipientEmail: "billing@bandao.example",
       });
       const ondojo = await createProject(bandao.id, "Ondojo");
 
@@ -169,9 +182,14 @@ describeWithAuthenticatedWorkspace(
         expect(screen.getAllByText("BAN2026001").length).toBeGreaterThanOrEqual(1);
         expect(screen.getByText(/06\/01\/2026/)).toBeInTheDocument();
         expect(screen.getAllByText(/€60\.00|60[,.]00\s*€/).length).toBeGreaterThan(0);
+        expect(screen.getByTestId("issued-invoice-email-panel")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /^email$/i })).toHaveClass(
+          "border-b-2",
+        );
       });
 
       const clickSpy2 = vi.spyOn(HTMLAnchorElement.prototype, "click");
+      fireEvent.click(screen.getByRole("button", { name: /^pdf$/i }));
       fireEvent.click(
         screen.getByRole("button", { name: /download invoice BAN2026001/i }),
       );
@@ -180,6 +198,104 @@ describeWithAuthenticatedWorkspace(
         expect(clickSpy2).toHaveBeenCalled();
       });
       clickSpy2.mockRestore();
+    });
+
+    it("after issue opens Email tab and blinks Prepare Email when recipient email exists", async () => {
+      window.matchMedia = createMatchMediaWithOptions({
+        wide: true,
+        reducedMotion: false,
+      }) as typeof window.matchMedia;
+      Element.prototype.scrollIntoView = vi.fn();
+
+      const bandao = await createClient({
+        name: "Bandao",
+        legalName: "BANDAO Guidance GmbH",
+        addressLine1: "Schloßbergstraße 1",
+        addressLine2: "82319 Starnberg",
+        recipientEmail: "billing@bandao.example",
+      });
+      const ondojo = await createProject(bandao.id, "Ondojo");
+
+      await fetch("/api/time-entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: ondojo.id,
+          description: "Billable work",
+          startedAt: "2026-06-18T10:00:00.000Z",
+          endedAt: "2026-06-18T11:00:00.000Z",
+        }),
+      });
+
+      renderInvoicesPage();
+      await waitForClientReady("Bandao", bandao.id);
+      fireEvent.click(screen.getByRole("button", { name: /last month/i }));
+      await waitForAutoPreview();
+
+      fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
+      await waitForQuietBillingMonthPreview();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("issued-invoice-email-panel")).toBeInTheDocument();
+      });
+      expect(screen.getByRole("button", { name: /^email$/i })).toHaveClass(
+        "border-b-2",
+      );
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+
+      const prepareButton = screen.getByRole("button", { name: /prepare email/i });
+      await waitFor(() => {
+        expect(prepareButton).toHaveClass("prepare-email-attention");
+      });
+
+      await waitFor(
+        () => {
+          expect(prepareButton).not.toHaveClass("prepare-email-attention");
+        },
+        { timeout: POST_ISSUE_PREPARE_EMAIL_BLINK_MS + 1000 },
+      );
+    });
+
+    it("after issue opens Email tab without blinking when recipient email is missing", async () => {
+      window.matchMedia = createMatchMediaWithOptions({
+        wide: true,
+        reducedMotion: false,
+      }) as typeof window.matchMedia;
+      Element.prototype.scrollIntoView = vi.fn();
+
+      const hannah = await createClient({
+        name: "Hannah",
+        defaultRate: 80,
+        legalName: "Hannah Coaching",
+        addressLine1: "Main Street 1",
+        addressLine2: "80331 Munich",
+      });
+      const coaching = await createProject(hannah.id, "Coaching");
+
+      await fetch("/api/time-entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: coaching.id,
+          description: "Session",
+          startedAt: "2026-06-10T10:00:00.000Z",
+          endedAt: "2026-06-10T11:00:00.000Z",
+        }),
+      });
+
+      renderInvoicesPage();
+      await waitForClientReady("Hannah", hannah.id);
+      fireEvent.click(screen.getByRole("button", { name: /last month/i }));
+      await waitForAutoPreview();
+      fireEvent.click(screen.getByRole("button", { name: /^issue invoice$/i }));
+      await waitForQuietBillingMonthPreview();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("issued-invoice-email-panel")).toBeInTheDocument();
+      });
+      expect(
+        screen.getByRole("button", { name: /prepare email/i }),
+      ).not.toHaveClass("prepare-email-attention");
     });
 
     it("links to the Clients page when Recipient fields are missing", async () => {

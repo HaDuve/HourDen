@@ -72,3 +72,23 @@ body {
   color: var(--color-content);
   color-scheme: dark;
 }
+
+@keyframes prepare-email-attention {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(59 130 246 / 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgb(59 130 246 / 0.55);
+  }
+}
+
+.prepare-email-attention {
+  animation: prepare-email-attention 0.75s ease-in-out 4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prepare-email-attention {
+    animation: none;
+  }
+}
