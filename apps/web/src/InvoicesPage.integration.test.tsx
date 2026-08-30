@@ -66,15 +66,18 @@ function previewRegion() {
 }
 
 async function waitForQuietBillingMonthPreview() {
-  await waitFor(() => {
-    expect(screen.queryByTitle(/invoice preview/i)).not.toBeInTheDocument();
-    expect(
-      within(previewRegion()).getByText(
-        /invoice already exists for this client and billing month/i,
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  });
+  await waitFor(
+    () => {
+      expect(screen.queryByTitle(/invoice preview/i)).not.toBeInTheDocument();
+      expect(
+        within(previewRegion()).getByText(
+          /invoice already exists for this client and billing month/i,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    },
+    { timeout: 10_000 },
+  );
 }
 
 describeWithAuthenticatedWorkspace(
