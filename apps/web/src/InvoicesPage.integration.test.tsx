@@ -27,13 +27,23 @@ async function createClient(input: {
   legalName?: string;
   addressLine1?: string;
   addressLine2?: string;
+  recipientEmail?: string;
 }): Promise<{ id: string; name: string }> {
+  const { recipientEmail, ...createInput } = input;
   const res = await fetch("/api/clients", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ defaultRate: 60, ...input }),
+    body: JSON.stringify({ defaultRate: 60, ...createInput }),
   });
-  return res.json() as Promise<{ id: string; name: string }>;
+  const client = (await res.json()) as { id: string; name: string };
+  if (recipientEmail) {
+    await fetch(`/api/clients/${client.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ recipientEmail }),
+    });
+  }
+  return client;
 }
 
 async function createProject(
@@ -233,12 +243,16 @@ describeWithAuthenticatedWorkspace(
       expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
 
       const prepareButton = screen.getByRole("button", { name: /prepare email/i });
-      expect(prepareButton).toHaveClass("prepare-email-attention");
-
-      act(() => {
-        vi.advanceTimersByTime(POST_ISSUE_PREPARE_EMAIL_BLINK_MS);
+      await waitFor(() => {
+        expect(prepareButton).toHaveClass("prepare-email-attention");
       });
-      expect(prepareButton).not.toHaveClass("prepare-email-attention");
+
+      await waitFor(
+        () => {
+          expect(prepareButton).not.toHaveClass("prepare-email-attention");
+        },
+        { timeout: POST_ISSUE_PREPARE_EMAIL_BLINK_MS + 1000 },
+      );
     });
 
     it("after issue opens Email tab without blinking when recipient email is missing", async () => {

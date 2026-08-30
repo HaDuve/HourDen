@@ -6,6 +6,7 @@ import InvoicesPage from "./InvoicesPage.js";
 import { mockMobileViewport } from "./test/viewport.js";
 import { createMatchMediaWithOptions } from "./test/match-media.js";
 import { createPreviewThenBillingMonthConflictHandler } from "./invoices/invoices-page-preview-fetch.js";
+import { POST_ISSUE_PREPARE_EMAIL_BLINK_MS } from "./invoices/post-issue-email-handoff.js";
 
 function renderInvoicesPage() {
   return render(
@@ -1325,7 +1326,6 @@ describe("InvoicesPage", () => {
   });
 
   it("after issue opens Email tab and blinks Prepare Email when recipient email exists", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
     Element.prototype.scrollIntoView = vi.fn();
     window.matchMedia = createMatchMediaWithOptions({
       wide: true,
@@ -1379,8 +1379,12 @@ describe("InvoicesPage", () => {
     const prepareButton = screen.getByRole("button", { name: /prepare email/i });
     expect(prepareButton).toHaveClass("prepare-email-attention");
 
-    await vi.advanceTimersByTimeAsync(3000);
-    expect(prepareButton).not.toHaveClass("prepare-email-attention");
+    await waitFor(
+      () => {
+        expect(prepareButton).not.toHaveClass("prepare-email-attention");
+      },
+      { timeout: POST_ISSUE_PREPARE_EMAIL_BLINK_MS + 500 },
+    );
   });
 
   async function previewAndIssue(invoiceNumber = "BAN2026001") {
