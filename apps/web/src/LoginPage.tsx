@@ -13,6 +13,7 @@ import {
   primaryButtonClass,
 } from "./layout/ui-classes.js";
 import { PublicLanguageSwitcher } from "./login/PublicLanguageSwitcher.js";
+import { LoginLegalFooter } from "./login/LoginLegalFooter.js";
 import { TurnstileField, type TurnstileFieldHandle } from "./login/TurnstileField.js";
 
 type AuthMode = "login" | "signup";
@@ -279,6 +280,8 @@ export default function LoginPage() {
             </button>
           </form>
         )}
+
+        <LoginLegalFooter mode={mode} />
       </div>
     </div>
   );

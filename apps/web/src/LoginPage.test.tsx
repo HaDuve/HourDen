@@ -302,6 +302,36 @@ describe("LoginPage", () => {
     });
   });
 
+  it("shows informational terms and privacy links on the Sign in tab", () => {
+    renderLogin("/login");
+
+    const termsLink = screen.getByRole("link", { name: /terms of service/i });
+    const privacyLink = screen.getByRole("link", { name: /privacy policy/i });
+
+    expect(termsLink).toHaveAttribute("href", "/terms");
+    expect(privacyLink).toHaveAttribute("href", "/privacy");
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+  });
+
+  it("shows informational terms and privacy links on the Create account tab", () => {
+    renderLogin("/login?mode=signup");
+
+    const termsLink = screen.getByRole("link", { name: /terms of service/i });
+    const privacyLink = screen.getByRole("link", { name: /privacy policy/i });
+
+    expect(termsLink).toHaveAttribute("href", "/terms");
+    expect(privacyLink).toHaveAttribute("href", "/privacy");
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+  });
+
+  it("localizes the legal footer on the login card in German", async () => {
+    await i18n.changeLanguage("de");
+    renderLogin("/login");
+
+    expect(screen.getByRole("link", { name: /nutzungsbedingungen/i })).toHaveAttribute("href", "/terms");
+    expect(screen.getByRole("link", { name: /datenschutzerklärung/i })).toHaveAttribute("href", "/privacy");
+  });
+
   it("allows retrying signup after a register failure", async () => {
     const fetchMock = vi
       .fn()
