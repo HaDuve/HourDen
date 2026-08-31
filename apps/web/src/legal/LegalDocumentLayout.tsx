@@ -7,6 +7,7 @@ import {
   metaTextClass,
   pageTitleClass,
 } from "../layout/ui-classes.js";
+import { PublicLanguageSwitcher } from "../login/PublicLanguageSwitcher.js";
 
 type LegalDocumentLayoutProps = {
   title: string;
@@ -23,7 +24,8 @@ export function LegalDocumentLayout({
 
   return (
     <div className="min-h-screen bg-background px-4 py-10">
-      <article className={`mx-auto max-w-2xl p-8 ${cardClass}`}>
+      <article className={`relative mx-auto max-w-2xl p-8 ${cardClass}`}>
+        <PublicLanguageSwitcher />
         <p className={`mb-6 rounded-md border border-divider bg-surface px-4 py-3 ${metaTextClass}`}>
           {notice}
         </p>

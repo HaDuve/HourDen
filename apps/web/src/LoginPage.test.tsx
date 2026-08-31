@@ -302,6 +302,28 @@ describe("LoginPage", () => {
     });
   });
 
+  it("shows signup-specific assent copy on the Create account tab", () => {
+    renderLogin("/login?mode=signup");
+
+    expect(screen.getByText(/by creating an account, you agree/i)).toBeInTheDocument();
+    expect(screen.queryByText(/by signing in, you agree/i)).not.toBeInTheDocument();
+  });
+
+  it("shows login-specific assent copy on the Sign in tab", () => {
+    renderLogin("/login");
+
+    expect(screen.getByText(/by signing in, you agree/i)).toBeInTheDocument();
+    expect(screen.queryByText(/by creating an account, you agree/i)).not.toBeInTheDocument();
+  });
+
+  it("localizes signup assent copy on the Create account tab in German", async () => {
+    await i18n.changeLanguage("de");
+    renderLogin("/login?mode=signup");
+
+    expect(screen.getByText(/mit der kontoerstellung stimmen sie/i)).toBeInTheDocument();
+    expect(screen.queryByText(/mit der anmeldung stimmen sie/i)).not.toBeInTheDocument();
+  });
+
   it("shows informational terms and privacy links on the Sign in tab", () => {
     renderLogin("/login");
 
