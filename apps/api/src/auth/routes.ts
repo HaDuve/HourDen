@@ -16,7 +16,11 @@ import {
   getWorkspaceCalendarTimezone,
 } from "../db/workspaces.js";
 import { isSupportedLocale, parseAcceptLanguage } from "@hourden/domain";
+import type { SupportedLocale } from "@hourden/domain";
 import { validatePassword, verifyPassword } from "./password.js";
+import {
+  isUserAlreadyExistsError,
+} from "./user-already-exists.js";
 import { SESSION_COOKIE, sessionExpiresAt } from "./session.js";
 
 function cookieOptions() {
@@ -57,7 +61,7 @@ export function createAuthRouter(pool: Pool) {
       return c.json({ error: passwordCheck.error }, 400);
     }
 
-    let locale: string;
+    let locale: SupportedLocale;
     if (body.locale !== undefined) {
       if (!isSupportedLocale(body.locale)) {
         return c.json({ error: "locale must be en or de" }, 400);
@@ -102,10 +106,7 @@ export function createAuthRouter(pool: Pool) {
         201,
       );
     } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.startsWith("User already exists:")
-      ) {
+      if (isUserAlreadyExistsError(error)) {
         return c.json({ error: "Unable to register" }, 409);
       }
       throw error;

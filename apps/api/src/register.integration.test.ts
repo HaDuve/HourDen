@@ -82,6 +82,17 @@ describe.skipIf(!databaseUrl)("POST /api/auth/register", () => {
       sender_name: null,
       calendar_timezone: "Europe/Berlin",
     });
+
+    const membership = await pool.query<{ role: string }>(
+      `
+        SELECT wm.role
+        FROM workspace_memberships wm
+        JOIN users u ON u.id = wm.user_id
+        WHERE u.email = $1 AND wm.workspace_id = $2
+      `,
+      [REGISTER_EMAIL, body.activeWorkspaceId],
+    );
+    expect(membership.rows[0]?.role).toBe("owner");
   });
 
   it("persists locale from the request body", async () => {
@@ -160,6 +171,21 @@ describe.skipIf(!databaseUrl)("POST /api/auth/register", () => {
     const body = await second.json();
     expect(body.error).toBe("Unable to register");
     expect(JSON.stringify(body)).not.toMatch(/exists|already|duplicate/i);
+  });
+
+  it("returns 400 for invalid locale values", async () => {
+    const res = await app.request("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: REGISTER_EMAIL,
+        password: REGISTER_PASSWORD,
+        locale: "fr",
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/locale/i);
   });
 
   it("returns 400 for weak passwords", async () => {

@@ -1,7 +1,12 @@
 import { DEFAULT_REPORT_TIMEZONE } from "@hourden/domain";
+import type { SupportedLocale } from "@hourden/domain";
 import type { InvoiceOperator } from "@hourden/domain/invoice-pdf";
 import type { Pool } from "pg";
 import { hashPassword, validatePassword } from "../auth/password.js";
+import {
+  UserAlreadyExistsError,
+  isUserAlreadyExistsError,
+} from "../auth/user-already-exists.js";
 
 export type WorkspaceSettingsRow = {
   sender_name: string | null;
@@ -105,7 +110,7 @@ export type CreateUserWithWorkspaceInput = {
   email: string;
   password: string;
   workspaceName: string;
-  locale?: string;
+  locale?: SupportedLocale;
   sender?: Partial<{
     name: string;
     street: string;
@@ -368,7 +373,7 @@ export async function createUserWithWorkspace(
       [normalizedEmail],
     );
     if (existing.rows[0]) {
-      throw new Error(`User already exists: ${normalizedEmail}`);
+      throw new UserAlreadyExistsError();
     }
 
     const userRow = await client.query<{ id: string }>(
@@ -428,6 +433,9 @@ export async function createUserWithWorkspace(
     return { userId, workspaceId };
   } catch (error) {
     await client.query("ROLLBACK");
+    if (isUserAlreadyExistsError(error)) {
+      throw new UserAlreadyExistsError();
+    }
     throw error;
   } finally {
     client.release();
