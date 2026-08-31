@@ -9,6 +9,7 @@ import { createReportsRouter } from "./reports.js";
 import { createTimeEntriesRouter } from "./time-entries.js";
 import { createWorkspaceSettingsRouter } from "./workspace-settings.js";
 import { createAuthRouter } from "./auth/routes.js";
+import type { AuthProtectionOptions } from "./auth/protection.js";
 import { createEventsRouter } from "./events/routes.js";
 import { pool } from "./db/pool.js";
 import { healthPayload } from "./health.js";
@@ -16,6 +17,7 @@ import { createAuthMiddleware } from "./middleware/auth.js";
 
 type AppOptions = {
   pool?: Pool;
+  auth?: AuthProtectionOptions;
 };
 
 export function createApp(options: AppOptions = {}) {
@@ -27,7 +29,7 @@ export function createApp(options: AppOptions = {}) {
 
   const api = new Hono();
   api.get("/health", (c) => c.json(healthPayload()));
-  api.route("/auth", createAuthRouter(db));
+  api.route("/auth", createAuthRouter(db, options.auth));
   api.route("/events", createEventsRouter(db));
   api.route("/clients", createClientsRouter(db));
   api.route("/import", createImportRouter(db));

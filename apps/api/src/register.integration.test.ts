@@ -10,10 +10,26 @@ const databaseUrl = process.env.DATABASE_URL;
 const REGISTER_EMAIL = "register@test.hourden.local";
 const REGISTER_PASSWORD = "RegisterPass1";
 const REGISTER_WORKSPACE = "My Den";
+const REGISTER_TURNSTILE_TOKEN = "test-turnstile-token";
+
+function registerPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    email: REGISTER_EMAIL,
+    password: REGISTER_PASSWORD,
+    turnstileToken: REGISTER_TURNSTILE_TOKEN,
+    ...overrides,
+  };
+}
 
 describe.skipIf(!databaseUrl)("POST /api/auth/register", () => {
   const pool = new Pool({ connectionString: databaseUrl });
-  const app = createApp({ pool });
+  const app = createApp({
+    pool,
+    auth: {
+      verifyTurnstile: async () => true,
+      rateLimiters: null,
+    },
+  });
 
   beforeAll(async () => {
     await runMigrationsForTests(pool);
@@ -31,10 +47,7 @@ describe.skipIf(!databaseUrl)("POST /api/auth/register", () => {
     const res = await app.request("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: REGISTER_EMAIL,
-        password: REGISTER_PASSWORD,
-      }),
+      body: JSON.stringify(registerPayload()),
     });
 
     expect(res.status).toBe(201);
@@ -99,11 +112,7 @@ describe.skipIf(!databaseUrl)("POST /api/auth/register", () => {
     const res = await app.request("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: REGISTER_EMAIL,
-        password: REGISTER_PASSWORD,
-        locale: "de",
-      }),
+      body: JSON.stringify(registerPayload({ locale: "de" })),
     });
 
     expect(res.status).toBe(201);
@@ -123,10 +132,7 @@ describe.skipIf(!databaseUrl)("POST /api/auth/register", () => {
         "Content-Type": "application/json",
         "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
       },
-      body: JSON.stringify({
-        email: REGISTER_EMAIL,
-        password: REGISTER_PASSWORD,
-      }),
+      body: JSON.stringify(registerPayload()),
     });
 
     expect(res.status).toBe(201);
@@ -137,11 +143,9 @@ describe.skipIf(!databaseUrl)("POST /api/auth/register", () => {
     const res = await app.request("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: REGISTER_EMAIL,
-        password: REGISTER_PASSWORD,
-        calendarTimezone: "America/New_York",
-      }),
+      body: JSON.stringify(
+        registerPayload({ calendarTimezone: "America/New_York" }),
+      ),
     });
 
     expect(res.status).toBe(201);
@@ -149,10 +153,7 @@ describe.skipIf(!databaseUrl)("POST /api/auth/register", () => {
   });
 
   it("returns 409 for duplicate email without revealing that the email exists", async () => {
-    const payload = {
-      email: REGISTER_EMAIL,
-      password: REGISTER_PASSWORD,
-    };
+    const payload = registerPayload();
 
     const first = await app.request("/api/auth/register", {
       method: "POST",
@@ -177,11 +178,7 @@ describe.skipIf(!databaseUrl)("POST /api/auth/register", () => {
     const res = await app.request("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: REGISTER_EMAIL,
-        password: REGISTER_PASSWORD,
-        locale: "fr",
-      }),
+      body: JSON.stringify(registerPayload({ locale: "fr" })),
     });
 
     expect(res.status).toBe(400);
@@ -192,10 +189,7 @@ describe.skipIf(!databaseUrl)("POST /api/auth/register", () => {
     const res = await app.request("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: REGISTER_EMAIL,
-        password: "weak",
-      }),
+      body: JSON.stringify(registerPayload({ password: "weak" })),
     });
 
     expect(res.status).toBe(400);

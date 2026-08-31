@@ -21,6 +21,11 @@ import { validatePassword, verifyPassword } from "./password.js";
 import {
   isUserAlreadyExistsError,
 } from "./user-already-exists.js";
+import { getClientIp } from "./client-ip.js";
+import {
+  resolveAuthProtection,
+  type AuthProtectionOptions,
+} from "./protection.js";
 import { SESSION_COOKIE, sessionExpiresAt } from "./session.js";
 
 function cookieOptions() {
@@ -33,15 +38,30 @@ function cookieOptions() {
   };
 }
 
-export function createAuthRouter(pool: Pool) {
+export function createAuthRouter(
+  pool: Pool,
+  protectionOptions: AuthProtectionOptions = {},
+) {
   const router = new Hono();
+  const { verifyTurnstile, rateLimiters } =
+    resolveAuthProtection(protectionOptions);
 
   router.post("/register", async (c) => {
+    const remoteIp = getClientIp(c);
+
+    if (
+      rateLimiters &&
+      !rateLimiters.registerIp.tryConsume(`register-ip:${remoteIp}`)
+    ) {
+      return c.json({ error: "Too many requests" }, 429);
+    }
+
     let body: {
       email?: string;
       password?: string;
       calendarTimezone?: string;
       locale?: unknown;
+      turnstileToken?: string;
     };
     try {
       body = await c.req.json();
@@ -52,8 +72,23 @@ export function createAuthRouter(pool: Pool) {
     const email = body.email?.trim();
     const password = body.password ?? "";
 
+    if (
+      rateLimiters &&
+      email &&
+      !rateLimiters.registerEmail.tryConsume(
+        `register-email:${email.toLowerCase()}`,
+      )
+    ) {
+      return c.json({ error: "Too many requests" }, 429);
+    }
+
     if (!email || !password) {
       return c.json({ error: "Email and password are required" }, 400);
+    }
+
+    const turnstileToken = body.turnstileToken?.trim();
+    if (!turnstileToken || !(await verifyTurnstile(turnstileToken, remoteIp))) {
+      return c.json({ error: "Verification failed" }, 400);
     }
 
     const passwordCheck = validatePassword(password);
@@ -114,6 +149,15 @@ export function createAuthRouter(pool: Pool) {
   });
 
   router.post("/login", async (c) => {
+    const remoteIp = getClientIp(c);
+
+    if (
+      rateLimiters &&
+      !rateLimiters.loginIp.tryConsume(`login-ip:${remoteIp}`)
+    ) {
+      return c.json({ error: "Too many requests" }, 429);
+    }
+
     const body = await c.req.json<{ email?: string; password?: string }>();
     const email = body.email?.trim();
     const password = body.password ?? "";
