@@ -1,8 +1,8 @@
 import { isSupportedLocale, type SupportedLocale } from "@hourden/domain";
-import { useCallback, useState, type FormEvent } from "react";
+import { useCallback, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
-import { resolveAuthErrorMessage } from "./auth/read-auth-error.js";
+import { resolveAuthErrorMessage, type AuthErrorMessage } from "./auth/read-auth-error.js";
 import {
   cardClass,
   errorBannerClass,
@@ -13,7 +13,7 @@ import {
   primaryButtonClass,
 } from "./layout/ui-classes.js";
 import { PublicLanguageSwitcher } from "./login/PublicLanguageSwitcher.js";
-import { TurnstileField } from "./login/TurnstileField.js";
+import { TurnstileField, type TurnstileFieldHandle } from "./login/TurnstileField.js";
 
 type AuthMode = "login" | "signup";
 
@@ -29,8 +29,11 @@ function readActiveLocale(language: string): SupportedLocale {
   return isSupportedLocale(language) ? language : "en";
 }
 
-function isTranslationKey(message: string): boolean {
-  return message.includes(".");
+function formatAuthError(
+  t: (key: string) => string,
+  error: AuthErrorMessage,
+): string {
+  return error.kind === "i18n" ? t(error.key) : error.message;
 }
 
 export default function LoginPage() {
@@ -43,6 +46,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [captchaUnavailable, setCaptchaUnavailable] = useState(false);
+  const turnstileRef = useRef<TurnstileFieldHandle>(null);
 
   const setMode = useCallback(
     (nextMode: AuthMode) => {
@@ -64,9 +69,9 @@ export default function LoginPage() {
     setTurnstileToken(null);
   }, []);
 
-  function formatError(messageKeyOrText: string): string {
-    return isTranslationKey(messageKeyOrText) ? t(messageKeyOrText) : messageKeyOrText;
-  }
+  const handleCaptchaUnavailable = useCallback(() => {
+    setCaptchaUnavailable(true);
+  }, []);
 
   async function handleLoginSubmit(event: FormEvent) {
     event.preventDefault();
@@ -82,8 +87,8 @@ export default function LoginPage() {
       });
 
       if (!res.ok) {
-        const messageKey = await resolveAuthErrorMessage("login", res);
-        setError(formatError(messageKey));
+        const authError = await resolveAuthErrorMessage("login", res);
+        setError(formatAuthError(t, authError));
         return;
       }
 
@@ -121,9 +126,10 @@ export default function LoginPage() {
       });
 
       if (!res.ok) {
-        const messageKey = await resolveAuthErrorMessage("signup", res);
-        setError(formatError(messageKey));
+        const authError = await resolveAuthErrorMessage("signup", res);
+        setError(formatAuthError(t, authError));
         setTurnstileToken(null);
+        turnstileRef.current?.reset();
         return;
       }
 
@@ -248,7 +254,17 @@ export default function LoginPage() {
               />
               <p className={`mt-1 ${metaTextClass}`}>{t("signup.passwordPolicy")}</p>
             </div>
-            <TurnstileField onToken={handleTurnstileToken} onExpire={handleTurnstileExpire} />
+            <TurnstileField
+              ref={turnstileRef}
+              onToken={handleTurnstileToken}
+              onExpire={handleTurnstileExpire}
+              onUnavailable={handleCaptchaUnavailable}
+            />
+            {captchaUnavailable ? (
+              <p className={errorBannerClass} role="alert">
+                {t("signup.captchaUnavailable")}
+              </p>
+            ) : null}
             {error ? (
               <p className={errorBannerClass} role="alert">
                 {error}
@@ -256,7 +272,7 @@ export default function LoginPage() {
             ) : null}
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || captchaUnavailable}
               className={`w-full ${primaryButtonClass} disabled:opacity-60`}
             >
               {submitting ? t("signup.creatingAccount") : t("signup.createAccount")}

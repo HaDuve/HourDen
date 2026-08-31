@@ -278,4 +278,73 @@ describe("LoginPage", () => {
       expect(screen.getByRole("alert")).toHaveTextContent(/too many attempts/i);
     });
   });
+
+  it("shows rate-limit copy for signup throttling", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 429,
+      json: async () => ({ error: "Too many requests" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderLogin("/login?mode=signup");
+
+    fireEvent.change(screen.getByLabelText(/^email$/i), {
+      target: { value: "new@test.hourden.local" },
+    });
+    fireEvent.change(screen.getByLabelText(/^password$/i), {
+      target: { value: "RegisterPass1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^create account$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(/too many attempts/i);
+    });
+  });
+
+  it("allows retrying signup after a register failure", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: "Verification failed" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        json: async () => ({
+          user: { email: "new@test.hourden.local", locale: "en" },
+          activeWorkspaceId: "ws-1",
+          calendarTimezone: "Europe/Berlin",
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { href: "http://localhost/login?mode=signup" },
+      writable: true,
+    });
+
+    renderLogin("/login?mode=signup");
+
+    fireEvent.change(screen.getByLabelText(/^email$/i), {
+      target: { value: "new@test.hourden.local" },
+    });
+    fireEvent.change(screen.getByLabelText(/^password$/i), {
+      target: { value: "RegisterPass1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^create account$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(/verification failed/i);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^create account$/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(window.location.href).toBe("/");
+    });
+  });
 });

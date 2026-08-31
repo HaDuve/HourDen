@@ -1,5 +1,9 @@
 export type AuthFlow = "login" | "signup";
 
+export type AuthErrorMessage =
+  | { kind: "i18n"; key: string }
+  | { kind: "api"; message: string };
+
 type ApiErrorBody = {
   error?: string;
 };
@@ -13,37 +17,45 @@ function isPasswordValidationError(error: string): boolean {
   return PASSWORD_VALIDATION_PREFIXES.some((prefix) => error.startsWith(prefix));
 }
 
+function i18nError(key: string): AuthErrorMessage {
+  return { kind: "i18n", key };
+}
+
+function toApiError(message: string): AuthErrorMessage {
+  return { kind: "api", message };
+}
+
 export async function resolveAuthErrorMessage(
   flow: AuthFlow,
   res: Response,
-): Promise<string> {
+): Promise<AuthErrorMessage> {
   if (res.status === 429) {
-    return "auth.tooManyAttempts";
+    return i18nError("auth.tooManyAttempts");
   }
 
-  let apiError: string | undefined;
+  let apiErrorMessage: string | undefined;
   try {
     const body = (await res.json()) as ApiErrorBody;
-    apiError = body.error?.trim();
+    apiErrorMessage = body.error?.trim();
   } catch {
     // Fall through to generic messages.
   }
 
   if (flow === "login") {
-    return "login.invalidCredentials";
+    return i18nError("login.invalidCredentials");
   }
 
   if (res.status === 409) {
-    return "signup.failed";
+    return i18nError("signup.failed");
   }
 
-  if (apiError === "Verification failed") {
-    return "signup.verificationFailed";
+  if (apiErrorMessage === "Verification failed") {
+    return i18nError("signup.verificationFailed");
   }
 
-  if (apiError && isPasswordValidationError(apiError)) {
-    return apiError;
+  if (apiErrorMessage && isPasswordValidationError(apiErrorMessage)) {
+    return toApiError(apiErrorMessage);
   }
 
-  return "signup.failed";
+  return i18nError("signup.failed");
 }

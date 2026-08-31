@@ -14,7 +14,7 @@ describe("resolveAuthErrorMessage", () => {
       "login",
       jsonResponse(401, { error: "Invalid email or password" }),
     );
-    expect(message).toBe("login.invalidCredentials");
+    expect(message).toEqual({ kind: "i18n", key: "login.invalidCredentials" });
   });
 
   it("maps duplicate signup email to the generic signup failure copy", async () => {
@@ -22,7 +22,7 @@ describe("resolveAuthErrorMessage", () => {
       "signup",
       jsonResponse(409, { error: "Unable to register" }),
     );
-    expect(message).toBe("signup.failed");
+    expect(message).toEqual({ kind: "i18n", key: "signup.failed" });
   });
 
   it("passes through password validation errors from the API", async () => {
@@ -30,7 +30,10 @@ describe("resolveAuthErrorMessage", () => {
       "signup",
       jsonResponse(400, { error: "Password must include a digit" }),
     );
-    expect(message).toBe("Password must include a digit");
+    expect(message).toEqual({
+      kind: "api",
+      message: "Password must include a digit",
+    });
   });
 
   it("maps CAPTCHA verification failure to the signup verification copy", async () => {
@@ -38,7 +41,7 @@ describe("resolveAuthErrorMessage", () => {
       "signup",
       jsonResponse(400, { error: "Verification failed" }),
     );
-    expect(message).toBe("signup.verificationFailed");
+    expect(message).toEqual({ kind: "i18n", key: "signup.verificationFailed" });
   });
 
   it("maps rate limiting to the shared too-many-attempts copy", async () => {
@@ -46,6 +49,14 @@ describe("resolveAuthErrorMessage", () => {
       "login",
       jsonResponse(429, { error: "Too many requests" }),
     );
-    expect(message).toBe("auth.tooManyAttempts");
+    expect(message).toEqual({ kind: "i18n", key: "auth.tooManyAttempts" });
+  });
+
+  it("maps signup rate limiting to the shared too-many-attempts copy", async () => {
+    const message = await resolveAuthErrorMessage(
+      "signup",
+      jsonResponse(429, { error: "Too many requests" }),
+    );
+    expect(message).toEqual({ kind: "i18n", key: "auth.tooManyAttempts" });
   });
 });

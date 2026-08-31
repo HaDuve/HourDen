@@ -252,7 +252,8 @@
     "creatingAccount": "Creating account…",
     "failed": "Could not create account",
     "verificationFailed": "Verification failed — try again",
-    "passwordPolicy": "At least 8 characters with uppercase, lowercase, and a digit"
+    "passwordPolicy": "At least 8 characters with uppercase, lowercase, and a digit",
+    "captchaUnavailable": "Sign-up verification is unavailable. Contact support if this persists."
   },
   "auth": {
     "tooManyAttempts": "Too many attempts, try again later"
