@@ -105,6 +105,7 @@ export type CreateUserWithWorkspaceInput = {
   email: string;
   password: string;
   workspaceName: string;
+  locale?: string;
   sender?: Partial<{
     name: string;
     street: string;
@@ -372,11 +373,11 @@ export async function createUserWithWorkspace(
 
     const userRow = await client.query<{ id: string }>(
       `
-        INSERT INTO users (email, password_hash)
-        VALUES ($1, $2)
+        INSERT INTO users (email, password_hash, locale)
+        VALUES ($1, $2, $3)
         RETURNING id
       `,
-      [normalizedEmail, passwordHash],
+      [normalizedEmail, passwordHash, input.locale ?? null],
     );
     const userId = userRow.rows[0]!.id;
 

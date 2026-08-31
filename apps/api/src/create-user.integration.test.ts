@@ -88,6 +88,21 @@ describe.skipIf(!databaseUrl)("create-user", () => {
     ).rejects.toThrow(/at least 8 characters/);
   });
 
+  it("persists locale on the User when provided", async () => {
+    await createUserWithWorkspace(pool, {
+      email: QA_EMAIL,
+      password: QA_PASSWORD,
+      workspaceName: QA_WORKSPACE,
+      locale: "de",
+    });
+
+    const stored = await pool.query<{ locale: string | null }>(
+      "SELECT locale FROM users WHERE email = $1",
+      [QA_EMAIL],
+    );
+    expect(stored.rows[0]?.locale).toBe("de");
+  });
+
   it("lets a new User log in and see empty Clients, Projects, and Time Entries", async () => {
     await createUserWithWorkspace(pool, {
       email: QA_EMAIL,
