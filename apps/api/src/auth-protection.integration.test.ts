@@ -1,7 +1,7 @@
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "./app.js";
-import { createAuthRateLimiters } from "./auth/protection.js";
+import { createAuthRateLimiters, DEFAULT_AUTH_RATE_LIMITS } from "./auth/protection.js";
 import { runMigrationsForTests } from "./test/migrate-for-tests.js";
 import { deleteFreshUserArtifacts } from "./test/integration-fixture.js";
 import {
@@ -41,12 +41,7 @@ function createProtectedApp(
     auth: {
       verifyTurnstile: options?.verifyTurnstile ?? (async () => true),
       rateLimiters:
-        options?.rateLimiters ??
-        createAuthRateLimiters({
-          registerIp: { limit: 5, windowMs: 60 * 60 * 1000 },
-          registerEmail: { limit: 3, windowMs: 24 * 60 * 60 * 1000 },
-          loginIp: { limit: 20, windowMs: 15 * 60 * 1000 },
-        }),
+        options?.rateLimiters ?? createAuthRateLimiters(DEFAULT_AUTH_RATE_LIMITS),
     },
   });
 }
@@ -66,6 +61,13 @@ describe.skipIf(!databaseUrl)("Auth protection", () => {
       "My Den",
     );
     await deleteFreshUserArtifacts(pool, "rate-email@test.hourden.local", "My Den");
+    for (const email of [
+      "rate-ip-0@test.hourden.local",
+      "rate-ip-1@test.hourden.local",
+      "rate-ip-blocked@test.hourden.local",
+    ]) {
+      await deleteFreshUserArtifacts(pool, email, "My Den");
+    }
   });
 
   afterAll(async () => {

@@ -41,4 +41,36 @@ describe("verifyTurnstileToken", () => {
 
     vi.unstubAllGlobals();
   });
+
+  it("returns false when fetch rejects", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("network error");
+      }),
+    );
+
+    await expect(
+      verifyTurnstileToken("token-123", "203.0.113.1", "secret-key"),
+    ).resolves.toBe(false);
+
+    vi.unstubAllGlobals();
+  });
+
+  it("returns false when response.json throws", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        json: async () => {
+          throw new Error("invalid json");
+        },
+      })),
+    );
+
+    await expect(
+      verifyTurnstileToken("token-123", "203.0.113.1", "secret-key"),
+    ).resolves.toBe(false);
+
+    vi.unstubAllGlobals();
+  });
 });
