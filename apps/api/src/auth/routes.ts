@@ -11,9 +11,16 @@ import {
   findUserIdBySessionId,
   updateUserLocale,
 } from "../db/users.js";
-import { getWorkspaceCalendarTimezone } from "../db/workspaces.js";
+import {
+  createUserWithWorkspace,
+  getWorkspaceCalendarTimezone,
+} from "../db/workspaces.js";
 import { isSupportedLocale, parseAcceptLanguage } from "@hourden/domain";
-import { verifyPassword } from "./password.js";
+import type { SupportedLocale } from "@hourden/domain";
+import { validatePassword, verifyPassword } from "./password.js";
+import {
+  isUserAlreadyExistsError,
+} from "./user-already-exists.js";
 import { SESSION_COOKIE, sessionExpiresAt } from "./session.js";
 
 function cookieOptions() {
@@ -28,6 +35,83 @@ function cookieOptions() {
 
 export function createAuthRouter(pool: Pool) {
   const router = new Hono();
+
+  router.post("/register", async (c) => {
+    let body: {
+      email?: string;
+      password?: string;
+      calendarTimezone?: string;
+      locale?: unknown;
+    };
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+
+    const email = body.email?.trim();
+    const password = body.password ?? "";
+
+    if (!email || !password) {
+      return c.json({ error: "Email and password are required" }, 400);
+    }
+
+    const passwordCheck = validatePassword(password);
+    if (!passwordCheck.ok) {
+      return c.json({ error: passwordCheck.error }, 400);
+    }
+
+    let locale: SupportedLocale;
+    if (body.locale !== undefined) {
+      if (!isSupportedLocale(body.locale)) {
+        return c.json({ error: "locale must be en or de" }, 400);
+      }
+      locale = body.locale;
+    } else {
+      locale = parseAcceptLanguage(c.req.header("accept-language"));
+    }
+
+    try {
+      const created = await createUserWithWorkspace(pool, {
+        email,
+        password,
+        workspaceName: "My Den",
+        calendarTimezone: body.calendarTimezone,
+        locale,
+      });
+
+      const calendarTimezone = await getWorkspaceCalendarTimezone(
+        pool,
+        created.workspaceId,
+      );
+
+      const sessionId = await createSession(pool, {
+        userId: created.userId,
+        activeWorkspaceId: created.workspaceId,
+        expiresAt: sessionExpiresAt(),
+      });
+
+      setCookie(c, SESSION_COOKIE, sessionId, cookieOptions());
+
+      return c.json(
+        {
+          user: {
+            id: created.userId,
+            email: email.toLowerCase(),
+            locale,
+          },
+          activeWorkspaceId: created.workspaceId,
+          calendarTimezone,
+        },
+        201,
+      );
+    } catch (error) {
+      if (isUserAlreadyExistsError(error)) {
+        return c.json({ error: "Unable to register" }, 409);
+      }
+      throw error;
+    }
+  });
 
   router.post("/login", async (c) => {
     const body = await c.req.json<{ email?: string; password?: string }>();

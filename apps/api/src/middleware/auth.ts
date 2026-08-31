@@ -15,7 +15,10 @@ function isPublicPath(path: string, method: string): boolean {
   if (path === "/health" || path === "/api/health") {
     return method === "GET";
   }
-  if (path === "/api/auth/login" && method === "POST") {
+  if (
+    (path === "/api/auth/login" || path === "/api/auth/register") &&
+    method === "POST"
+  ) {
     return true;
   }
   return false;
