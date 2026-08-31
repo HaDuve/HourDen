@@ -57,6 +57,7 @@ export const authenticatedAppRoutes: RouteObject[] = [
 
 export const appRoutes: RouteObject[] = [
   { path: "/login", element: <LoginPage /> },
+  { path: "/signup", element: <Navigate to="/login?mode=signup" replace /> },
   {
     element: <AuthenticatedApp />,
     children: authenticatedAppRoutes,

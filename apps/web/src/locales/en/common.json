@@ -243,7 +243,20 @@
     "password": "Password",
     "signIn": "Sign in",
     "signingIn": "Signing in…",
-    "failed": "Login failed"
+    "failed": "Login failed",
+    "invalidCredentials": "Invalid email or password",
+    "modeTabs": "Authentication mode"
+  },
+  "signup": {
+    "createAccount": "Create account",
+    "creatingAccount": "Creating account…",
+    "failed": "Could not create account",
+    "verificationFailed": "Verification failed — try again",
+    "passwordPolicy": "At least 8 characters with uppercase, lowercase, and a digit",
+    "captchaUnavailable": "Sign-up verification is unavailable. Contact support if this persists."
+  },
+  "auth": {
+    "tooManyAttempts": "Too many attempts, try again later"
   },
   "clients": {
     "title": "Clients",
