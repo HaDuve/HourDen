@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "./app.js";
 import { createAuthRateLimiters, DEFAULT_AUTH_RATE_LIMITS } from "./auth/protection.js";
 import { runMigrationsForTests } from "./test/migrate-for-tests.js";
-import { deleteFreshUserArtifacts } from "./test/integration-fixture.js";
+import { resetWorkspace } from "./test/reset-workspace.js";
 import {
   TEST_OPERATOR_EMAIL,
   TEST_OPERATOR_PASSWORD,
@@ -13,6 +13,55 @@ const databaseUrl = process.env.DATABASE_URL;
 
 const REGISTER_PASSWORD = "RegisterPass1";
 const VALID_TURNSTILE_TOKEN = "valid-turnstile-token";
+
+const TEST_USER_EMAILS = [
+  "captcha-fail@test.hourden.local",
+  "rate-email@test.hourden.local",
+  "rate-ip-0@test.hourden.local",
+  "rate-ip-1@test.hourden.local",
+  "rate-ip-blocked@test.hourden.local",
+] as const;
+
+async function deleteRegisteredTestUser(pool: Pool, email: string): Promise<void> {
+  const userRow = await pool.query<{ id: string }>(
+    "SELECT id FROM users WHERE email = $1",
+    [email],
+  );
+  const userId = userRow.rows[0]?.id;
+  if (!userId) {
+    return;
+  }
+
+  const workspaceRows = await pool.query<{ workspace_id: string }>(
+    "SELECT workspace_id FROM workspace_memberships WHERE user_id = $1",
+    [userId],
+  );
+  const workspaceIds = workspaceRows.rows.map((row) => row.workspace_id);
+
+  if (workspaceIds.length > 0) {
+    await pool.query(
+      `
+        DELETE FROM sessions
+        WHERE user_id = $1
+           OR active_workspace_id = ANY($2::uuid[])
+      `,
+      [userId, workspaceIds],
+    );
+  } else {
+    await pool.query("DELETE FROM sessions WHERE user_id = $1", [userId]);
+  }
+
+  await pool.query("DELETE FROM workspace_memberships WHERE user_id = $1", [
+    userId,
+  ]);
+
+  for (const workspaceId of workspaceIds) {
+    await resetWorkspace(pool, workspaceId);
+    await pool.query("DELETE FROM workspaces WHERE id = $1", [workspaceId]);
+  }
+
+  await pool.query("DELETE FROM users WHERE id = $1", [userId]);
+}
 
 function registerHeaders(ip: string) {
   return {
@@ -55,19 +104,16 @@ describe.skipIf(!databaseUrl)("Auth protection", () => {
   });
 
   beforeEach(async () => {
-    await deleteFreshUserArtifacts(
-      pool,
-      "captcha-fail@test.hourden.local",
-      "My Den",
-    );
-    await deleteFreshUserArtifacts(pool, "rate-email@test.hourden.local", "My Den");
-    for (const email of [
-      "rate-ip-0@test.hourden.local",
-      "rate-ip-1@test.hourden.local",
-      "rate-ip-blocked@test.hourden.local",
-    ]) {
-      await deleteFreshUserArtifacts(pool, email, "My Den");
+    for (const email of TEST_USER_EMAILS) {
+      await deleteRegisteredTestUser(pool, email);
     }
+    await pool.query(
+      `
+        DELETE FROM sessions
+        WHERE user_id = (SELECT id FROM users WHERE email = $1)
+      `,
+      [TEST_OPERATOR_EMAIL],
+    );
   });
 
   afterAll(async () => {
