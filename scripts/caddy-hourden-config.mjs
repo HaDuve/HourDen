@@ -148,6 +148,97 @@ const REDIRECT_VHOST = (host) => `${host} {
     redir https://${HOURDEN_APEX_HOST}{uri} permanent
 }`;
 
+function vhostBlockPattern(host) {
+  const escaped = host.replace(/\./g, "\\.");
+  return new RegExp(`^${escaped}\\s*\\{[\\s\\S]*?\\n\\}`, "m");
+}
+
+function countVhostBlocks(caddyfile, host) {
+  const escaped = host.replace(/\./g, "\\.");
+  return (caddyfile.match(new RegExp(`^${escaped}\\s*\\{`, "gm")) ?? []).length;
+}
+
+function hasHourdenApexVhost(caddyfile) {
+  return /^hourden\.com\s*\{/m.test(caddyfile);
+}
+
+function hasLegacyVhost(caddyfile) {
+  return /^hourden\.hannesduve\.com\s*\{/m.test(caddyfile);
+}
+
+function getVhostBody(caddyfile, host) {
+  const match = caddyfile.match(vhostBlockPattern(host));
+  if (!match) {
+    return null;
+  }
+
+  const blockMatch = match[0].match(/^\S+\s*\{([\s\S]*)\n\}$/);
+  return blockMatch ? blockMatch[1] : null;
+}
+
+function isLegacyAppVhost(caddyfile) {
+  const body = getVhostBody(caddyfile, HOURDEN_LEGACY_HOST);
+  if (!body) {
+    return false;
+  }
+
+  const isRedirectOnly =
+    /redir\s+https:\/\/hourden\.com\{uri\}\s+permanent/.test(body) &&
+    !/reverse_proxy|file_server|handle \/api/.test(body);
+
+  return !isRedirectOnly;
+}
+
+function replaceVhostBlock(caddyfile, host, newBlock) {
+  const pattern = vhostBlockPattern(host);
+  if (!pattern.test(caddyfile)) {
+    throw new Error(`Missing vhost block for ${host}`);
+  }
+
+  return caddyfile.replace(pattern, newBlock);
+}
+
+function blocksForCutoverAppend(caddyfile) {
+  const blocks = [APP_VHOST_BLOCK, REDIRECT_VHOST(HOURDEN_WWW_HOST)];
+  if (!hasLegacyVhost(caddyfile)) {
+    blocks.push(REDIRECT_VHOST(HOURDEN_LEGACY_HOST));
+  }
+  return blocks;
+}
+
+/**
+ * Apply HourDen domain cutover blocks to a Portfolio Caddyfile.
+ * Replaces an existing legacy app vhost with a redirect before append
+ * so duplicate site labels cannot appear on reload.
+ *
+ * @param {string} caddyfile
+ * @returns {string}
+ */
+export function applyHourdenDomainCutover(caddyfile) {
+  if (hasHourdenApexVhost(caddyfile)) {
+    return caddyfile;
+  }
+
+  if (countVhostBlocks(caddyfile, HOURDEN_LEGACY_HOST) > 1) {
+    throw new Error(
+      `Duplicate ${HOURDEN_LEGACY_HOST} vhost blocks in Caddyfile`,
+    );
+  }
+
+  let next = caddyfile;
+
+  if (isLegacyAppVhost(next)) {
+    next = replaceVhostBlock(
+      next,
+      HOURDEN_LEGACY_HOST,
+      REDIRECT_VHOST(HOURDEN_LEGACY_HOST),
+    );
+  }
+
+  const blocksToAppend = blocksForCutoverAppend(next);
+  return `${next.trimEnd()}\n\n${blocksToAppend.join("\n\n")}\n`;
+}
+
 /**
  * Caddyfile blocks for HourDen on the canonical apex domain.
  *

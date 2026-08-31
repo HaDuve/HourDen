@@ -5,3 +5,5 @@ HourDen deploys to the same Hetzner VM as Portfolio and is served at `hourden.ha
 **Considered options:** HourDen runs its own Caddy (rejected — two containers cannot both bind 443; would need a front proxy); separate VM (rejected — cost, per ADR-0001).
 
 **Consequences:** HourDen's deploy is coupled to Portfolio's Caddy config — a cross-repo dependency to document in both runbooks. For the future multi-tenant **C** phase the plan is a separate domain and likely a dedicated host, decoupling from Portfolio then.
+
+**Update (2026):** Canonical public URL is now `hourden.com` (apex app vhost); `hourden.hannesduve.com` redirects to apex. See `DEPLOY.md` domain cutover section.

@@ -12,10 +12,10 @@ Canonical public URL: **https://hourden.com**
 
 **Cutover sequence (operator-timed):**
 
-1. **DNS** — Point `hourden.com` and `www.hourden.com` A/AAAA records at the VM (keep the old subdomain until step 4).
-2. **Apex vhost** — Run `scripts/setup-caddy-vm.sh` on the VM (adds all three blocks from `scripts/caddy-hourden-config.mjs`).
+1. **DNS** — Point `hourden.com` and `www.hourden.com` A/AAAA records at the VM (keep the old subdomain serving until step 2).
+2. **Apex vhost** — Run `scripts/setup-caddy-vm.sh` on the VM. It appends the apex and `www` blocks and **replaces an existing legacy app vhost with a redirect** so Caddy never sees duplicate site labels.
 3. **Env** — Set `HOURDEN_PUBLIC_URL=https://hourden.com` in `/opt/HourDen/.env` on the VM and in local `.env` for production verify.
-4. **Legacy redirect** — If the VM still has an old `hourden.hannesduve.com` app block, replace it with the redirect-only block from `.caddy-snippet.txt` and reload Caddy.
+4. **Verify** — Run production verify (below). No manual legacy swap is needed when step 2 used `setup-caddy-vm.sh`.
 
 After cutover, verify:
 
@@ -24,6 +24,8 @@ VERIFY_PRODUCTION=1 ./scripts/deploy-remote.sh
 ```
 
 ## Step 1: Add HourDen to Portfolio's Caddy (one-time setup)
+
+Requires HourDen cloned at `/opt/HourDen` on the VM (same path used by deploy). On a fresh VM, run at least one deploy first, or clone the repo manually before this step.
 
 SSH to your VM and run this single command:
 
@@ -46,7 +48,7 @@ if grep -q "hourden.com {" "$CADDYFILE" 2>/dev/null; then
 else
   echo "Backing up → $BACKUP"
   cp "$CADDYFILE" "$BACKUP"
-  printf '\n%s\n' "$(node "$HOURDEN_REPO/scripts/print-caddy-hourden-snippet.mjs")" >> "$CADDYFILE"
+  node "$HOURDEN_REPO/scripts/apply-caddy-hourden-cutover.mjs" "$CADDYFILE"
   cd /opt/Portfolio
   docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
   echo "✓ HourDen vhosts added and Caddy reloaded."
