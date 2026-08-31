@@ -10,13 +10,13 @@
 # Usage (after changes are merged to main on GitHub):
 #   ./scripts/deploy-remote.sh
 #
-# Optional — verify https://hourden.hannesduve.com after deploy (uses operator login from .env):
+# Optional — verify https://hourden.com after deploy (uses operator login from .env):
 #   VERIFY_PRODUCTION=1 ./scripts/deploy-remote.sh
 #
 # Validate syntax: bash -n scripts/deploy-remote.example.sh
 #
 # Env: SSH_TARGET, REMOTE_DIR, REPO_URL, REMOTE_WEB_DIR, VERIFY_PRODUCTION,
-#      HOURDEN_OPERATOR_EMAIL, HOURDEN_OPERATOR_PASSWORD
+#      HOURDEN_PUBLIC_URL, HOURDEN_OPERATOR_EMAIL, HOURDEN_OPERATOR_PASSWORD
 
 set -euo pipefail
 
@@ -118,8 +118,8 @@ if [[ "$VERIFY_PRODUCTION" == "1" ]]; then
     echo "Set HOURDEN_OPERATOR_EMAIL and HOURDEN_OPERATOR_PASSWORD to verify production." >&2
     exit 1
   fi
-  echo "Verifying https://hourden.hannesduve.com…"
+  echo "Verifying production (HOURDEN_PUBLIC_URL or default https://hourden.com)…"
   "$ROOT/scripts/verify-production.sh"
 fi
 
-echo "Done. Site: https://hourden.hannesduve.com"
+echo "Done. Site: https://hourden.com"

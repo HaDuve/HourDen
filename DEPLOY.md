@@ -1,6 +1,31 @@
 # Quick Deploy Guide
 
+## Domain cutover (hourden.com)
+
+Canonical public URL: **https://hourden.com**
+
+| Host | Role |
+|------|------|
+| `hourden.com` | Full app (API + SPA) |
+| `www.hourden.com` | 301 → apex |
+| `hourden.hannesduve.com` | 301 → apex |
+
+**Cutover sequence (operator-timed):**
+
+1. **DNS** — Point `hourden.com` and `www.hourden.com` A/AAAA records at the VM (keep the old subdomain serving until step 2).
+2. **Apex vhost** — Run `scripts/setup-caddy-vm.sh` on the VM. It appends the apex and `www` blocks and **replaces an existing legacy app vhost with a redirect** so Caddy never sees duplicate site labels.
+3. **Env** — Set `HOURDEN_PUBLIC_URL=https://hourden.com` in `/opt/HourDen/.env` on the VM and in local `.env` for production verify.
+4. **Verify** — Run production verify (below). No manual legacy swap is needed when step 2 used `setup-caddy-vm.sh`.
+
+After cutover, verify:
+
+```bash
+VERIFY_PRODUCTION=1 ./scripts/deploy-remote.sh
+```
+
 ## Step 1: Add HourDen to Portfolio's Caddy (one-time setup)
+
+Requires HourDen cloned at `/opt/HourDen` on the VM (same path used by deploy). On a fresh VM, run at least one deploy first, or clone the repo manually before this step.
 
 SSH to your VM and run this single command:
 
@@ -16,49 +41,17 @@ ssh root@188.245.242.141
 # Then paste this entire block:
 CADDYFILE="/opt/Portfolio/caddy/Caddyfile"
 BACKUP="${CADDYFILE}.backup-$(date +%Y%m%d-%H%M%S)"
+HOURDEN_REPO="/opt/HourDen"
 
-if grep -q "hourden.hannesduve.com" "$CADDYFILE" 2>/dev/null; then
-  echo "HourDen vhost already exists."
+if grep -q "hourden.com {" "$CADDYFILE" 2>/dev/null; then
+  echo "HourDen apex vhost already exists."
 else
   echo "Backing up → $BACKUP"
   cp "$CADDYFILE" "$BACKUP"
-  
-  cat >> "$CADDYFILE" <<'EOF'
-
-hourden.hannesduve.com {
-    # SSE must not be compressed or buffered (ADR-0010).
-    handle /api/events* {
-        reverse_proxy host.docker.internal:3001 {
-            flush_interval -1
-        }
-    }
-
-    handle /api/* {
-        encode gzip zstd
-        reverse_proxy host.docker.internal:3001
-    }
-
-    handle {
-        encode gzip zstd
-        root * /var/www/hourden
-        try_files {path} /index.html
-        file_server
-    }
-
-    log {
-        output file /var/log/caddy/hourden-access.log {
-            roll_size 50mb
-            roll_keep 12
-            roll_keep_for 8760h
-        }
-        format json
-    }
-}
-EOF
-
+  node "$HOURDEN_REPO/scripts/apply-caddy-hourden-cutover.mjs" "$CADDYFILE"
   cd /opt/Portfolio
   docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
-  echo "✓ HourDen vhost added and Caddy reloaded."
+  echo "✓ HourDen vhosts added and Caddy reloaded."
 fi
 
 exit
@@ -68,7 +61,7 @@ If the vhost was created earlier with Caddy `basic_auth`, remove that block from
 
 ## Step 2: Operator env on the VM
 
-Before the first deploy after auth slice 1, set operator credentials in `/opt/HourDen/.env` on the VM (`HOURDEN_OPERATOR_EMAIL`, `HOURDEN_OPERATOR_PASSWORD`, and optionally `HOURDEN_OPERATOR_NAME`, `HOURDEN_TIMEZONE`). Migration 012 creates the operator **User** from these values.
+Before the first deploy after auth slice 1, set operator credentials in `/opt/HourDen/.env` on the VM (`HOURDEN_OPERATOR_EMAIL`, `HOURDEN_OPERATOR_PASSWORD`, and optionally `HOURDEN_OPERATOR_NAME`, `HOURDEN_TIMEZONE`). Set `HOURDEN_PUBLIC_URL=https://hourden.com` for OAuth redirect URIs and production verify. Migration 012 creates the operator **User** from these values.
 
 ## Step 3: Deploy HourDen
 
@@ -83,7 +76,7 @@ Wait for "Deploy finished on VM."
 
 ## Step 4: Verify
 
-Visit: https://hourden.hannesduve.com/login
+Visit: https://hourden.com/login
 
 Sign in with `HOURDEN_OPERATOR_EMAIL` / `HOURDEN_OPERATOR_PASSWORD` from your `.env`.
 

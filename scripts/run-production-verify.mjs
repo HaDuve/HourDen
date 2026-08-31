@@ -3,8 +3,9 @@
  * CLI wrapper for production verification (loads env from verify-production.sh).
  */
 import { verifyProduction } from "./production-verify.mjs";
+import { resolvePublicUrl } from "./hourden-public-url.mjs";
 
-const baseUrl = process.env.HOURDEN_BASE_URL ?? "https://hourden.hannesduve.com";
+const baseUrl = resolvePublicUrl(process.env);
 const operatorEmail = process.env.HOURDEN_OPERATOR_EMAIL;
 const operatorPassword = process.env.HOURDEN_OPERATOR_PASSWORD;
 
