@@ -243,7 +243,19 @@
     "password": "Passwort",
     "signIn": "Anmelden",
     "signingIn": "Anmeldung läuft…",
-    "failed": "Anmeldung fehlgeschlagen"
+    "failed": "Anmeldung fehlgeschlagen",
+    "invalidCredentials": "Ungültige E-Mail oder Passwort",
+    "modeTabs": "Anmeldemodus"
+  },
+  "signup": {
+    "createAccount": "Konto erstellen",
+    "creatingAccount": "Konto wird erstellt…",
+    "failed": "Konto konnte nicht erstellt werden",
+    "verificationFailed": "Verifizierung fehlgeschlagen — bitte erneut versuchen",
+    "passwordPolicy": "Mindestens 8 Zeichen mit Groß-, Kleinbuchstaben und einer Ziffer"
+  },
+  "auth": {
+    "tooManyAttempts": "Zu viele Versuche, bitte später erneut versuchen"
   },
   "clients": {
     "title": "Kunden",
