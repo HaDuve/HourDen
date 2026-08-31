@@ -8,6 +8,18 @@ HourDen is a personal web app for freelancers who bill by the hour. Log work as 
 
 Sign in with your account to get started.
 
+## Screenshots
+
+Demo data only — names, amounts, and invoice numbers are fictional.
+
+| Tracker | Dashboard |
+|:--:|:--:|
+| ![Tracker — log time as you work](./docs/screenshots/tracker.png) | ![Dashboard — month at a glance](./docs/screenshots/dashboard.png) |
+
+| Invoices |
+|:--:|
+| ![Invoices — preview and issue PDFs](./docs/screenshots/invoices.png) |
+
 ## What you can do
 
 | Area | What it's for |
