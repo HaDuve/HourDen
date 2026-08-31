@@ -5,6 +5,8 @@ import ClientsPage from "./ClientsPage.js";
 import ImportPage from "./ImportPage.js";
 import InvoicesPage from "./InvoicesPage.js";
 import LoginPage from "./LoginPage.js";
+import PrivacyPage from "./legal/PrivacyPage.js";
+import TermsPage from "./legal/TermsPage.js";
 import ClientStepPage from "./onboarding/ClientStepPage.js";
 import InvoiceSenderStepPage from "./onboarding/InvoiceSenderStepPage.js";
 import OnboardingGuard from "./onboarding/OnboardingGuard.js";
@@ -58,6 +60,8 @@ export const authenticatedAppRoutes: RouteObject[] = [
 export const appRoutes: RouteObject[] = [
   { path: "/login", element: <LoginPage /> },
   { path: "/signup", element: <Navigate to="/login?mode=signup" replace /> },
+  { path: "/terms", element: <TermsPage /> },
+  { path: "/privacy", element: <PrivacyPage /> },
   {
     element: <AuthenticatedApp />,
     children: authenticatedAppRoutes,

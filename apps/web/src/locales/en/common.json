@@ -245,7 +245,8 @@
     "signingIn": "Signing in…",
     "failed": "Login failed",
     "invalidCredentials": "Invalid email or password",
-    "modeTabs": "Authentication mode"
+    "modeTabs": "Authentication mode",
+    "legalFooter": "By signing in, you agree to our <termsLink>Terms of Service</termsLink> and <privacyLink>Privacy Policy</privacyLink>."
   },
   "signup": {
     "createAccount": "Create account",
@@ -253,10 +254,48 @@
     "failed": "Could not create account",
     "verificationFailed": "Verification failed — try again",
     "passwordPolicy": "At least 8 characters with uppercase, lowercase, and a digit",
-    "captchaUnavailable": "Sign-up verification is unavailable. Contact support if this persists."
+    "captchaUnavailable": "Sign-up verification is unavailable. Contact support if this persists.",
+    "legalFooter": "By creating an account, you agree to our <termsLink>Terms of Service</termsLink> and <privacyLink>Privacy Policy</privacyLink>."
   },
   "auth": {
     "tooManyAttempts": "Too many attempts, try again later"
+  },
+  "legal": {
+    "backToLogin": "Back to sign in",
+    "terms": {
+      "title": "Terms of Service",
+      "placeholderNotice": "PLACEHOLDER — replace this document with your final terms before or shortly after launch.",
+      "sections": {
+        "operator": "Operator",
+        "operatorBody": "Replace with your legal entity name, address, and contact details.",
+        "service": "Service",
+        "serviceBody": "HourDen provides time tracking and invoice generation for freelance operators.",
+        "use": "Acceptable use",
+        "useBody": "Replace with your acceptable-use policy.",
+        "liability": "Liability",
+        "liabilityBody": "Replace with your liability and warranty disclaimers.",
+        "changes": "Changes",
+        "changesBody": "We may update these terms. Continued use after changes constitutes acceptance."
+      }
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "placeholderNotice": "PLACEHOLDER — replace this document with your final privacy policy before or shortly after launch.",
+      "sections": {
+        "operator": "Data controller",
+        "operatorBody": "Replace with the identity and contact details of the data controller.",
+        "dataCollected": "Data we collect",
+        "dataCollectedBody": "Account email and password, workspace time-tracking data, and technical logs needed to operate the service.",
+        "turnstile": "Bot prevention (Cloudflare Turnstile)",
+        "turnstileBody": "On signup we use Cloudflare Turnstile to reduce abuse. Cloudflare Inc. processes limited technical signals for bot detection. See Cloudflare's privacy documentation for details.",
+        "processors": "Processors",
+        "processorsBody": "Replace with your list of sub-processors and hosting providers.",
+        "rights": "Your rights",
+        "rightsBody": "Replace with GDPR rights contact and procedure.",
+        "contact": "Contact",
+        "contactBody": "Replace with a privacy contact email."
+      }
+    }
   },
   "clients": {
     "title": "Clients",

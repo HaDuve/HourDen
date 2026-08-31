@@ -245,7 +245,8 @@
     "signingIn": "Anmeldung läuft…",
     "failed": "Anmeldung fehlgeschlagen",
     "invalidCredentials": "Ungültige E-Mail oder Passwort",
-    "modeTabs": "Anmeldemodus"
+    "modeTabs": "Anmeldemodus",
+    "legalFooter": "Mit der Anmeldung stimmen Sie unseren <termsLink>Nutzungsbedingungen</termsLink> und der <privacyLink>Datenschutzerklärung</privacyLink> zu."
   },
   "signup": {
     "createAccount": "Konto erstellen",
@@ -253,10 +254,48 @@
     "failed": "Konto konnte nicht erstellt werden",
     "verificationFailed": "Verifizierung fehlgeschlagen — bitte erneut versuchen",
     "passwordPolicy": "Mindestens 8 Zeichen mit Groß-, Kleinbuchstaben und einer Ziffer",
-    "captchaUnavailable": "Registrierungs-Verifizierung ist nicht verfügbar. Bitte den Support kontaktieren, wenn das anhält."
+    "captchaUnavailable": "Registrierungs-Verifizierung ist nicht verfügbar. Bitte den Support kontaktieren, wenn das anhält.",
+    "legalFooter": "Mit der Kontoerstellung stimmen Sie unseren <termsLink>Nutzungsbedingungen</termsLink> und der <privacyLink>Datenschutzerklärung</privacyLink> zu."
   },
   "auth": {
     "tooManyAttempts": "Zu viele Versuche, bitte später erneut versuchen"
+  },
+  "legal": {
+    "backToLogin": "Zurück zur Anmeldung",
+    "terms": {
+      "title": "Nutzungsbedingungen",
+      "placeholderNotice": "PLATZHALTER — ersetzen Sie dieses Dokument vor oder kurz nach dem Start durch Ihre endgültigen Nutzungsbedingungen.",
+      "sections": {
+        "operator": "Betreiber",
+        "operatorBody": "Ersetzen Sie dies durch Name, Adresse und Kontaktdaten Ihrer juristischen Person.",
+        "service": "Leistung",
+        "serviceBody": "HourDen bietet Zeiterfassung und Rechnungserstellung für freiberufliche Anwender.",
+        "use": "Zulässige Nutzung",
+        "useBody": "Ersetzen Sie dies durch Ihre Richtlinie zur zulässigen Nutzung.",
+        "liability": "Haftung",
+        "liabilityBody": "Ersetzen Sie dies durch Ihre Haftungs- und Gewährleistungsausschlüsse.",
+        "changes": "Änderungen",
+        "changesBody": "Wir können diese Bedingungen aktualisieren. Die fortgesetzte Nutzung nach Änderungen gilt als Zustimmung."
+      }
+    },
+    "privacy": {
+      "title": "Datenschutzerklärung",
+      "placeholderNotice": "PLATZHALTER — ersetzen Sie dieses Dokument vor oder kurz nach dem Start durch Ihre endgültige Datenschutzerklärung.",
+      "sections": {
+        "operator": "Verantwortlicher",
+        "operatorBody": "Ersetzen Sie dies durch Identität und Kontaktdaten des Verantwortlichen.",
+        "dataCollected": "Erhobene Daten",
+        "dataCollectedBody": "Konto-E-Mail und Passwort, Zeiterfassungsdaten im Workspace sowie technische Protokolle, die für den Betrieb des Dienstes erforderlich sind.",
+        "turnstile": "Bot-Schutz (Cloudflare Turnstile)",
+        "turnstileBody": "Bei der Registrierung nutzen wir Cloudflare Turnstile zur Missbrauchsprävention. Cloudflare Inc. verarbeitet begrenzte technische Signale zur Bot-Erkennung. Details finden Sie in der Datenschutzdokumentation von Cloudflare.",
+        "processors": "Auftragsverarbeiter",
+        "processorsBody": "Ersetzen Sie dies durch Ihre Liste von Unterauftragsverarbeitern und Hosting-Anbietern.",
+        "rights": "Ihre Rechte",
+        "rightsBody": "Ersetzen Sie dies durch Kontakt und Verfahren für DSGVO-Rechte.",
+        "contact": "Kontakt",
+        "contactBody": "Ersetzen Sie dies durch eine Datenschutz-Kontakt-E-Mail."
+      }
+    }
   },
   "clients": {
     "title": "Kunden",
