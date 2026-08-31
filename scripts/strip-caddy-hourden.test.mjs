@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 
-const WITH_BASIC_AUTH = `hourden.hannesduve.com {
+const WITH_BASIC_AUTH = `hourden.com {
     basic_auth {
         operator hash
     }

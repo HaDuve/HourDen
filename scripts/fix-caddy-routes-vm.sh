@@ -12,9 +12,9 @@ from pathlib import Path
 path = Path("/opt/Portfolio/caddy/Caddyfile")
 text = path.read_text()
 
-match = re.search(r"hourden\.hannesduve\.com \{.*?\n\}", text, re.DOTALL)
+match = re.search(r"hourden\.com \{.*?\n\}", text, re.DOTALL)
 if not match:
-    raise SystemExit("hourden.hannesduve.com block not found in Caddyfile")
+    raise SystemExit("hourden.com block not found in Caddyfile")
 
 block = match.group(0)
 api = re.search(r"handle /api/\* \{[^}]+\}", block, re.DOTALL)
@@ -25,7 +25,7 @@ if not api:
 
 log_section = f"\n\n    {logs.group(0)}" if logs else ""
 
-replacement = f"""hourden.hannesduve.com {{
+replacement = f"""hourden.com {{
     encode gzip zstd
 
     {api.group(0)}
@@ -46,7 +46,7 @@ docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
 
 echo "Smoke check via Caddy..."
 curl -sf \
-  -H 'Host: hourden.hannesduve.com' \
-  https://localhost/api/health --resolve hourden.hannesduve.com:443:127.0.0.1 \
+  -H 'Host: hourden.com' \
+  https://localhost/api/health --resolve hourden.com:443:127.0.0.1 \
   | grep -q '"ok":true'
 echo "OK: /api/health returns JSON through Caddy"

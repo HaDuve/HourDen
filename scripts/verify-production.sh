@@ -9,7 +9,7 @@ if [[ -f "$ROOT/.env" ]]; then
   set +a
 fi
 
-BASE_URL="${HOURDEN_BASE_URL:-https://hourden.hannesduve.com}"
+BASE_URL="${HOURDEN_PUBLIC_URL:-${HOURDEN_BASE_URL:-https://hourden.com}}"
 OPERATOR_EMAIL="${HOURDEN_OPERATOR_EMAIL:-}"
 OPERATOR_PASSWORD="${HOURDEN_OPERATOR_PASSWORD:-}"
 

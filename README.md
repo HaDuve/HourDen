@@ -4,7 +4,7 @@ Your den for billable hours — track time, review the month, send the invoice.
 
 HourDen is a personal web app for freelancers who bill by the hour. Log work as you go, keep clients and projects organized, and turn tracked time into PDF invoices — without juggling separate tools.
 
-**Live app:** [hourden.hannesduve.com](https://hourden.hannesduve.com)
+**Live app:** [hourden.com](https://hourden.com)
 
 Sign in with your account to get started.
 

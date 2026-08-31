@@ -1,7 +1,4 @@
-# Add this to Portfolio's /opt/Portfolio/caddy/Caddyfile on VM1
-# After the hannesduve.com block, add:
-
-hourden.hannesduve.com {
+hourden.com {
     # SSE must not be compressed or buffered (ADR-0010).
     handle /api/events* {
         reverse_proxy host.docker.internal:3001 {
@@ -29,6 +26,14 @@ hourden.hannesduve.com {
         }
         format json
     }
+}
+
+www.hourden.com {
+    redir https://hourden.com{uri} permanent
+}
+
+hourden.hannesduve.com {
+    redir https://hourden.com{uri} permanent
 }
 
 # After adding, reload Caddy:

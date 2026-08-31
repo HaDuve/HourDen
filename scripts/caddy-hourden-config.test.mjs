@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildHourdenCaddySnippet,
   ensureHourdenSseHandle,
   stripHourdenBasicAuth,
 } from "./caddy-hourden-config.mjs";
 
 const WITH_BASIC_AUTH = `# Add this to Portfolio's /opt/Portfolio/caddy/Caddyfile on VM1
 
-hourden.hannesduve.com {
+hourden.com {
     basic_auth {
         operator $2a$14$Hhcab4yh26gYSIWyztWgPuU0kfsJ2kx9D46jDfXRJjESEPaUtGgyS
     }
@@ -35,7 +36,7 @@ describe("stripHourdenBasicAuth", () => {
     const result = stripHourdenBasicAuth(WITH_BASIC_AUTH);
 
     expect(result).not.toMatch(/basic_auth/);
-    expect(result).toMatch(/hourden\.hannesduve\.com/);
+    expect(result).toMatch(/hourden\.com/);
     expect(result).toMatch(/encode gzip zstd/);
     expect(result).toMatch(/reverse_proxy host\.docker\.internal:3001/);
   });
@@ -61,7 +62,7 @@ ${WITH_BASIC_AUTH}`;
     const result = stripHourdenBasicAuth(input);
 
     expect(result).toMatch(/hannesduve\.com[\s\S]*basic_auth/);
-    expect(result).not.toMatch(/hourden\.hannesduve\.com[\s\S]*basic_auth/);
+    expect(result).not.toMatch(/hourden\.com[\s\S]*basic_auth/);
   });
 });
 
@@ -80,5 +81,28 @@ describe("ensureHourdenSseHandle", () => {
   it("leaves an already-patched HourDen vhost unchanged", () => {
     const patched = ensureHourdenSseHandle(stripHourdenBasicAuth(WITH_BASIC_AUTH));
     expect(ensureHourdenSseHandle(patched)).toBe(patched);
+  });
+});
+
+describe("buildHourdenCaddySnippet", () => {
+  it("defines hourden.com as the app vhost with SSE, API proxy, and SPA fallback", () => {
+    const snippet = buildHourdenCaddySnippet();
+
+    expect(snippet).toMatch(/^hourden\.com \{/m);
+    expect(snippet).toMatch(/handle \/api\/events\*/);
+    expect(snippet).toMatch(/flush_interval -1/);
+    expect(snippet).toMatch(/handle \/api\/\*/);
+    expect(snippet).toMatch(/reverse_proxy host\.docker\.internal:3001/);
+    expect(snippet).toMatch(/try_files \{path\} \/index.html/);
+    expect(snippet.indexOf("handle /api/events*")).toBeLessThan(
+      snippet.indexOf("handle /api/*"),
+    );
+  });
+
+  it("redirects www and the legacy subdomain to the apex with 301", () => {
+    const snippet = buildHourdenCaddySnippet();
+
+    expect(snippet).toMatch(/www\.hourden\.com \{[\s\S]*redir https:\/\/hourden\.com\{uri\} permanent/);
+    expect(snippet).toMatch(/hourden\.hannesduve\.com \{[\s\S]*redir https:\/\/hourden\.com\{uri\} permanent/);
   });
 });
