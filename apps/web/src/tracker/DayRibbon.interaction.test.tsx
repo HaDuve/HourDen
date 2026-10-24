@@ -208,4 +208,56 @@ describe("DayRibbon paint and resize", () => {
       });
     });
   });
+
+  it("shows a snapped time preview on hover", () => {
+    renderRibbon();
+    const track = screen.getByRole("group", { name: /Day ribbon for 2026-07-02/i });
+
+    // 50% of 08–18 = 13:00
+    fireEvent.pointerMove(track, {
+      clientX: 500,
+      pointerType: "mouse",
+    });
+
+    const preview = document.querySelector("[data-day-ribbon-time-preview]");
+    expect(preview).toHaveTextContent("13:00");
+    expect(document.querySelector("[data-day-ribbon-playhead]")).not.toBeNull();
+
+    fireEvent.pointerLeave(track);
+    expect(document.querySelector("[data-day-ribbon-time-preview]")).toBeNull();
+  });
+
+  it("shows a start–end time preview while painting a gap", () => {
+    renderRibbon();
+    const track = screen.getByRole("group", { name: /Day ribbon for 2026-07-02/i });
+
+    fireEvent.pointerDown(track, {
+      clientX: 500,
+      pointerId: 1,
+      button: 0,
+      pointerType: "mouse",
+    });
+    fireEvent.pointerMove(document, { clientX: 600, pointerId: 1 });
+
+    const preview = document.querySelector("[data-day-ribbon-time-preview]");
+    expect(preview).toHaveTextContent("13:00–14:00");
+  });
+
+  it("shows a start–end time preview while resizing a block", () => {
+    renderRibbon();
+    const endHandle = screen.getByRole("slider", {
+      name: /Resize end of Morning work/i,
+    });
+
+    fireEvent.pointerDown(endHandle, {
+      clientX: 400,
+      pointerId: 1,
+      button: 0,
+      pointerType: "mouse",
+    });
+    fireEvent.pointerMove(document, { clientX: 500, pointerId: 1 });
+
+    const preview = document.querySelector("[data-day-ribbon-time-preview]");
+    expect(preview).toHaveTextContent("10:00–13:00");
+  });
 });

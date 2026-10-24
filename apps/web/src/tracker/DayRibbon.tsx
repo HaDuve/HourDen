@@ -126,6 +126,8 @@ export function DayRibbon({
   const finishDragRef = useRef<(active: ActiveDrag) => void>(() => undefined);
 
   const [drag, setDrag] = useState<ActiveDrag | null>(null);
+  /** Snapped wall-clock under the pointer while hovering (mouse/pen only). */
+  const [hoverMs, setHoverMs] = useState<number | null>(null);
   const [createDraft, setCreateDraft] = useState<DayRibbonCreateDraft | null>(
     null,
   );
@@ -319,6 +321,7 @@ export function DayRibbon({
         pointerId,
       };
       dragRef.current = next;
+      setHoverMs(null);
       setDrag(next);
       suppressClickRef.current = true;
       attachDragListeners();
@@ -348,6 +351,7 @@ export function DayRibbon({
         pointerId,
       };
       dragRef.current = next;
+      setHoverMs(null);
       setDrag(next);
       suppressClickRef.current = true;
       attachDragListeners();
@@ -399,6 +403,36 @@ export function DayRibbon({
   const pct = (ms: number) =>
     span === 0 ? 0 : ((ms - layout.windowStartMs) / span) * 100;
 
+  const timePreview = (() => {
+    if (createDraft) return null;
+    if (drag?.kind === "paint" && previewRange) {
+      const startLabel = formatTime(
+        new Date(previewRange.startMs).toISOString(),
+      );
+      const endLabel = formatTime(new Date(previewRange.endMs).toISOString());
+      return {
+        anchorMs: drag.currentMs,
+        label:
+          previewRange.endMs > previewRange.startMs
+            ? `${startLabel}–${endLabel}`
+            : startLabel,
+      };
+    }
+    if (drag?.kind === "resize" && resizePreview) {
+      return {
+        anchorMs: drag.currentMs,
+        label: `${formatTime(new Date(resizePreview.startMs).toISOString())}–${formatTime(new Date(resizePreview.endMs).toISOString())}`,
+      };
+    }
+    if (hoverMs !== null && !drag) {
+      return {
+        anchorMs: hoverMs,
+        label: formatTime(new Date(hoverMs).toISOString()),
+      };
+    }
+    return null;
+  })();
+
   const onTrackPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!interactive || !onCreateEntry || event.button !== 0) return;
     const target = event.target as HTMLElement;
@@ -423,15 +457,28 @@ export function DayRibbon({
   };
 
   const onTrackPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.pointerType !== "touch") return;
-    if (longPressTimerRef.current !== null && !touchArmedRef.current) {
-      // Finger moved before long-press armed — treat as scroll, cancel paint.
-      clearLongPress();
+    if (event.pointerType === "touch") {
+      if (longPressTimerRef.current !== null && !touchArmedRef.current) {
+        // Finger moved before long-press armed — treat as scroll, cancel paint.
+        clearLongPress();
+      }
+      return;
     }
+    if (dragRef.current || createDraft) {
+      setHoverMs(null);
+      return;
+    }
+    const nextMs = msFromPointer(event.clientX, !event.altKey);
+    if (!Number.isFinite(nextMs)) return;
+    setHoverMs(nextMs);
   };
 
   const onTrackPointerUp = () => {
     clearLongPress();
+  };
+
+  const onTrackPointerLeave = () => {
+    if (!dragRef.current) setHoverMs(null);
   };
 
   return (
@@ -448,6 +495,7 @@ export function DayRibbon({
         onPointerMove={onTrackPointerMove}
         onPointerUp={onTrackPointerUp}
         onPointerCancel={onTrackPointerUp}
+        onPointerLeave={onTrackPointerLeave}
       >
         {interactive &&
           gaps.map((gap) => {
@@ -665,7 +713,29 @@ export function DayRibbon({
             }}
           />
         ) : null}
+
+        {timePreview ? (
+          <div
+            aria-hidden
+            data-day-ribbon-playhead=""
+            className="pointer-events-none absolute top-0 z-[4] h-full w-px bg-content/70"
+            style={{ left: `${pct(timePreview.anchorMs)}%` }}
+          />
+        ) : null}
       </div>
+
+      {timePreview ? (
+        <div
+          aria-live="polite"
+          data-day-ribbon-time-preview=""
+          className="pointer-events-none absolute z-10 bottom-full mb-1.5 max-w-[min(100%,12rem)] -translate-x-1/2"
+          style={{ left: `${pct(timePreview.anchorMs)}%` }}
+        >
+          <span className="inline-block truncate rounded-sm border border-secondary-border bg-surface px-1.5 py-0.5 text-xs font-numeric tabular-nums text-content">
+            {timePreview.label}
+          </span>
+        </div>
+      ) : null}
 
       {createDraft ? (
         <DayRibbonCreatePopover
