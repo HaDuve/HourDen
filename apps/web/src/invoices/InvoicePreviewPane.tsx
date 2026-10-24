@@ -83,34 +83,53 @@ export function InvoicePreviewPane({
 }: InvoicePreviewPaneProps) {
   const { t } = useTranslation();
 
+  const showPreviewChrome = Boolean(previewUrl) || (previewing && !previewAlert);
+
   return (
     <section
       role="region"
       aria-label={t("invoices.invoicePreview")}
       className="mb-8 space-y-3"
     >
-      {previewing && !previewUrl ? (
-        <p className={`${emptyStateClass} py-6`}>{t("invoices.previewing")}</p>
-      ) : null}
-
       {previewAlert ? (
         <InvoicePreviewQuietMessage alert={previewAlert} onRetry={onRetry} />
       ) : null}
 
-      {previewUrl ? (
+      {showPreviewChrome ? (
         <div className="space-y-3">
-          <InvoicePdfToolbar
-            buttonClass={buttonClass}
-            fullscreenAriaLabel={t("invoices.fullscreenPreview")}
-            downloadAriaLabel={t("invoices.downloadPreviewPdf")}
-            onFullscreen={onFullscreen}
-            onDownload={onDownload}
-          />
-          <iframe
-            title={t("invoices.invoicePreview")}
-            src={previewIframeSrc(previewUrl)}
-            className="h-[70vh] w-full rounded-md border border-divider"
-          />
+          {previewUrl ? (
+            <InvoicePdfToolbar
+              buttonClass={buttonClass}
+              fullscreenAriaLabel={t("invoices.fullscreenPreview")}
+              downloadAriaLabel={t("invoices.downloadPreviewPdf")}
+              onFullscreen={onFullscreen}
+              onDownload={onDownload}
+            />
+          ) : (
+            <div
+              aria-hidden
+              className="flex h-9 justify-end gap-2"
+              data-testid="invoice-preview-toolbar-spacer"
+            />
+          )}
+          {previewUrl ? (
+            <iframe
+              title={t("invoices.invoicePreview")}
+              src={previewIframeSrc(previewUrl)}
+              className="h-[70vh] w-full rounded-md border border-divider"
+            />
+          ) : (
+            <div
+              role="status"
+              aria-label={t("invoices.previewing")}
+              data-testid="invoice-preview-skeleton"
+              className="flex h-[70vh] w-full items-center justify-center rounded-md border border-divider bg-surface"
+            >
+              <span className={`${emptyStateClass} border-0 bg-transparent py-0`}>
+                {t("invoices.previewing")}
+              </span>
+            </div>
+          )}
         </div>
       ) : null}
     </section>

@@ -14,8 +14,30 @@ const dashboardPayload = {
   topProject: { name: "Ondojo", durationMinutes: 74 },
   topClient: { name: "Bandao", durationMinutes: 74 },
   dailyBuckets: [
-    { date: "2026-06-18", durationMinutes: 74 },
-    { date: "2026-06-19", durationMinutes: 60 },
+    {
+      date: "2026-06-18",
+      durationMinutes: 74,
+      byProject: [
+        {
+          projectId: "p-ondojo",
+          projectName: "Ondojo",
+          color: "#3b82f6",
+          durationMinutes: 74,
+        },
+      ],
+    },
+    {
+      date: "2026-06-19",
+      durationMinutes: 60,
+      byProject: [
+        {
+          projectId: "p-website",
+          projectName: "Website",
+          color: "#34d399",
+          durationMinutes: 60,
+        },
+      ],
+    },
   ],
   clientBuckets: [
     { name: "Bandao", durationMinutes: 74, billableAmount: 74 },
@@ -74,20 +96,65 @@ describe("DashboardPage", () => {
     });
 
     const summary = screen.getByRole("region", { name: /^summary$/i });
-    expect(within(summary).getByText("2:14")).toBeInTheDocument();
-    expect(screen.getByText("€194.00")).toBeInTheDocument();
-    expect(screen.getByText("Ondojo")).toBeInTheDocument();
-    expect(screen.getByText("Bandao")).toBeInTheDocument();
+    expect(within(summary).getByText("2 h 14 min")).toBeInTheDocument();
+    expect(within(summary).getByText("€194.00")).toBeInTheDocument();
+    expect(within(summary).getByText("Ondojo")).toBeInTheDocument();
+    expect(within(summary).getByText("Bandao")).toBeInTheDocument();
   });
 
-  it("renders the daily time chart when the range has tracked time", async () => {
-    vi.stubGlobal("fetch", dashboardFetchMock());
+  it("renders the daily time chart stacked by project color with a legend", async () => {
+    const chartWidth = 800;
+    const chartHeight = 288;
+    const boundingRect = {
+      width: chartWidth,
+      height: chartHeight,
+      top: 0,
+      left: 0,
+      bottom: chartHeight,
+      right: chartWidth,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    };
+    const boundingRectSpy = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue(boundingRect as DOMRect);
+    class ResizeObserverMock {
+      constructor(private callback: ResizeObserverCallback) {}
+      observe(target: Element) {
+        this.callback(
+          [{ target, contentRect: boundingRect } as ResizeObserverEntry],
+          this as unknown as ResizeObserver,
+        );
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
 
-    render(<DashboardPage />);
+    try {
+      vi.stubGlobal("fetch", dashboardFetchMock());
 
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /^daily time$/i })).toBeInTheDocument();
-    });
+      render(<DashboardPage />);
+
+      await waitFor(() => {
+        expect(screen.getByRole("heading", { name: /^daily time$/i })).toBeInTheDocument();
+      });
+
+      const legend = screen.getByRole("list", { name: /^projects in daily time$/i });
+      expect(within(legend).getByText("Ondojo")).toBeInTheDocument();
+      expect(within(legend).getByText("Website")).toBeInTheDocument();
+
+      await waitFor(() => {
+        const dailyChart = screen
+          .getByRole("heading", { name: /^daily time$/i })
+          .closest("section");
+        expect(dailyChart?.querySelectorAll(".recharts-bar").length).toBe(2);
+      });
+    } finally {
+      boundingRectSpy.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
 
   it("caps the daily bar width when only one day has tracked time", async () => {
@@ -129,7 +196,20 @@ describe("DashboardPage", () => {
               ok: true,
               json: async () => ({
                 ...dashboardPayload,
-                dailyBuckets: [{ date: "2026-06-18", durationMinutes: 74 }],
+                dailyBuckets: [
+                  {
+                    date: "2026-06-18",
+                    durationMinutes: 74,
+                    byProject: [
+                      {
+                        projectId: "p-ondojo",
+                        projectName: "Ondojo",
+                        color: "#3b82f6",
+                        durationMinutes: 74,
+                      },
+                    ],
+                  },
+                ],
               }),
             });
           }
@@ -175,7 +255,7 @@ describe("DashboardPage", () => {
       expect(screen.getByRole("heading", { name: /^by client$/i })).toBeInTheDocument();
     });
 
-    expect(screen.getByLabelText(/^client time$/i)).toHaveTextContent("2:14");
+    expect(screen.getByLabelText(/^client time$/i)).toHaveTextContent("2 h 14 min");
     expect(screen.getByText(/bandao \(55%\)/i)).toBeInTheDocument();
     expect(screen.getByText(/acme \(45%\)/i)).toBeInTheDocument();
 
@@ -261,7 +341,7 @@ describe("DashboardPage", () => {
 
     expect(screen.getByText(/bandao \(49%\)/i)).toBeInTheDocument();
     expect(screen.getByText(/acme \(40%\)/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^client time$/i)).toHaveTextContent("2:30");
+    expect(screen.getByLabelText(/^client time$/i)).toHaveTextContent("2 h 30 min");
   });
 
   it("omits the project/client subtitle when an activity has no project", async () => {
@@ -315,9 +395,9 @@ describe("DashboardPage", () => {
     expect(items[0]).toHaveTextContent("App Development");
     expect(items[0]).toHaveTextContent("Ondojo");
     expect(items[0]).toHaveTextContent("Bandao");
-    expect(within(items[0]).getByText("1:06")).toHaveClass("font-numeric");
+    expect(within(items[0]).getByText("1 h 6 min")).toHaveClass("font-numeric");
     expect(items[1]).toHaveTextContent("Homepage");
-    expect(within(items[2]).getByText("0:08")).toHaveClass("font-numeric");
+    expect(within(items[2]).getByText("8 min")).toHaveClass("font-numeric");
   });
 
   it("refetches when the last month quick control is clicked", async () => {

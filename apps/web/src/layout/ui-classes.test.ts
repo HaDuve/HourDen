@@ -5,10 +5,18 @@ import {
   listPanelClass,
   numericMetaValueClass,
   numericValueClass,
+  pageTitleClass,
+  pageTitleLargeClass,
   panelClass,
 } from "./ui-classes.js";
 
 describe("ui-classes Warm Den surfaces", () => {
+  it("uses one page-title size across primary screens", () => {
+    expect(pageTitleClass).toBe(pageTitleLargeClass);
+    expect(pageTitleClass).toMatch(/text-3xl/);
+    expect(pageTitleClass).toMatch(/tracking-tight/);
+  });
+
   it("list panels are hairline rows without a bordered box", () => {
     expect(listPanelClass).toMatch(/divide-y/);
     expect(listPanelClass).toMatch(/divide-divider/);

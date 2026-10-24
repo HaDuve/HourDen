@@ -2395,5 +2395,12 @@ describe("InvoicesPage", () => {
       expect(screen.getByTitle(/invoice preview/i)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /^issue invoice$/i })).toBeDisabled();
     });
+
+    const issueButton = screen.getByRole("button", { name: /^issue invoice$/i });
+    const reasonId = issueButton.getAttribute("aria-describedby");
+    expect(reasonId).toBeTruthy();
+    const reason = document.getElementById(reasonId!);
+    expect(reason).toHaveTextContent(/set up your invoice sender before issuing/i);
+    expect(issueButton.parentElement).toContainElement(reason);
   });
 });
