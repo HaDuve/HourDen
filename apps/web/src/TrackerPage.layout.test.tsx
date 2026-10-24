@@ -129,4 +129,37 @@ describe("TrackerPage Warm Den layout", () => {
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
     expect(row).toHaveAttribute("data-highlighted", "true");
   });
+
+  it("pairs a quiet hover border on the ribbon block and entry row", async () => {
+    mockDesktopViewport();
+    vi.stubGlobal("fetch", createFetchMock([morningEntry]));
+
+    renderWithRunningTimer(<TrackerPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Morning work")).toBeInTheDocument();
+    });
+
+    const block = screen.getByRole("button", {
+      name: /Morning work, No project/,
+    });
+    const row = document.querySelector(
+      `[data-entry-id="${morningEntry.id}"]`,
+    );
+    expect(row).not.toBeNull();
+
+    fireEvent.pointerEnter(block.parentElement!);
+    expect(block).toHaveAttribute("data-hovered", "true");
+    expect(row).toHaveAttribute("data-hovered", "true");
+    expect(row?.className).toMatch(/ring-secondary-border/);
+    expect(block.className).toMatch(/ring-content\/50/);
+
+    fireEvent.pointerLeave(block.parentElement!);
+    expect(block).not.toHaveAttribute("data-hovered");
+    expect(row).not.toHaveAttribute("data-hovered");
+
+    fireEvent.pointerEnter(row!);
+    expect(block).toHaveAttribute("data-hovered", "true");
+    expect(row).toHaveAttribute("data-hovered", "true");
+  });
 });

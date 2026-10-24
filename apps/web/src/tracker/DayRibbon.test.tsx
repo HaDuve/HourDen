@@ -105,4 +105,39 @@ describe("DayRibbon", () => {
     fireEvent.keyDown(block, { key: "Enter" });
     expect(onSelectEntry).toHaveBeenCalledTimes(2);
   });
+
+  it("reports hover and shows a quiet inset ring while hovered", () => {
+    const onHoverEntry = vi.fn();
+    const { rerender } = render(
+      <DayRibbon
+        dateKey="2026-07-02"
+        timeZone="UTC"
+        entries={[morning]}
+        formatTime={() => "10:00"}
+        onSelectEntry={() => undefined}
+        onHoverEntry={onHoverEntry}
+      />,
+    );
+
+    const block = screen.getByRole("button", { name: /Morning work/ });
+    fireEvent.pointerEnter(block.parentElement!);
+    expect(onHoverEntry).toHaveBeenCalledWith(morning.id);
+
+    rerender(
+      <DayRibbon
+        dateKey="2026-07-02"
+        timeZone="UTC"
+        entries={[morning]}
+        formatTime={() => "10:00"}
+        onSelectEntry={() => undefined}
+        hoveredEntryId={morning.id}
+        onHoverEntry={onHoverEntry}
+      />,
+    );
+    expect(block).toHaveAttribute("data-hovered", "true");
+    expect(block.className).toMatch(/ring-content\/50/);
+
+    fireEvent.pointerLeave(block.parentElement!);
+    expect(onHoverEntry).toHaveBeenCalledWith(null);
+  });
 });

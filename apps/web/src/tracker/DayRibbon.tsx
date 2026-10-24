@@ -52,6 +52,9 @@ type DayRibbonProps = {
   now?: Date;
   formatTime: (iso: string) => string;
   onSelectEntry: (entryId: string) => void;
+  /** Entry id under pointer (ribbon ↔ card hover pairing). */
+  hoveredEntryId?: string | null;
+  onHoverEntry?: (entryId: string | null) => void;
   projectGroups?: ProjectClientGroup[];
   onCreateEntry?: (input: DayRibbonCreateInput) => Promise<void>;
   onResizeEntry?: (input: DayRibbonResizeInput) => Promise<void>;
@@ -109,6 +112,8 @@ export function DayRibbon({
   now,
   formatTime,
   onSelectEntry,
+  hoveredEntryId = null,
+  onHoverEntry,
   projectGroups = [],
   onCreateEntry,
   onResizeEntry,
@@ -561,12 +566,15 @@ export function DayRibbon({
             if (suppressClickRef.current) return;
             onSelectEntry(block.id);
           };
+          const hovered = hoveredEntryId === block.id;
 
           return (
             <div
               key={block.id}
               className="absolute top-0 z-[1] h-full"
               style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+              onPointerEnter={() => onHoverEntry?.(block.id)}
+              onPointerLeave={() => onHoverEntry?.(null)}
             >
               <button
                 type="button"
@@ -575,9 +583,12 @@ export function DayRibbon({
                 aria-label={label}
                 data-running={block.isRunning ? "true" : undefined}
                 data-entry-block={block.id}
+                data-hovered={hovered ? "true" : undefined}
                 className={`absolute inset-0 min-w-[2px] rounded-[1px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus${
                   block.isRunning ? " bg-primary" : ""
-                }${frozen ? " cursor-not-allowed" : ""}`}
+                }${frozen ? " cursor-not-allowed" : ""}${
+                  hovered ? " ring-1 ring-inset ring-content/50" : ""
+                }`}
                 style={
                   block.isRunning
                     ? undefined

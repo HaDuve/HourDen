@@ -188,6 +188,7 @@ export default function TrackerPage() {
   const [highlightedEntryId, setHighlightedEntryId] = useState<string | null>(
     null,
   );
+  const [hoveredEntryId, setHoveredEntryId] = useState<string | null>(null);
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const liveCounter = useLiveCounter(running?.startedAt ?? null);
@@ -205,6 +206,10 @@ export default function TrackerPage() {
       setHighlightedEntryId(null);
       highlightTimeoutRef.current = null;
     }, DAY_RIBBON_HIGHLIGHT_MS);
+  }, []);
+
+  const hoverEntry = useCallback((entryId: string | null) => {
+    setHoveredEntryId(entryId);
   }, []);
 
   useEffect(() => {
@@ -662,6 +667,8 @@ export default function TrackerPage() {
             formatDateTime={(iso) => formatEntryTime(iso, locale)}
             liveDuration={entry.isRunning ? liveCounter.text : null}
             highlighted={highlightedEntryId === entry.id}
+            hovered={hoveredEntryId === entry.id}
+            onHoverChange={hoverEntry}
             saving={saving}
             onPatch={async (patch) => {
               await patchEntry(entry.id, patch);
@@ -706,6 +713,8 @@ export default function TrackerPage() {
             }))}
             formatTime={(iso) => formatEntryTime(iso, locale)}
             onSelectEntry={selectEntryFromRibbon}
+            hoveredEntryId={hoveredEntryId}
+            onHoverEntry={hoverEntry}
             projectGroups={projectGroups}
             onCreateEntry={createEntryFromRibbon}
             onResizeEntry={resizeEntryFromRibbon}
