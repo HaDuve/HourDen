@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import i18n from "./i18n/i18n.js";
 import TrackerPage from "./TrackerPage.js";
@@ -122,6 +122,10 @@ describe("TrackerPage", () => {
     await i18n.changeLanguage("en");
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   function renderTrackerPage() {
     return renderWithRunningTimer(<TrackerPage />);
   }
@@ -212,7 +216,7 @@ describe("TrackerPage", () => {
     expect(screen.queryByRole("dialog", { name: /manual entry/i })).not.toBeInTheDocument();
   });
 
-  it("hides the Running Timer list row but includes its duration in day and month totals", async () => {
+  it("shows the Running Timer as a live row in today's group and includes it in totals", async () => {
     const runningEntry = {
       ...morningEntry,
       id: "e0000000-0000-4000-8000-000000000099",
@@ -234,10 +238,9 @@ describe("TrackerPage", () => {
       expect(screen.getByText("Morning work")).toBeInTheDocument();
     });
 
-    expect(screen.queryByText("Live focus")).not.toBeInTheDocument();
-    expect(screen.queryByText(/^running$/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/^total: 1 h 15 min$/i)).toBeInTheDocument();
-    expect(screen.getByText(/^month total: 1 h 15 min$/i)).toBeInTheDocument();
+    expect(screen.getByText("Live focus")).toBeInTheDocument();
+    expect(screen.getByText(/^running$/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/1 h 15 min/i).length).toBeGreaterThanOrEqual(2);
   });
 
   it("shows the Running Timer Start on the timer bar and leaves End empty", async () => {
@@ -967,9 +970,121 @@ describe("TrackerPage", () => {
     expect(descriptionInput).toHaveValue("In progress work");
   });
 
-  it("deletes the Time Entry chosen when the dialog opened, even if another row Delete is clicked", async () => {
-    let listedEntries = [morningEntry, afternoonEntry];
-    const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+  it("deletes immediately with an Undo toast and restores the same entry on Undo", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const fetchMock = createFetchMock([morningEntry, afternoonEntry]);
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (init?.method === "DELETE") {
+        return Promise.resolve({ ok: true, status: 204 });
+      }
+      return createFetchMock([morningEntry, afternoonEntry])(url, init);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTrackerPage();
+    await waitFor(() => {
+      expect(screen.getByText("Afternoon work")).toBeInTheDocument();
+    });
+
+    const listDeleteButtons = screen.getAllByRole("button", { name: /^delete$/i });
+    fireEvent.click(listDeleteButtons[0]!);
+
+    await waitFor(() => {
+      expect(screen.queryByText("Afternoon work")).not.toBeInTheDocument();
+      expect(screen.getByText(/entry deleted/i)).toBeInTheDocument();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("/api/time-entries/"),
+      expect.objectContaining({ method: "DELETE" }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^undo$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Afternoon work")).toBeInTheDocument();
+      expect(screen.queryByText(/entry deleted/i)).not.toBeInTheDocument();
+    });
+
+    await vi.advanceTimersByTimeAsync(7000);
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("/api/time-entries/"),
+      expect.objectContaining({ method: "DELETE" }),
+    );
+    vi.useRealTimers();
+  });
+
+  it("deletes via keyboard when the quiet Delete control is activated", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const fetchMock = createFetchMock([morningEntry]);
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (init?.method === "DELETE") {
+        return Promise.resolve({ ok: true, status: 204 });
+      }
+      return createFetchMock([morningEntry])(url, init);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTrackerPage();
+    await waitFor(() => {
+      expect(screen.getByText("Morning work")).toBeInTheDocument();
+    });
+
+    const deleteButton = screen.getByRole("button", { name: /^delete$/i });
+    deleteButton.focus();
+    fireEvent.keyDown(deleteButton, { key: "Enter" });
+    fireEvent.click(deleteButton);
+
+    await waitFor(() => {
+      expect(screen.queryByText("Morning work")).not.toBeInTheDocument();
+      expect(screen.getByText(/entry deleted/i)).toBeInTheDocument();
+    });
+
+    await vi.advanceTimersByTimeAsync(6000);
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/time-entries/${morningEntry.id}`,
+        expect.objectContaining({ method: "DELETE" }),
+      );
+    });
+  });
+
+  it("commits the delete after the Undo window when Undo is not used", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const fetchMock = createFetchMock([morningEntry, afternoonEntry]);
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (init?.method === "DELETE") {
+        return Promise.resolve({ ok: true, status: 204 });
+      }
+      return createFetchMock([morningEntry, afternoonEntry])(url, init);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTrackerPage();
+    await waitFor(() => {
+      expect(screen.getByText("Afternoon work")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getAllByRole("button", { name: /^delete$/i })[0]!);
+
+    await waitFor(() => {
+      expect(screen.queryByText("Afternoon work")).not.toBeInTheDocument();
+    });
+
+    await vi.advanceTimersByTimeAsync(6000);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/time-entries/${afternoonEntry.id}`,
+        expect.objectContaining({ method: "DELETE" }),
+      );
+    });
+    vi.useRealTimers();
+  });
+
+  it("shows a list skeleton while entries load", async () => {
+    let resolveEntries: ((value: unknown) => void) | undefined;
+    const fetchMock = vi.fn((url: string) => {
       if (url === "/api/auth/me") {
         return Promise.resolve({
           ok: true,
@@ -977,9 +1092,8 @@ describe("TrackerPage", () => {
         });
       }
       if (url === "/api/time-entries?limit=50") {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({ entries: listedEntries }),
+        return new Promise((resolve) => {
+          resolveEntries = resolve;
         });
       }
       if (url === "/api/time-entries/running") {
@@ -1000,35 +1114,28 @@ describe("TrackerPage", () => {
           json: async () => ({ clients: [] }),
         });
       }
-      if (init?.method === "DELETE") {
-        listedEntries = [morningEntry];
-        return Promise.resolve({ ok: true, status: 204 });
-      }
       return Promise.reject(new Error(`Unexpected fetch: ${url}`));
     });
     vi.stubGlobal("fetch", fetchMock);
 
     renderTrackerPage();
-    await waitFor(() => {
-      expect(screen.getByText("Afternoon work")).toBeInTheDocument();
-    });
 
-    const listDeleteButtons = screen.getAllByRole("button", { name: /^delete$/i });
-    fireEvent.click(listDeleteButtons[0]!);
+    const skeleton = await screen.findByTestId("tracker-list-skeleton");
+    expect(skeleton).toHaveAttribute("role", "status");
+    expect(skeleton.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
 
     await waitFor(() => {
-      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(resolveEntries).toBeTypeOf("function");
     });
-
-    fireEvent.click(listDeleteButtons[1]!);
-    fireEvent.click(screen.getByRole("button", { name: /^confirm delete$/i }));
+    resolveEntries!({
+      ok: true,
+      json: async () => ({ entries: [morningEntry] }),
+    });
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        `/api/time-entries/${afternoonEntry.id}`,
-        expect.objectContaining({ method: "DELETE" }),
-      );
+      expect(screen.getByText("Morning work")).toBeInTheDocument();
     });
+    expect(screen.queryByTestId("tracker-list-skeleton")).not.toBeInTheDocument();
   });
 
   it("patches description inline on desktop without an Edit button", async () => {
