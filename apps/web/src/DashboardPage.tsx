@@ -17,7 +17,7 @@ import { DateRangeFilter } from "./DateRangeFilter.js";
 import { currentMonthRange } from "./date-range.js";
 import { PageMain } from "./layout/PageMain.js";
 import {
-  cardClass,
+  ledgerCellClass,
   emptyStateClass,
   errorBannerClass,
   metaTextClass,
@@ -190,20 +190,20 @@ export default function DashboardPage() {
       ) : (
         <div className="space-y-8">
           <section aria-label={t("dashboard.kpiSection")}>
-            <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className={`${cardClass} p-4`}>
+            <dl className="divide-y divide-divider border-y border-divider">
+              <div className={`${ledgerCellClass} py-4`}>
                 <dt className="text-sm text-muted">{t("dashboard.totalTime")}</dt>
                 <dd className={`mt-1 text-xl font-semibold ${numericValueClass}`}>
                   {formatDurationHMM(summary.totalDurationMinutes)}
                 </dd>
               </div>
-              <div className={`${cardClass} p-4`}>
+              <div className={`${ledgerCellClass} py-4`}>
                 <dt className="text-sm text-muted">{t("dashboard.totalBillable")}</dt>
                 <dd className={`mt-1 text-xl font-semibold ${numericValueClass}`}>
                   {formatCurrency(summary.totalBillableAmount)}
                 </dd>
               </div>
-              <div className={`${cardClass} p-4`}>
+              <div className={`${ledgerCellClass} py-4`}>
                 <dt className="text-sm text-muted">{t("dashboard.topProject")}</dt>
                 <dd className="mt-1 text-xl font-semibold text-content">
                   {summary.topProject?.name ?? t("dashboard.none")}
@@ -214,7 +214,7 @@ export default function DashboardPage() {
                   </dd>
                 ) : null}
               </div>
-              <div className={`${cardClass} p-4`}>
+              <div className={`${ledgerCellClass} py-4`}>
                 <dt className="text-sm text-muted">{t("dashboard.topClient")}</dt>
                 <dd className="mt-1 text-xl font-semibold text-content">
                   {summary.topClient?.name ?? t("dashboard.none")}

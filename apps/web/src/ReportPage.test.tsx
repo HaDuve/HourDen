@@ -153,6 +153,6 @@ describe("ReportPage", () => {
     const line = screen.getByText("Work").closest("li");
     expect(line).not.toBeNull();
     const amountNode = within(line as HTMLElement).getByText(/€150\.00/);
-    expect(amountNode).toHaveClass("tabular-nums", "font-mono");
+    expect(amountNode).toHaveClass("tabular-nums", "font-numeric");
   });
 });

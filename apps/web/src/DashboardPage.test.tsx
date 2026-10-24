@@ -315,9 +315,9 @@ describe("DashboardPage", () => {
     expect(items[0]).toHaveTextContent("App Development");
     expect(items[0]).toHaveTextContent("Ondojo");
     expect(items[0]).toHaveTextContent("Bandao");
-    expect(within(items[0]).getByText("1:06")).toHaveClass("font-mono");
+    expect(within(items[0]).getByText("1:06")).toHaveClass("font-numeric");
     expect(items[1]).toHaveTextContent("Homepage");
-    expect(within(items[2]).getByText("0:08")).toHaveClass("font-mono");
+    expect(within(items[2]).getByText("0:08")).toHaveClass("font-numeric");
   });
 
   it("refetches when the last month quick control is clicked", async () => {

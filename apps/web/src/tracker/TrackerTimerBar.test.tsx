@@ -207,7 +207,10 @@ describe("TrackerTimerBar", () => {
     );
 
     expect(screen.getByRole("button", { name: /stop timer/i })).toBeInTheDocument();
-    expect(screen.getByText("0:01:05")).toHaveClass("tabular-nums");
+    expect(screen.getByText("0:01:05")).toHaveClass("tabular-nums", "text-primary");
+    expect(screen.getByRole("region", { name: /timer bar/i }).className).toMatch(
+      /border-accent-border/,
+    );
     expect(screen.getByRole("group", { name: "Bandao" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Ondojo" })).toBeInTheDocument();
   });

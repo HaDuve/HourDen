@@ -66,7 +66,7 @@ describe("ReportPage mobile layout", () => {
     const card = screen.getByTestId("report-line-card");
     const durationValue = within(card).getByText("1:00");
     const amountValue = within(card).getByText(/€60\.00/);
-    expect(durationValue).toHaveClass("tabular-nums", "font-mono", "text-right");
-    expect(amountValue).toHaveClass("tabular-nums", "font-mono", "text-right");
+    expect(durationValue).toHaveClass("tabular-nums", "font-numeric", "text-right");
+    expect(amountValue).toHaveClass("tabular-nums", "font-numeric", "text-right");
   });
 });

@@ -41,7 +41,13 @@ export function TrackerNavLink() {
         {isMobile ? (
           <span className="sr-only">{desktopLabel}</span>
         ) : (
-          <span className={isRunning ? "font-mono tabular-nums" : undefined}>{desktopLabel}</span>
+          <span
+            className={
+              isRunning ? "font-numeric tabular-nums text-primary" : undefined
+            }
+          >
+            {desktopLabel}
+          </span>
         )}
       </span>
     </NavLink>

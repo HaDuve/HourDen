@@ -208,6 +208,7 @@
     "startTimer": "Start timer",
     "stopTimer": "Stop timer",
     "timerBar": "Timer bar",
+    "dayTimeline": "Day timeline",
     "timerRunning": "Timer running — {{duration}}",
     "addDescriptionWhenDone": "(add description when done)",
     "loading": "Loading entries…",

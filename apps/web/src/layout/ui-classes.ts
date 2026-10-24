@@ -1,4 +1,4 @@
-/** Semantic Tailwind class strings (ADR-0012). Screens use these, not raw palette utilities. */
+/** Semantic Tailwind class strings (ADR-0012 tokens; ADR-0015 Warm Den surfaces). Screens use these, not raw palette utilities. */
 
 export const pageTitleClass = "text-2xl font-semibold text-content";
 export const pageTitleLargeClass = "text-3xl font-semibold tracking-tight text-content";
@@ -14,10 +14,13 @@ export const inputClassMobile =
   "min-h-11 w-full rounded-md border border-input-border bg-input px-3 py-2 text-sm text-content";
 export const selectClass = inputClass;
 
+/** True containers: overlays, login shell, invoice chrome — keep bordered surface. */
 export const cardClass = "rounded-lg border border-divider bg-surface";
 export const panelClass = "rounded-lg border border-divider bg-surface p-4";
-export const listPanelClass =
-  "divide-y divide-divider overflow-hidden rounded-lg border border-divider bg-surface";
+/** KPI / ledger cells — hairlines via parent divide; no bordered box (ADR-0015). */
+export const ledgerCellClass = "bg-transparent";
+/** Entry lists — hairline rows on the page background (ADR-0015 fewer boxes). */
+export const listPanelClass = "divide-y divide-divider";
 export const emptyStateClass =
   "rounded-lg border border-dashed border-divider bg-surface px-4 py-8 text-center text-muted";
 
@@ -40,7 +43,15 @@ export const infoPanelClass =
 export const accentInputClass =
   "rounded-md border border-accent-border bg-accent-muted px-3 py-2 text-sm text-content";
 
-/** Duration, amounts, rates — monospaced and right-aligned per ADR-0012. */
-export const numericValueClass = "font-mono tabular-nums text-right text-content";
-export const numericMetaValueClass = "font-mono tabular-nums text-right text-muted";
+/** Timer bar while Running Timer is active — ember border on the true container. */
+export const runningTimerBarClass =
+  "rounded-lg border border-accent-border bg-surface p-4 shadow-sm";
+
+/** Live Counter digits — ember while the timer is running. */
+export const liveCounterClass =
+  "font-numeric tabular-nums text-right text-lg text-primary";
+
+/** Duration, amounts, rates — self-hosted numeric face, tabular, right-aligned (ADR-0015). */
+export const numericValueClass = "font-numeric tabular-nums text-right text-content";
+export const numericMetaValueClass = "font-numeric tabular-nums text-right text-muted";
 export const numericHeaderClass = "text-right font-medium";

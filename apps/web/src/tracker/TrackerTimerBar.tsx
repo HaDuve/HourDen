@@ -3,11 +3,14 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DescriptionAutocomplete } from "../DescriptionAutocomplete.js";
 import {
+  accentInputClass,
   destructiveButtonClass,
   inputClass,
+  liveCounterClass,
   numericValueClass,
   panelClass,
   primaryButtonClass,
+  runningTimerBarClass,
   selectClass,
 } from "../layout/ui-classes.js";
 import {
@@ -127,10 +130,17 @@ export function TrackerTimerBar({
     }
   };
 
+  const runningFieldClass = isRunning ? accentInputClass : inputClass;
+  const runningSelectClass = isRunning ? accentInputClass : selectClass;
+  const barSurfaceClass = isRunning ? runningTimerBarClass : `${panelClass} shadow-sm`;
+  const counterClass = isRunning
+    ? `min-w-[5.5rem] ${liveCounterClass}`
+    : `min-w-[5.5rem] ${numericValueClass} text-lg`;
+
   return (
     <section
       aria-label={t("tracker.timerBar")}
-      className={`sticky top-0 z-10 md:top-14 ${panelClass} shadow-sm`}
+      className={`sticky top-0 z-10 md:top-14 ${barSurfaceClass}`}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
@@ -140,7 +150,7 @@ export function TrackerTimerBar({
             value={description}
             onChange={onDescriptionChange}
             onSuggestionSelect={onDescriptionSuggestionSelect}
-            inputClassName={inputClass}
+            inputClassName={runningFieldClass}
           />
         </div>
 
@@ -150,7 +160,7 @@ export function TrackerTimerBar({
             aria-label={t("tracker.projectOptional")}
             value={projectId}
             onChange={(event) => onProjectChange(event.target.value)}
-            className={`w-full ${selectClass}`}
+            className={`w-full ${runningSelectClass}`}
           >
             <option value="">{t("tracker.noProject")}</option>
             {projectGroups.map((group) => (
@@ -166,10 +176,7 @@ export function TrackerTimerBar({
         </label>
 
         <div className="flex shrink-0 items-center gap-3">
-          <p
-            aria-live="polite"
-            className={`min-w-[5.5rem] ${numericValueClass} text-lg`}
-          >
+          <p aria-live="polite" className={counterClass}>
             {liveCounter}
           </p>
 
