@@ -1,8 +1,16 @@
 import type { Pool } from "pg";
 
+export type DashboardDailyProjectSegment = {
+  projectId: string | null;
+  projectName: string | null;
+  color: string | null;
+  durationMinutes: number;
+};
+
 export type DashboardDailyBucket = {
   date: string;
   durationMinutes: number;
+  byProject: DashboardDailyProjectSegment[];
 };
 
 export type DashboardNamedTotal = {
@@ -59,7 +67,9 @@ export async function getDashboardSummary(
             ROUND(EXTRACT(EPOCH FROM (te.ended_at - te.started_at)) / 60.0)
           )::int AS duration_minutes,
           COALESCE(te.amount, 0)::numeric AS amount,
+          te.project_id AS project_id,
           p.name AS project_name,
+          p.color AS project_color,
           c.name AS client_name,
           te.description AS description,
           ((te.started_at AT TIME ZONE $4)::date)::text AS local_date
@@ -113,7 +123,8 @@ export async function getDashboardSummary(
             json_agg(
               json_build_object(
                 'date', daily.local_date,
-                'durationMinutes', daily.duration_minutes
+                'durationMinutes', daily.duration_minutes,
+                'byProject', daily.by_project
               )
               ORDER BY daily.local_date
             ),
@@ -121,10 +132,40 @@ export async function getDashboardSummary(
           )
           FROM (
             SELECT
-              local_date,
-              SUM(duration_minutes)::int AS duration_minutes
-            FROM entries
-            GROUP BY local_date
+              day_totals.local_date,
+              day_totals.duration_minutes,
+              COALESCE(
+                (
+                  SELECT json_agg(
+                    json_build_object(
+                      'projectId', segments.project_id,
+                      'projectName', segments.project_name,
+                      'color', segments.project_color,
+                      'durationMinutes', segments.duration_minutes
+                    )
+                    ORDER BY segments.duration_minutes DESC,
+                      segments.project_name ASC NULLS LAST
+                  )
+                  FROM (
+                    SELECT
+                      project_id,
+                      project_name,
+                      project_color,
+                      SUM(duration_minutes)::int AS duration_minutes
+                    FROM entries e
+                    WHERE e.local_date = day_totals.local_date
+                    GROUP BY project_id, project_name, project_color
+                  ) segments
+                ),
+                '[]'::json
+              ) AS by_project
+            FROM (
+              SELECT
+                local_date,
+                SUM(duration_minutes)::int AS duration_minutes
+              FROM entries
+              GROUP BY local_date
+            ) day_totals
           ) daily
         ) AS daily_buckets,
         (
@@ -212,7 +253,11 @@ export async function getDashboardSummary(
     totalBillableAmount: Math.round(totalBillableAmount * 100) / 100,
     topProject: row?.top_project ?? null,
     topClient: row?.top_client ?? null,
-    dailyBuckets: row?.daily_buckets ?? [],
+    dailyBuckets: (row?.daily_buckets ?? []).map((bucket) => ({
+      date: bucket.date,
+      durationMinutes: bucket.durationMinutes,
+      byProject: bucket.byProject ?? [],
+    })),
     clientBuckets: (row?.client_buckets ?? []).map((bucket) => ({
       name: bucket.name,
       durationMinutes: bucket.durationMinutes,

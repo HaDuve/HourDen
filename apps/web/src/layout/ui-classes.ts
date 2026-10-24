@@ -1,7 +1,9 @@
 /** Semantic Tailwind class strings (ADR-0012 tokens; ADR-0015 Warm Den surfaces). Screens use these, not raw palette utilities. */
 
-export const pageTitleClass = "text-2xl font-semibold text-content";
-export const pageTitleLargeClass = "text-3xl font-semibold tracking-tight text-content";
+/** One page-title size across primary screens (#186). */
+export const pageTitleClass = "text-3xl font-semibold tracking-tight text-content";
+/** Alias of pageTitleClass (kept for existing imports). */
+export const pageTitleLargeClass = pageTitleClass;
 export const pageSubtitleClass = "text-sm text-muted";
 export const bodyTextClass = "text-sm text-content";
 export const metaTextClass = "text-sm text-muted";

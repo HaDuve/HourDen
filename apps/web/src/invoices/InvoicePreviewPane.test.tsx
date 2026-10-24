@@ -6,6 +6,44 @@ import { InvoicePreviewPane } from "./InvoicePreviewPane.js";
 const noop = () => {};
 
 describe("InvoicePreviewPane", () => {
+  it("reserves preview height with a skeleton while previewing so the layout does not jump", () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <InvoicePreviewPane
+          previewing
+          previewUrl={null}
+          previewAlert={null}
+          previewIframeSrc={(url) => url}
+          buttonClass="btn"
+          onDownload={noop}
+          onFullscreen={noop}
+        />
+      </MemoryRouter>,
+    );
+
+    const skeleton = screen.getByTestId("invoice-preview-skeleton");
+    expect(skeleton).toHaveClass("h-[70vh]");
+    expect(screen.queryByTitle(/invoice preview/i)).not.toBeInTheDocument();
+
+    rerender(
+      <MemoryRouter>
+        <InvoicePreviewPane
+          previewing={false}
+          previewUrl="blob:preview"
+          previewAlert={null}
+          previewIframeSrc={(url) => url}
+          buttonClass="btn"
+          onDownload={noop}
+          onFullscreen={noop}
+        />
+      </MemoryRouter>,
+    );
+
+    const iframe = screen.getByTitle(/invoice preview/i);
+    expect(iframe).toHaveClass("h-[70vh]");
+    expect(screen.queryByTestId("invoice-preview-skeleton")).not.toBeInTheDocument();
+  });
+
   it("shows a quiet blocker with a deep link in the preview region", () => {
     render(
       <MemoryRouter>

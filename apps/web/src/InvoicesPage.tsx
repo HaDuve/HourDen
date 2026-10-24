@@ -1,6 +1,6 @@
 import type { Client, InvoiceNumberingStrategy } from "@hourden/domain";
 import { deriveDefaultInvoicePrefix, isValidAnyInvoiceNumber } from "@hourden/domain";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 import { useLocaleFormat } from "./locale/use-locale-format.js";
@@ -12,6 +12,7 @@ import {
 import { InvoicePreviewPane } from "./invoices/InvoicePreviewPane.js";
 import type { InvoiceAlert } from "./invoices/invoice-alert.js";
 import { InvoiceAlertBanner } from "./invoices/InvoiceAlertBanner.js";
+import { issueInvoiceDisabledReason } from "./invoices/issue-invoice-disabled-reason.js";
 import {
   fillInvoiceEmailTemplate,
   invoiceEmailPlaceholderLiterals,
@@ -1054,15 +1055,22 @@ export default function InvoicesPage() {
     }
   }
 
-  const issueDisabled =
-    previewing ||
-    issuing ||
-    loading ||
-    !clientId ||
-    !previewUrl ||
-    !invoiceSenderConfigured ||
-    invoiceNumberExists ||
-    (invoiceNumberEdited && !numberingStrategy);
+  const issueDisabledReason = issueInvoiceDisabledReason(
+    {
+      previewing,
+      issuing,
+      loading,
+      clientId,
+      previewUrl,
+      invoiceSenderConfigured,
+      invoiceNumberExists,
+      invoiceNumberEdited,
+      numberingStrategy,
+    },
+    t,
+  );
+  const issueDisabled = issueDisabledReason !== null;
+  const issueDisabledReasonId = useId();
 
   const isMobile = useIsMobile();
   const primaryButtonClass = mobilePrimaryButtonClass(isMobile);
@@ -1129,22 +1137,27 @@ export default function InvoicesPage() {
         onRetry={() => void handleRetryPreview()}
       />
 
-      <div className="mb-8">
+      <div className="mb-8 flex flex-wrap items-center gap-3">
         <button
           type="button"
           onClick={() => void handleIssue()}
           disabled={issueDisabled}
           className={primaryButtonClass}
+          aria-describedby={
+            issueDisabledReason ? issueDisabledReasonId : undefined
+          }
         >
           {issuing ? t("invoices.issuing") : t("invoices.issueInvoice")}
         </button>
+        {issueDisabledReason ? (
+          <p
+            id={issueDisabledReasonId}
+            className={`max-w-md text-sm ${metaTextClass}`}
+          >
+            {issueDisabledReason}
+          </p>
+        ) : null}
       </div>
-
-      {invoiceNumberExists ? (
-        <p className="mb-4 rounded-md border border-accent-border bg-accent-muted px-4 py-3 text-sm text-accent">
-          {t("invoices.invoiceNumberExists")}
-        </p>
-      ) : null}
 
       {invoiceNumber ? (
         <div className={`mb-8 space-y-3 ${panelClass}`}>

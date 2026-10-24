@@ -71,6 +71,8 @@
     "clientChartTitle": "By client",
     "clientChartTotal": "Client time",
     "unassignedClient": "Unassigned",
+    "noProject": "No project",
+    "dailyChartLegend": "Projects in daily time",
     "topActivitiesTitle": "Top activities"
   },
   "invoices": {

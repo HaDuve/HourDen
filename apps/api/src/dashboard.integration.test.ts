@@ -19,21 +19,32 @@ async function createProject(
   app: ReturnType<typeof createApp>,
   clientId: string,
   name: string,
+  color?: string,
 ) {
   const res = await app.request("/api/projects", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ clientId, name }),
+    body: JSON.stringify({ clientId, name, ...(color ? { color } : {}) }),
   });
-  return res.json() as Promise<{ id: string; clientId: string; name: string }>;
+  return res.json() as Promise<{
+    id: string;
+    clientId: string;
+    name: string;
+    color: string | null;
+  }>;
 }
 
 describeWithAuthenticatedWorkspace("Dashboard API", (getWorkspace) => {
   it("returns totals, top project/client, and daily buckets for a date range", async () => {
     const bandao = await createClient(getWorkspace().app, "Bandao", 60);
-    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo");
+    const ondojo = await createProject(getWorkspace().app, bandao.id, "Ondojo", "#3b82f6");
     const otherClient = await createClient(getWorkspace().app, "Acme", 120);
-    const otherProject = await createProject(getWorkspace().app, otherClient.id, "Website");
+    const otherProject = await createProject(
+      getWorkspace().app,
+      otherClient.id,
+      "Website",
+      "#34d399",
+    );
 
     await getWorkspace().app.request("/api/time-entries", {
       method: "POST",
@@ -82,8 +93,30 @@ describeWithAuthenticatedWorkspace("Dashboard API", (getWorkspace) => {
       topProject: { name: "Ondojo", durationMinutes: 74 },
       topClient: { name: "Bandao", durationMinutes: 74 },
       dailyBuckets: [
-        { date: "2026-06-18", durationMinutes: 74 },
-        { date: "2026-06-19", durationMinutes: 60 },
+        {
+          date: "2026-06-18",
+          durationMinutes: 74,
+          byProject: [
+            {
+              projectId: ondojo.id,
+              projectName: "Ondojo",
+              color: "#3b82f6",
+              durationMinutes: 74,
+            },
+          ],
+        },
+        {
+          date: "2026-06-19",
+          durationMinutes: 60,
+          byProject: [
+            {
+              projectId: otherProject.id,
+              projectName: "Website",
+              color: "#34d399",
+              durationMinutes: 60,
+            },
+          ],
+        },
       ],
       clientBuckets: [
         { name: "Bandao", durationMinutes: 74, billableAmount: 74 },

@@ -1,4 +1,3 @@
-import { formatDurationHMM } from "@hourden/domain";
 import { useCallback, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -14,6 +13,10 @@ import {
   YAxis,
 } from "recharts";
 import { DateRangeFilter } from "./DateRangeFilter.js";
+import {
+  buildStackedDailyChart,
+  type DailyBucketWithProjects,
+} from "./dashboard/stacked-daily-chart.js";
 import { currentMonthRange } from "./date-range.js";
 import { PageMain } from "./layout/PageMain.js";
 import {
@@ -28,6 +31,7 @@ import {
   listPanelClass,
 } from "./layout/ui-classes.js";
 import { useLocaleFormat } from "./locale/use-locale-format.js";
+import { DEFAULT_PROJECT_COLOR } from "./project-default-color.js";
 
 type DashboardNamedTotal = {
   name: string | null;
@@ -38,10 +42,7 @@ type DashboardClientBucket = DashboardNamedTotal & {
   billableAmount: number;
 };
 
-type DashboardDailyBucket = {
-  date: string;
-  durationMinutes: number;
-};
+type DashboardDailyBucket = DailyBucketWithProjects;
 
 type DashboardTopActivity = {
   description: string;
@@ -83,10 +84,6 @@ async function fetchDashboard(from: string, to: string): Promise<DashboardRespon
   return res.json() as Promise<DashboardResponse>;
 }
 
-function formatChartDuration(minutes: number): string {
-  return formatDurationHMM(minutes);
-}
-
 function formatClientBucketLabel(
   name: string | null,
   t: (key: string) => string,
@@ -122,7 +119,7 @@ function formatActivityContext(
 
 export default function DashboardPage() {
   const { t } = useTranslation();
-  const { formatCurrency, formatIsoDate } = useLocaleFormat();
+  const { formatCurrency, formatDurationMinutes, formatIsoDate } = useLocaleFormat();
   const chartLabelId = useId();
   const clientChartLabelId = useId();
   const topActivitiesLabelId = useId();
@@ -151,12 +148,12 @@ export default function DashboardPage() {
     void loadDashboard(from, to);
   }, [from, to, loadDashboard]);
 
-  const chartData =
-    summary?.dailyBuckets.map((bucket) => ({
-      date: bucket.date,
-      label: formatIsoDate(bucket.date),
-      durationMinutes: bucket.durationMinutes,
-    })) ?? [];
+  const { rows: chartData, series: dailyProjectSeries } = buildStackedDailyChart(
+    summary?.dailyBuckets ?? [],
+    formatIsoDate,
+    t("dashboard.noProject"),
+    DEFAULT_PROJECT_COLOR,
+  );
 
   const clientChartData = summary?.clientBuckets ?? [];
   const clientBucketTotalMinutes = clientChartData.reduce(
@@ -194,7 +191,7 @@ export default function DashboardPage() {
               <div className={`${ledgerCellClass} py-4`}>
                 <dt className="text-sm text-muted">{t("dashboard.totalTime")}</dt>
                 <dd className={`mt-1 text-xl font-semibold ${numericValueClass}`}>
-                  {formatDurationHMM(summary.totalDurationMinutes)}
+                  {formatDurationMinutes(summary.totalDurationMinutes)}
                 </dd>
               </div>
               <div className={`${ledgerCellClass} py-4`}>
@@ -210,7 +207,7 @@ export default function DashboardPage() {
                 </dd>
                 {summary.topProject ? (
                   <dd className={`mt-1 text-sm ${numericMetaValueClass}`}>
-                    {formatDurationHMM(summary.topProject.durationMinutes)}
+                    {formatDurationMinutes(summary.topProject.durationMinutes)}
                   </dd>
                 ) : null}
               </div>
@@ -221,7 +218,7 @@ export default function DashboardPage() {
                 </dd>
                 {summary.topClient ? (
                   <dd className={`mt-1 text-sm ${numericMetaValueClass}`}>
-                    {formatDurationHMM(summary.topClient.durationMinutes)}
+                    {formatDurationMinutes(summary.topClient.durationMinutes)}
                   </dd>
                 ) : null}
               </div>
@@ -246,8 +243,8 @@ export default function DashboardPage() {
                     tick={{ fill: "var(--color-muted)", fontSize: 12 }}
                     axisLine={{ stroke: "var(--color-divider)" }}
                     tickLine={{ stroke: "var(--color-divider)" }}
-                    tickFormatter={formatChartDuration}
-                    width={56}
+                    tickFormatter={formatDurationMinutes}
+                    width={72}
                   />
                   <Tooltip
                     contentStyle={{
@@ -257,20 +254,46 @@ export default function DashboardPage() {
                       color: "var(--color-content)",
                     }}
                     labelStyle={{ color: "var(--color-muted)" }}
-                    formatter={(value) => [
-                      formatChartDuration(Number(value)),
-                      t("dashboard.duration"),
+                    formatter={(value, name) => [
+                      formatDurationMinutes(Number(value)),
+                      String(name),
                     ]}
                   />
-                  <Bar
-                    dataKey="durationMinutes"
-                    fill="var(--color-primary)"
-                    maxBarSize={DAILY_BAR_CHART_MAX_BAR_SIZE}
-                    radius={[4, 4, 0, 0]}
-                  />
+                  {dailyProjectSeries.map((projectSeries, index) => (
+                    <Bar
+                      key={projectSeries.key}
+                      dataKey={projectSeries.key}
+                      name={projectSeries.name}
+                      stackId="daily"
+                      fill={projectSeries.color}
+                      maxBarSize={DAILY_BAR_CHART_MAX_BAR_SIZE}
+                      radius={
+                        index === dailyProjectSeries.length - 1
+                          ? [4, 4, 0, 0]
+                          : [0, 0, 0, 0]
+                      }
+                    />
+                  ))}
                 </BarChart>
               </ResponsiveContainer>
             </div>
+            {dailyProjectSeries.length > 0 ? (
+              <ul
+                aria-label={t("dashboard.dailyChartLegend")}
+                className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm text-content"
+              >
+                {dailyProjectSeries.map((projectSeries) => (
+                  <li key={projectSeries.key} className="flex items-center gap-2">
+                    <span
+                      aria-hidden
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: projectSeries.color }}
+                    />
+                    <span>{projectSeries.name}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </section>
 
           <section className="grid gap-8 lg:grid-cols-2">
@@ -329,7 +352,7 @@ export default function DashboardPage() {
                               minutes,
                               percentage,
                               billableAmount,
-                              formatChartDuration,
+                              formatDurationMinutes,
                               formatCurrency,
                             ),
                             formatClientBucketLabel(bucketName, t),
@@ -344,7 +367,7 @@ export default function DashboardPage() {
                   >
                     <span className="text-xs text-muted">{t("dashboard.clientChartTotal")}</span>
                     <span className={`text-lg font-semibold ${numericValueClass}`}>
-                      {formatDurationHMM(summary.totalDurationMinutes)}
+                      {formatDurationMinutes(summary.totalDurationMinutes)}
                     </span>
                   </div>
                 </div>
@@ -411,7 +434,7 @@ export default function DashboardPage() {
                       ) : null}
                     </div>
                     <span className={`shrink-0 ${numericMetaValueClass}`}>
-                      {formatDurationHMM(activity.durationMinutes)}
+                      {formatDurationMinutes(activity.durationMinutes)}
                     </span>
                   </li>
                   );

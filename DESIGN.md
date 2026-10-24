@@ -146,8 +146,7 @@ A warm dark ledger palette: ember is rare and means live; neutrals carry the res
 **Character:** Quiet operator UI. Numbers carry the drama; labels stay medium-weight and short.
 
 ### Hierarchy
-- **Title large** (600, 1.875rem, tight tracking): Tracker page title only when unified with other screens — prefer one title size across primary screens (#186).
-- **Title** (600, 1.5rem): Page titles
+- **Title** (600, 1.875rem, tight tracking): Page titles on primary screens (one size — #186)
 - **Body / Label** (400–500, 0.875rem): Controls, lists, forms
 - **Numeric** (tabular, mono or display face): timers, durations, amounts — `tabular-nums`, no layout shift on tick
 
