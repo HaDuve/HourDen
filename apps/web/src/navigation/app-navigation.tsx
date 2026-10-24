@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { NavLink } from "react-router-dom";
+import { useModalFocus } from "../layout/use-modal-focus.js";
 import { LanguageSwitcher } from "../layout/LanguageSwitcher.js";
 import { navLinkClass } from "./nav-link-class.js";
 import {
@@ -117,6 +117,74 @@ function DesktopNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
   );
 }
 
+function MobileMoreSheet({
+  onClose,
+  onLogout,
+}: {
+  onClose: () => void;
+  onLogout: () => void;
+}) {
+  const { t } = useTranslation();
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useModalFocus({ containerRef: sheetRef, onClose });
+
+  return (
+    <div
+      ref={sheetRef}
+      role="dialog"
+      aria-label={t("nav.moreDestinations")}
+      aria-modal="true"
+      className="fixed inset-0 z-30 flex items-end bg-background/80"
+      onClick={onClose}
+    >
+      <div
+        className="w-full rounded-t-xl border border-divider bg-surface p-4 shadow-lg"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-content">{t("nav.more")}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md px-2 py-1 text-sm text-muted hover:bg-surface-hover hover:text-content"
+          >
+            {t("nav.close")}
+          </button>
+        </div>
+        <div className="flex flex-col gap-1">
+          {secondaryNavDestinations.map(({ to, labelKey, icon }) => (
+            <NavDestinationLink
+              key={to}
+              to={to}
+              labelKey={labelKey}
+              icon={icon}
+              className={({ isActive }) =>
+                `rounded-md px-3 py-2 text-sm ${
+                  isActive
+                    ? "bg-surface-active font-medium text-content"
+                    : "text-muted hover:bg-surface-hover hover:text-content"
+                }`
+              }
+              onClick={onClose}
+            />
+          ))}
+          <LanguageSwitcher />
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onLogout();
+            }}
+            className="rounded-md px-3 py-2 text-left text-sm text-muted hover:bg-surface-hover hover:text-content"
+          >
+            {t("nav.logout")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MobileNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
   const { t } = useTranslation();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
@@ -127,13 +195,13 @@ function MobileNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
         aria-label={t("nav.mobile")}
         className="fixed inset-x-0 bottom-0 z-20 border-t border-divider bg-surface"
       >
-        <div className="mx-auto flex max-w-3xl items-stretch justify-around px-2 py-2">
+        <div className="mx-auto flex max-w-3xl items-stretch justify-around px-2 py-1.5">
           <div className="flex flex-1 justify-center">
-            <TrackerNavLink />
+            <TrackerNavLink compact />
           </div>
           {primaryNavDestinations.map(({ to, labelKey, icon }) => (
             <div key={to} className="flex flex-1 justify-center">
-              <NavDestinationLink to={to} labelKey={labelKey} icon={icon} iconOnly />
+              <NavDestinationLink to={to} labelKey={labelKey} icon={icon} compact />
             </div>
           ))}
           <div className="flex flex-1 justify-center">
@@ -142,71 +210,21 @@ function MobileNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
               aria-expanded={isMoreOpen}
               aria-label={t("nav.more")}
               onClick={() => setIsMoreOpen((open) => !open)}
-              className="rounded-md px-3 py-1.5 text-sm font-medium text-muted hover:bg-surface-hover hover:text-content"
+              className="inline-flex flex-col items-center gap-0.5 rounded-md px-2 py-1 text-muted hover:bg-surface-hover hover:text-content"
             >
               <MoreIcon
                 size={NAV_ICON_SIZE}
                 strokeWidth={NAV_ICON_STROKE_WIDTH}
                 aria-hidden
-                className="mx-auto shrink-0"
+                className="shrink-0"
               />
+              <span className="text-[10px] font-medium leading-tight">{t("nav.more")}</span>
             </button>
           </div>
         </div>
       </nav>
       {isMoreOpen ? (
-        <div
-          role="dialog"
-          aria-label={t("nav.moreDestinations")}
-          aria-modal="true"
-          className="fixed inset-0 z-30 flex items-end bg-background/80"
-          onClick={() => setIsMoreOpen(false)}
-        >
-          <div
-            className="w-full rounded-t-xl border border-divider bg-surface p-4 shadow-lg"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-content">{t("nav.more")}</h2>
-              <button
-                type="button"
-                onClick={() => setIsMoreOpen(false)}
-                className="rounded-md px-2 py-1 text-sm text-muted hover:bg-surface-hover hover:text-content"
-              >
-                {t("nav.close")}
-              </button>
-            </div>
-            <div className="flex flex-col gap-1">
-              {secondaryNavDestinations.map(({ to, labelKey, icon }) => (
-                <NavDestinationLink
-                  key={to}
-                  to={to}
-                  labelKey={labelKey}
-                  icon={icon}
-                  className={({ isActive }) =>
-                    `rounded-md px-3 py-2 text-sm ${
-                      isActive
-                        ? "bg-surface-active font-medium text-content"
-                        : "text-muted hover:bg-surface-hover hover:text-content"
-                    }`
-                  }
-                  onClick={() => setIsMoreOpen(false)}
-                />
-              ))}
-              <LanguageSwitcher />
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMoreOpen(false);
-                  onLogout();
-                }}
-                className="rounded-md px-3 py-2 text-left text-sm text-muted hover:bg-surface-hover hover:text-content"
-              >
-                {t("nav.logout")}
-              </button>
-            </div>
-          </div>
-        </div>
+        <MobileMoreSheet onClose={() => setIsMoreOpen(false)} onLogout={onLogout} />
       ) : null}
     </>
   );

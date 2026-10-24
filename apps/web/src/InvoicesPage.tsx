@@ -1363,7 +1363,10 @@ export default function InvoicesPage() {
       </section>
 
       {editingSender && (
-        <ResponsiveOverlay ariaLabel={t("invoices.senderTitle")}>
+        <ResponsiveOverlay
+          ariaLabel={t("invoices.senderTitle")}
+          onClose={closeSenderEditor}
+        >
           <form onSubmit={handleSaveSender} className="w-full">
             <h2 className="text-lg font-semibold">{t("invoices.senderTitle")}</h2>
             <p className={`mt-1 ${metaTextClass}`}>

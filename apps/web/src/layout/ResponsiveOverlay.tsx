@@ -1,11 +1,13 @@
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { cardClass } from "./ui-classes.js";
 import { useIsMobile } from "./use-is-mobile.js";
+import { useModalFocus } from "./use-modal-focus.js";
 
 type ResponsiveOverlayProps = {
   children: ReactNode;
   ariaLabel: string;
   labelledBy?: string;
+  onClose?: () => void;
   onBackdropClick?: () => void;
 };
 
@@ -13,13 +15,17 @@ export function ResponsiveOverlay({
   children,
   ariaLabel,
   labelledBy,
+  onClose,
   onBackdropClick,
 }: ResponsiveOverlayProps) {
   const isMobile = useIsMobile();
   const presentation = isMobile ? "sheet" : "modal";
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalFocus({ containerRef: dialogRef, onClose });
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label={labelledBy ? undefined : ariaLabel}

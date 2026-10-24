@@ -2,7 +2,6 @@ import type { ComponentType } from "react";
 import { NavLink, useMatch } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { LucideProps } from "lucide-react";
-import { useIsMobile } from "../layout/use-is-mobile.js";
 import { useLiveCounter } from "../tracker/useLiveCounter.js";
 import { useRunningTimer } from "../running-timer/RunningTimerContext.js";
 import { navLinkClass } from "./nav-link-class.js";
@@ -10,9 +9,13 @@ import { NAV_ICON_SIZE, NAV_ICON_STROKE_WIDTH, trackerNavIcon } from "./nav-dest
 
 const TrackerIcon = trackerNavIcon;
 
-export function TrackerNavLink() {
+type TrackerNavLinkProps = {
+  /** Bottom-bar layout: icon stacked above a visible text label. */
+  compact?: boolean;
+};
+
+export function TrackerNavLink({ compact = false }: TrackerNavLinkProps) {
   const { t } = useTranslation();
-  const isMobile = useIsMobile();
   const { startedAt } = useRunningTimer();
   const liveCounter = useLiveCounter(startedAt);
   const isRunning = startedAt !== null;
@@ -22,7 +25,7 @@ export function TrackerNavLink() {
   const ariaLabel = isRunning
     ? t("tracker.timerRunning", { duration: liveCounter })
     : t("nav.tracker");
-  const desktopLabel = isRunning ? liveCounter : t("nav.tracker");
+  const visibleLabel = isRunning ? liveCounter : t("nav.tracker");
 
   return (
     <NavLink
@@ -31,24 +34,30 @@ export function TrackerNavLink() {
       className={navLinkClass({ isActive: isRoot || isTrackerPath })}
       aria-label={ariaLabel}
     >
-      <span className="inline-flex items-center gap-1.5">
+      <span
+        className={
+          compact
+            ? "inline-flex flex-col items-center gap-0.5"
+            : "inline-flex items-center gap-1.5"
+        }
+      >
         <TrackerIcon
           size={NAV_ICON_SIZE}
           strokeWidth={NAV_ICON_STROKE_WIDTH}
           aria-hidden
           className="shrink-0"
         />
-        {isMobile ? (
-          <span className="sr-only">{desktopLabel}</span>
-        ) : (
-          <span
-            className={
-              isRunning ? "font-numeric tabular-nums text-primary" : undefined
-            }
-          >
-            {desktopLabel}
-          </span>
-        )}
+        <span
+          className={
+            compact
+              ? `text-[10px] font-medium leading-tight${isRunning ? " font-numeric tabular-nums text-primary" : ""}`
+              : isRunning
+                ? "font-numeric tabular-nums text-primary"
+                : undefined
+          }
+        >
+          {visibleLabel}
+        </span>
       </span>
     </NavLink>
   );
@@ -61,7 +70,8 @@ type NavDestinationLinkProps = {
   className?: string | ((args: { isActive: boolean }) => string);
   onClick?: () => void;
   role?: string;
-  iconOnly?: boolean;
+  /** Bottom-bar layout: icon stacked above a visible text label. */
+  compact?: boolean;
 };
 
 export function NavDestinationLink({
@@ -71,12 +81,10 @@ export function NavDestinationLink({
   className,
   onClick,
   role,
-  iconOnly = false,
+  compact = false,
 }: NavDestinationLinkProps) {
   const { t } = useTranslation();
-  const isMobile = useIsMobile();
   const label = t(labelKey);
-  const hideLabel = iconOnly || isMobile;
 
   return (
     <NavLink
@@ -84,16 +92,24 @@ export function NavDestinationLink({
       className={className ?? navLinkClass}
       onClick={onClick}
       role={role}
-      aria-label={hideLabel ? label : undefined}
+      aria-label={compact ? label : undefined}
     >
-      <span className="inline-flex items-center gap-1.5">
+      <span
+        className={
+          compact
+            ? "inline-flex flex-col items-center gap-0.5"
+            : "inline-flex items-center gap-1.5"
+        }
+      >
         <Icon
           size={NAV_ICON_SIZE}
           strokeWidth={NAV_ICON_STROKE_WIDTH}
           aria-hidden
           className="shrink-0"
         />
-        {hideLabel ? <span className="sr-only">{label}</span> : <span>{label}</span>}
+        <span className={compact ? "text-[10px] font-medium leading-tight" : undefined}>
+          {label}
+        </span>
       </span>
     </NavLink>
   );

@@ -533,6 +533,55 @@ describe("App", () => {
     expect(screen.queryByRole("dialog", { name: /more destinations/i })).not.toBeInTheDocument();
   });
 
+  it("closes the mobile More sheet on Escape and returns focus to More", async () => {
+    mockMobileViewport();
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    renderApp("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
+    });
+
+    const moreButton = screen.getByRole("button", { name: /^more$/i });
+    moreButton.focus();
+    fireEvent.click(moreButton);
+
+    const sheet = screen.getByRole("dialog", { name: /more destinations/i });
+    expect(sheet).toBeInTheDocument();
+    expect(
+      within(sheet).getByRole("button", { name: /^close$/i }),
+    ).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.queryByRole("dialog", { name: /more destinations/i })).not.toBeInTheDocument();
+    expect(moreButton).toHaveFocus();
+  });
+
+  it("shows visible text labels on mobile bottom-bar destinations", async () => {
+    mockMobileViewport();
+    vi.stubGlobal("fetch", mockAppFetch());
+
+    renderApp("/");
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /tracker/i })).toBeInTheDocument();
+    });
+
+    const mobileNav = screen.getByRole("navigation", { name: /mobile/i });
+    const controls = [
+      within(mobileNav).getByRole("link", { name: /^tracker$/i }),
+      within(mobileNav).getByRole("link", { name: /^dashboard$/i }),
+      within(mobileNav).getByRole("link", { name: /^invoices$/i }),
+      within(mobileNav).getByRole("button", { name: /^more$/i }),
+    ];
+    for (const control of controls) {
+      expect(control.querySelector(".sr-only")).toBeNull();
+      expect(control.textContent?.trim().length).toBeGreaterThan(0);
+    }
+  });
+
   it("navigates to Report from the mobile More sheet", async () => {
     mockMobileViewport();
     vi.stubGlobal("fetch", mockAppFetch());
