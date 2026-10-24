@@ -101,6 +101,17 @@ function createFetchMock(
         json: async () => ({ clients: [] }),
       });
     }
+    if (url === "/api/time-entries/unbilled-this-month") {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          from: "2026-07-01",
+          to: "2026-07-31",
+          totalAmount: 120,
+          incompleteCount: 0,
+        }),
+      });
+    }
     if (init?.method === "DELETE") {
       return Promise.resolve({ ok: true, status: 204 });
     }
@@ -167,6 +178,17 @@ describe("TrackerPage", () => {
           json: async () => ({ clients: [] }),
         });
       }
+      if (url === "/api/time-entries/unbilled-this-month") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            from: "2026-07-01",
+            to: "2026-07-31",
+            totalAmount: 0,
+            incompleteCount: 0,
+          }),
+        });
+      }
       return Promise.reject(new Error(`Unexpected fetch: ${url}`));
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -198,6 +220,45 @@ describe("TrackerPage", () => {
       expect(screen.getByRole("button", { name: /start timer/i })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /stop timer/i })).not.toBeInTheDocument();
     });
+  });
+
+  it("shows an Unbilled this month chip that links to Invoices for the period", async () => {
+    vi.stubGlobal("fetch", createFetchMock([morningEntry, afternoonEntry]));
+
+    renderTrackerPage();
+
+    const chip = await screen.findByRole("link", {
+      name: /unbilled this month/i,
+    });
+    expect(chip).toHaveAttribute("href", "/invoices?from=2026-07-01&to=2026-07-31");
+    expect(chip.className).not.toMatch(/text-primary/);
+    expect(within(chip).getByText(/€120\.00/)).toBeInTheDocument();
+  });
+
+  it("shows incomplete count on the Unbilled chip when greater than zero", async () => {
+    const fetchMock = createFetchMock([morningEntry]);
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/time-entries/unbilled-this-month") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            from: "2026-07-01",
+            to: "2026-07-31",
+            totalAmount: 60,
+            incompleteCount: 2,
+          }),
+        });
+      }
+      return createFetchMock([morningEntry])(url, init);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderTrackerPage();
+
+    const chip = await screen.findByRole("link", {
+      name: /unbilled this month/i,
+    });
+    expect(within(chip).getByText(/2 incomplete/i)).toBeInTheDocument();
   });
 
   it("shows empty Start and End on the timer bar and no header Add manual entry control", async () => {

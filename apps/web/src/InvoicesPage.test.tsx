@@ -7,9 +7,9 @@ import { createMatchMediaWithOptions } from "./test/match-media.js";
 import { createPreviewThenBillingMonthConflictHandler } from "./invoices/invoices-page-preview-fetch.js";
 import { POST_ISSUE_PREPARE_EMAIL_BLINK_MS } from "./invoices/post-issue-email-handoff.js";
 
-function renderInvoicesPage() {
+function renderInvoicesPage(initialPath = "/invoices") {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialPath]}>
       <InvoicesPage />
     </MemoryRouter>,
   );
@@ -626,6 +626,17 @@ describe("InvoicesPage", () => {
 
     expect(screen.getByLabelText(/^from$/i)).toHaveValue(expectedRange.from);
     expect(screen.getByLabelText(/^to$/i)).toHaveValue(expectedRange.to);
+  });
+
+  it("preselects the Billing Period from from/to search params", async () => {
+    vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
+
+    renderInvoicesPage("/invoices?from=2026-05-01&to=2026-05-31");
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^from$/i)).toHaveValue("2026-05-01");
+    });
+    expect(screen.getByLabelText(/^to$/i)).toHaveValue("2026-05-31");
   });
 
   it("re-previews with plain numbering when Use prefix is turned off", async () => {

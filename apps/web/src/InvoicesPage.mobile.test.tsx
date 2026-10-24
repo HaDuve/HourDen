@@ -1,7 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import InvoicesPage from "./InvoicesPage.js";
 import { mockMobileViewport } from "./test/viewport.js";
+
+function renderInvoicesPage() {
+  return render(
+    <MemoryRouter>
+      <InvoicesPage />
+    </MemoryRouter>,
+  );
+}
 
 const bandaoClient = {
   id: "c0000000-0000-4000-8000-000000000001",
@@ -74,7 +83,7 @@ describe("InvoicesPage mobile layout", () => {
       }),
     );
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitFor(() => {
       expect(screen.getAllByText("BAN2026001").length).toBeGreaterThan(0);
@@ -138,7 +147,7 @@ describe("InvoicesPage mobile layout", () => {
       }),
     );
 
-    render(<InvoicesPage />);
+    renderInvoicesPage();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^client$/i)).toHaveValue(bandaoClient.id);

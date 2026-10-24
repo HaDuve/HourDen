@@ -1,8 +1,10 @@
-import type {
-  CreateManualEntryInput,
-  StartTimerInput,
-  StopTimerInput,
-  UpdateTimeEntryInput,
+import {
+  summarizeUnbilledMonth,
+  toLocalDateKey,
+  type CreateManualEntryInput,
+  type StartTimerInput,
+  type StopTimerInput,
+  type UpdateTimeEntryInput,
 } from "@hourden/domain";
 import { Hono } from "hono";
 import type { Pool } from "pg";
@@ -13,6 +15,7 @@ import {
   listDescriptionSuggestions,
   listTrackerTimeEntries,
   listTimeEntriesForDate,
+  listTimeEntriesForDateRange,
   startTimer,
   stopTimer,
   updateTimeEntry,
@@ -24,6 +27,16 @@ import {
   notifyTrackerEntriesChanged,
 } from "./events/notify-tracker.js";
 import { getCurrentWorkspaceId } from "./workspace.js";
+
+function calendarMonthBounds(monthKey: string): { from: string; to: string } {
+  const [year, month] = monthKey.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(year!, month!, 0)).getUTCDate();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return {
+    from: `${year}-${pad(month!)}-01`,
+    to: `${year}-${pad(month!)}-${pad(lastDay)}`,
+  };
+}
 
 async function readJsonBody<T>(
   c: { req: { json: () => Promise<T> }; json: (data: unknown, status?: number) => Response },
@@ -51,6 +64,27 @@ export function createTimeEntriesRouter(pool: Pool) {
       query,
     );
     return c.json({ suggestions });
+  });
+
+  router.get("/unbilled-this-month", async (c) => {
+    const workspaceId = getCurrentWorkspaceId();
+    const timeZone = await getWorkspaceCalendarTimezone(pool, workspaceId);
+    const monthKey = toLocalDateKey(new Date(), timeZone).slice(0, 7);
+    const { from, to } = calendarMonthBounds(monthKey);
+    const entries = await listTimeEntriesForDateRange(
+      pool,
+      workspaceId,
+      from,
+      to,
+      timeZone,
+    );
+    const summary = summarizeUnbilledMonth(entries, { monthKey, timeZone });
+    return c.json({
+      from,
+      to,
+      totalAmount: summary.totalAmount,
+      incompleteCount: summary.incompleteCount,
+    });
   });
 
   router.get("/", async (c) => {

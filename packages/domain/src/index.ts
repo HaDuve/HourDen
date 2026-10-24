@@ -91,6 +91,12 @@ export {
   CLOCKIFY_HEADERS,
 } from "./clockify-csv.js";
 export { elapsedSecondsSince, formatElapsedHMMSS } from "./elapsed.js";
+export {
+  computeLiveEarnings,
+  summarizeUnbilledMonth,
+  type UnbilledMonthEntry,
+  type UnbilledMonthSummary,
+} from "./money-clock.js";
 export type { ClockifyHeader } from "./clockify-csv.js";
 export type {
   ClockifyParsedRow,

@@ -54,6 +54,17 @@ function createFetchMock() {
         json: async () => ({ clients: [] }),
       });
     }
+    if (url === "/api/time-entries/unbilled-this-month") {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          from: "2026-07-01",
+          to: "2026-07-31",
+          totalAmount: 60,
+          incompleteCount: 0,
+        }),
+      });
+    }
     return Promise.reject(new Error(`Unexpected fetch: ${url}`));
   });
 }

@@ -2,9 +2,10 @@ import type { Client, InvoiceNumberingStrategy } from "@hourden/domain";
 import { deriveDefaultInvoicePrefix, isValidAnyInvoiceNumber } from "@hourden/domain";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 import { useLocaleFormat } from "./locale/use-locale-format.js";
 import { DateRangeFilter } from "./DateRangeFilter.js";
-import { currentMonthRange } from "./date-range.js";
+import { currentMonthRange, type DateRange } from "./date-range.js";
 import { InvoicePreviewPane } from "./invoices/InvoicePreviewPane.js";
 import type { InvoiceAlert } from "./invoices/invoice-alert.js";
 import { InvoiceAlertBanner } from "./invoices/InvoiceAlertBanner.js";
@@ -202,12 +203,27 @@ function previewIframeSrc(blobUrl: string): string {
   return `${blobUrl}#toolbar=0`;
 }
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function billingPeriodFromSearchParams(
+  searchParams: URLSearchParams,
+): DateRange | null {
+  const from = searchParams.get("from");
+  const to = searchParams.get("to");
+  if (!from || !to || !ISO_DATE.test(from) || !ISO_DATE.test(to) || from > to) {
+    return null;
+  }
+  return { from, to };
+}
+
 export default function InvoicesPage() {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
   const { formatCurrency, formatIsoDate, locale } = useLocaleFormat();
   const formatBillingPeriod = (periodStart: string, periodEnd: string) =>
     `${formatIsoDate(periodStart)} – ${formatIsoDate(periodEnd)}`;
-  const initialRange = currentMonthRange();
+  const initialRange =
+    billingPeriodFromSearchParams(searchParams) ?? currentMonthRange();
   const [clients, setClients] = useState<Client[]>([]);
   const [clientId, setClientId] = useState("");
   const [from, setFrom] = useState(initialRange.from);

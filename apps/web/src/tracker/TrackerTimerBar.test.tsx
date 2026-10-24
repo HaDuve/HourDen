@@ -161,13 +161,96 @@ describe("TrackerTimerBar", () => {
     const projectSelect = screen.getByLabelText(/project \(optional\)/i);
     const projectField = projectSelect.closest("label");
     const counter = screen.getByText("0:00:00");
-    const counterRegion = counter.parentElement;
+    const counterCluster = counter.closest(".shrink-0");
 
     expect(projectField?.className).toMatch(/shrink-0/);
     expect(projectField?.className).not.toMatch(/min-w-0/);
     expect(projectSelect.className).toMatch(/w-full/);
-    expect(counterRegion?.className).toMatch(/shrink-0/);
-    expect(projectField).not.toBe(counterRegion);
+    expect(counterCluster).not.toBeNull();
+    expect(projectField).not.toBe(counterCluster);
+  });
+
+  it("shows live earnings beside the Live Counter in ember when provided", () => {
+    render(
+      <TrackerTimerBar
+        running={{
+          id: "e1",
+          projectId: "p1",
+          startedAt: "2026-07-02T08:00:00.000Z",
+          endedAt: null,
+          description: "Design review",
+          tags: [],
+          billable: true,
+          amount: null,
+          billableComplete: false,
+          isRunning: true,
+          durationMinutes: 49,
+          invoiced: false,
+          locked: false,
+        }}
+        liveCounter="0:49:13"
+        liveEarnings="€69.72"
+        description="Design review"
+        projectId="p1"
+        projectGroups={projectGroups}
+        saving={false}
+        startedAt=""
+        endedAt=""
+        onDescriptionChange={vi.fn()}
+        onDescriptionSuggestionSelect={vi.fn()}
+        onProjectChange={vi.fn()}
+        onStartedAtChange={vi.fn()}
+        onEndedAtChange={vi.fn()}
+        onStart={vi.fn()}
+        onStop={vi.fn()}
+        onAddManual={vi.fn()}
+      />,
+    );
+
+    const earnings = screen.getByText("€69.72");
+    expect(earnings.className).toMatch(/text-primary/);
+    expect(screen.getByLabelText(/0:49:13 · €69\.72/i)).toBeInTheDocument();
+  });
+
+  it("hides live earnings when no amount is provided", () => {
+    render(
+      <TrackerTimerBar
+        running={{
+          id: "e1",
+          projectId: null,
+          startedAt: "2026-07-02T08:00:00.000Z",
+          endedAt: null,
+          description: "No client",
+          tags: [],
+          billable: true,
+          amount: null,
+          billableComplete: false,
+          isRunning: true,
+          durationMinutes: 5,
+          invoiced: false,
+          locked: false,
+        }}
+        liveCounter="0:05:00"
+        liveEarnings={null}
+        description="No client"
+        projectId=""
+        projectGroups={projectGroups}
+        saving={false}
+        startedAt=""
+        endedAt=""
+        onDescriptionChange={vi.fn()}
+        onDescriptionSuggestionSelect={vi.fn()}
+        onProjectChange={vi.fn()}
+        onStartedAtChange={vi.fn()}
+        onEndedAtChange={vi.fn()}
+        onStart={vi.fn()}
+        onStop={vi.fn()}
+        onAddManual={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("0:05:00")).toBeInTheDocument();
+    expect(screen.queryByText(/€/)).not.toBeInTheDocument();
   });
 
   it("shows stop control and groups projects under their client when running", () => {
