@@ -183,7 +183,7 @@ export default function ProjectStepPage() {
             onChange={(e) =>
               setForm((current) => ({ ...current, color: e.target.value }))
             }
-            className="h-10 w-20 rounded-md border border-input"
+            className="h-10 w-20 rounded-md border border-input-border"
           />
         </label>
 

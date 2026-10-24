@@ -1153,7 +1153,7 @@ export default function InvoicesPage() {
               checked={usesSmallBusinessRule}
               onChange={(e) => handleUsesSmallBusinessRuleChange(e.target.checked)}
               disabled={previewing || issuing || !clientId}
-              className="rounded border-input"
+              className="rounded border-input-border"
             />
             {t("invoices.usesSmallBusinessRule")}
           </label>
@@ -1170,7 +1170,7 @@ export default function InvoicesPage() {
                 handleInvoiceNumberSeqBeforeYearChange(e.target.checked)
               }
               disabled={previewing || issuing || !clientId}
-              className="rounded border-input"
+              className="rounded border-input-border"
             />
             {t("invoices.invoiceNumberSeqBeforeYear")}
           </label>
@@ -1182,7 +1182,7 @@ export default function InvoicesPage() {
               checked={usePrefix}
               onChange={(e) => handleUsePrefixChange(e.target.checked)}
               disabled={previewing || issuing || !clientId}
-              className="rounded border-input"
+              className="rounded border-input-border"
             />
             {t("invoices.usePrefix")}
           </label>

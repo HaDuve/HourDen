@@ -9,9 +9,9 @@ export const fieldLabelClass = "text-sm font-medium text-content";
 export const fieldLabelMutedClass = "text-sm text-muted";
 
 export const inputClass =
-  "rounded-md border border-input bg-input px-3 py-2 text-sm text-content";
+  "rounded-md border border-input-border bg-input px-3 py-2 text-sm text-content";
 export const inputClassMobile =
-  "min-h-11 w-full rounded-md border border-input bg-input px-3 py-2 text-sm text-content";
+  "min-h-11 w-full rounded-md border border-input-border bg-input px-3 py-2 text-sm text-content";
 export const selectClass = inputClass;
 
 export const cardClass = "rounded-lg border border-divider bg-surface";

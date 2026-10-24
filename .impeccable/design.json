@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-24T10:30:00.000Z",
+  "title": "Design System: HourDen",
+  "extensions": {
+    "colorMeta": {
+      "background": {
+        "role": "neutral",
+        "displayName": "Den Black",
+        "canonical": "#0e0c0a",
+        "tonalRamp": ["#0e0c0a", "#16130f", "#1e1a15", "#28221c", "#4a4036", "#a89f94", "#d4cbc0", "#ece6df"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Den Surface",
+        "canonical": "#16130f",
+        "tonalRamp": ["#0e0c0a", "#16130f", "#1e1a15", "#28221c", "#4a4036", "#6b5f52", "#a89f94", "#ece6df"]
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "Ember",
+        "canonical": "#f59e0b",
+        "tonalRamp": ["#1c1003", "#78350f", "#b45309", "#d97706", "#f59e0b", "#fbbf24", "#fcd34d", "#fef3c7"]
+      },
+      "content": {
+        "role": "neutral",
+        "displayName": "Parchment",
+        "canonical": "#ece6df",
+        "tonalRamp": ["#0e0c0a", "#2e2822", "#4a4036", "#6b5f52", "#a89f94", "#d4cbc0", "#ece6df", "#faf7f2"]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Ash",
+        "canonical": "#a89f94",
+        "tonalRamp": ["#2e2822", "#4a4036", "#6b5f52", "#8a8076", "#a89f94", "#c4bbb0", "#d4cbc0", "#ece6df"]
+      },
+      "focus": {
+        "role": "primary",
+        "displayName": "Focus Gold",
+        "canonical": "#fcd34d",
+        "tonalRamp": ["#78350f", "#b45309", "#d97706", "#f59e0b", "#fbbf24", "#fcd34d", "#fde68a", "#fef3c7"]
+      },
+      "destructive": {
+        "role": "secondary",
+        "displayName": "Danger Red",
+        "canonical": "#dc2626",
+        "tonalRamp": ["#2a1212", "#7f1d1d", "#991b1b", "#b91c1c", "#dc2626", "#f87171", "#fca5a5", "#fee2e2"]
+      }
+    },
+    "typographyMeta": {
+      "body": { "displayName": "Body", "purpose": "Controls, lists, forms — Inter UI sans." },
+      "title": { "displayName": "Title", "purpose": "Page titles across primary screens." },
+      "title-large": { "displayName": "Title Large", "purpose": "Optional large title; prefer one size after #186." },
+      "label": { "displayName": "Label", "purpose": "Field labels and button text." },
+      "numeric": { "displayName": "Numeric", "purpose": "Timers, durations, amounts — tabular; self-hosted display face in #189." }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "prepare-email-attention",
+        "value": "0.75s ease-in-out",
+        "purpose": "Brief focus pulse on Prepare Email CTA; honor prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "390px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ember fill primary action with dark ink text.",
+      "html": "<button type=\"button\" class=\"ds-btn-primary\">Issue Invoice</button>",
+      "css": ".ds-btn-primary { background: var(--color-primary, #f59e0b); color: var(--color-primary-content, #1c1003); padding: 0.5rem 1rem; border: none; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background 0.15s ease; } .ds-btn-primary:hover { background: #d97706; } .ds-btn-primary:focus-visible { outline: 2px solid var(--color-focus, #fcd34d); outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Warm outline secondary control.",
+      "html": "<button type=\"button\" class=\"ds-btn-secondary\">Preview</button>",
+      "css": ".ds-btn-secondary { background: var(--color-secondary, #1c1814); color: var(--color-secondary-content, #d4cbc0); padding: 0.5rem 1rem; border: 1px solid var(--color-secondary-border, #4a4036); border-radius: 0.375rem; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background 0.15s ease; } .ds-btn-secondary:hover { background: var(--color-secondary-hover, #2a241e); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--color-focus, #fcd34d); outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Bordered field on warm input fill.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Description\" />",
+      "css": ".ds-input { background: var(--color-input, #14110e); color: var(--color-content, #ece6df); border: 1px solid var(--color-input-border, #6b5f52); border-radius: 0.375rem; padding: 0.5rem 0.75rem; font-size: 0.875rem; width: 100%; } .ds-input::placeholder { color: var(--color-muted, #a89f94); } .ds-input:focus-visible { outline: 2px solid var(--color-focus, #fcd34d); outline-offset: 2px; }"
+    },
+    {
+      "name": "Ledger Row",
+      "kind": "custom",
+      "refersTo": "panel",
+      "description": "Hairline-separated Tracker/list row on page background — no card border.",
+      "html": "<div class=\"ds-ledger\"><div class=\"ds-ledger-row\"><span class=\"ds-swatch\" style=\"background:#3b82f6\"></span><span class=\"ds-ledger-desc\">API refactor</span><span class=\"ds-ledger-num\">1:30</span><span class=\"ds-ledger-num\">€112.50</span></div><div class=\"ds-ledger-row\"><span class=\"ds-swatch\" style=\"background:#34d399\"></span><span class=\"ds-ledger-desc\">Weekly call</span><span class=\"ds-ledger-num\">0:45</span><span class=\"ds-ledger-num\">€56.25</span></div></div>",
+      "css": ".ds-ledger { background: var(--color-background, #0e0c0a); border: none; } .ds-ledger-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0; border-bottom: 1px solid var(--color-divider, #2e2822); color: var(--color-content, #ece6df); font-size: 0.875rem; } .ds-ledger-row:last-child { border-bottom: none; } .ds-swatch { width: 0.5rem; height: 0.5rem; border-radius: 999px; flex-shrink: 0; } .ds-ledger-desc { flex: 1; min-width: 0; } .ds-ledger-num { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }"
+    },
+    {
+      "name": "Money Clock Pair",
+      "kind": "custom",
+      "refersTo": "button-primary",
+      "description": "Live duration · live earnings at equal weight in ember.",
+      "html": "<div class=\"ds-money-clock\" aria-live=\"polite\"><span class=\"ds-money-clock-time\">0:49:13</span><span class=\"ds-money-clock-sep\">·</span><span class=\"ds-money-clock-amt\">€69.72</span></div>",
+      "css": ".ds-money-clock { display: inline-flex; align-items: baseline; gap: 0.35rem; color: var(--color-primary, #f59e0b); font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.875rem; font-weight: 500; } .ds-money-clock-sep { opacity: 0.7; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Operator's Den",
+    "overview": "HourDen is a private workshop for freelancers who turn tracked time into Sent invoices. The visual world is a warm dark den: ember light for anything live and earning, quiet hairlines for the ledger of the month, and Project color only for categorization — never competing with the brand accent. Hierarchy comes from type scale and spacing, not nested boxes.\n\nThis file records the ADR-0015 Warm Den target (accepted direction). Shipped CSS may still show the cooler blue ADR-0012 palette until issue #189 lands; agents implementing foundation and polish tickets treat this document — not the interim blue tokens — as normative.",
+    "keyCharacteristics": [
+      "Warm near-black surfaces; ember as the single brand/live accent",
+      "Hairline-separated rows; borders reserved for inputs, overlays, timer bar, Invoice preview",
+      "Money beside time at equal weight; tabular numerals as the visual anchor",
+      "Wide desktop Tracker; readable column on form-heavy screens",
+      "Flat tonal depth — no ambient card shadows"
+    ],
+    "rules": [
+      { "name": "The One Ember Rule", "body": "Ember marks live/earning/primary action only. Settled amounts, chips, and charts stay content, muted, or Project color.", "section": "colors" },
+      { "name": "The Fewer Boxes Rule", "body": "Prefer hairline rows on background over bordered surface cards. Borders stay on inputs, overlays, the timer bar, and the Invoice preview.", "section": "colors" },
+      { "name": "The Numbers Lead Rule", "body": "Duration and money use the numeric face at content weight; never bury amounts as tiny muted footnotes when they sit beside time.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "No card drop shadows. If a shadow appears, it is a state response (focus attention), not resting structure.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use ember for Running Timer, live earnings, and primary actions only.",
+      "Do put amounts beside durations with tabular numerals.",
+      "Do separate list rows with hairlines on the page background.",
+      "Do mark Projects with a swatch/dot and use Project colors in the Day Ribbon and stacked charts.",
+      "Do keep Invoice preview and inputs as bordered surfaces."
+    ],
+    "donts": [
+      "Don't use progress rings, donuts, or sparklines as readiness costume.",
+      "Don't ship hero-metric KPI card strips (big number + small label + delta) as page structure.",
+      "Don't use a >1px colored border-left / border-right on rows or cards.",
+      "Don't paint settled money or chart series in ember.",
+      "Don't restore green as the running accent.",
+      "Don't load display fonts from a third-party CDN — self-host only."
+    ]
+  }
+}

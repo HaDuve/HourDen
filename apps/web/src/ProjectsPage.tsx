@@ -363,7 +363,7 @@ export default function ProjectsPage() {
                       color: e.target.value,
                     }))
                   }
-                  className="h-10 w-full cursor-pointer rounded-md border border-input"
+                  className="h-10 w-full cursor-pointer rounded-md border border-input-border"
                 />
               </label>
             </div>

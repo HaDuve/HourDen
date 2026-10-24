@@ -17,8 +17,11 @@
   --color-surface-active: #273140;
 
   /* Brand / primary action */
-  --color-primary: #3b82f6;
+  --color-primary: #2563eb;
   --color-primary-content: #ffffff;
+
+  /* Keyboard focus ring (>= 3:1 on background and surface) */
+  --color-focus: #60a5fa;
 
   /* Secondary actions (outline buttons, export, preview, invoice sender) */
   --color-secondary: #1a222c;
@@ -28,7 +31,7 @@
 
   /* Form controls */
   --color-input: #121820;
-  --color-input-border: #3d4f63;
+  --color-input-border: #5b6f86;
 
   /* Hairlines / separators */
   --color-divider: #2a3441;
@@ -59,6 +62,10 @@
   --color-chart-series-6: #38bdf8;
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   font-family:
@@ -71,6 +78,11 @@ body {
   background: var(--color-background);
   color: var(--color-content);
   color-scheme: dark;
+}
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
 }
 
 @keyframes prepare-email-attention {
