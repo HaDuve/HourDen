@@ -1,44 +1,65 @@
 @import "tailwindcss";
 
 /*
- * Dark, single-theme semantic design tokens (ADR-0012).
+ * Dark, single-theme semantic design tokens (ADR-0012; palette ADR-0015 Warm Den).
  * Screens reference these tokens (bg-surface, text-content, border-divider, ...),
  * never raw neutral or slate utilities. A palette change edits values here only.
  * No light theme, no toggle in this round.
  *
- * Numeric/time values (timers, durations, amounts): apply font-mono and tabular-nums
+ * Numeric/time values (timers, durations, amounts): apply font-numeric and tabular-nums
  * on the element that renders the changing digits so layout does not shift on tick.
+ * Face: IBM Plex Mono, self-hosted under /fonts (no third-party CDN).
  */
-@theme {
-  /* Base surfaces (darkest -> raised) */
-  --color-background: #0b0f14;
-  --color-surface: #151b23;
-  --color-surface-hover: #1e2630;
-  --color-surface-active: #273140;
 
-  /* Brand / primary action */
-  --color-primary: #2563eb;
-  --color-primary-content: #ffffff;
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/IBMPlexMono-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/IBMPlexMono-Medium.woff2") format("woff2");
+}
+
+@theme {
+  --font-numeric:
+    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Base surfaces (darkest -> raised) — warm Den near-black */
+  --color-background: #0e0c0a;
+  --color-surface: #16130f;
+  --color-surface-hover: #1e1a15;
+  --color-surface-active: #28221c;
+
+  /* Brand / primary action — ember */
+  --color-primary: #f59e0b;
+  --color-primary-content: #1c1003;
 
   /* Keyboard focus ring (>= 3:1 on background and surface) */
-  --color-focus: #60a5fa;
+  --color-focus: #fcd34d;
 
   /* Secondary actions (outline buttons, export, preview, invoice sender) */
-  --color-secondary: #1a222c;
-  --color-secondary-hover: #243040;
-  --color-secondary-content: #c5d0db;
-  --color-secondary-border: #3d4f63;
+  --color-secondary: #1c1814;
+  --color-secondary-hover: #2a241e;
+  --color-secondary-content: #d4cbc0;
+  --color-secondary-border: #4a4036;
 
   /* Form controls */
-  --color-input: #121820;
-  --color-input-border: #5b6f86;
+  --color-input: #14110e;
+  --color-input-border: #6b5f52;
 
   /* Hairlines / separators */
-  --color-divider: #2a3441;
+  --color-divider: #2e2822;
 
   /* Text hierarchy: high-contrast headings/body vs. muted meta */
-  --color-content: #e6edf3;
-  --color-muted: #9aa8b5;
+  --color-content: #ece6df;
+  --color-muted: #a89f94;
 
   /* Status */
   --color-danger: #f87171;
@@ -48,18 +69,18 @@
   --color-destructive-border: #7f1d1d;
   --color-destructive-muted: #2a1212;
 
-  /* Running timer / active entry accent */
-  --color-accent: #34d399;
-  --color-accent-border: #059669;
-  --color-accent-muted: #0f2922;
+  /* Running timer / active entry accent — ember (same job as primary) */
+  --color-accent: #f59e0b;
+  --color-accent-border: #d97706;
+  --color-accent-muted: #2a1c08;
 
-  /* Dashboard chart series (Recharts fills) */
+  /* Dashboard chart series (Recharts fills) — never ember */
   --color-chart-series-1: #3b82f6;
   --color-chart-series-2: #34d399;
   --color-chart-series-3: #a78bfa;
-  --color-chart-series-4: #f59e0b;
-  --color-chart-series-5: #f472b6;
-  --color-chart-series-6: #38bdf8;
+  --color-chart-series-4: #f472b6;
+  --color-chart-series-5: #38bdf8;
+  --color-chart-series-6: #22d3ee;
 }
 
 html {
@@ -88,10 +109,10 @@ body {
 @keyframes prepare-email-attention {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgb(59 130 246 / 0);
+    box-shadow: 0 0 0 0 rgb(245 158 11 / 0);
   }
   50% {
-    box-shadow: 0 0 0 4px rgb(59 130 246 / 0.55);
+    box-shadow: 0 0 0 4px rgb(245 158 11 / 0.55);
   }
 }
 

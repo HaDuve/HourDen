@@ -54,7 +54,7 @@ typography:
     fontWeight: 500
     lineHeight: 1.25
   numeric:
-    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+    fontFamily: IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace
     fontSize: "0.875rem"
     fontWeight: 400
     fontFeature: "tnum"
@@ -100,7 +100,7 @@ components:
 
 HourDen is a private workshop for freelancers who turn tracked time into Sent invoices. The visual world is a warm dark den: ember light for anything *live and earning*, quiet hairlines for the ledger of the month, and Project color only for categorization — never competing with the brand accent. Hierarchy comes from type scale and spacing, not nested boxes.
 
-This file records the **ADR-0015 Warm Den target** (accepted direction). Shipped CSS may still show the cooler blue ADR-0012 palette until issue #189 lands; agents implementing foundation and polish tickets treat this document — not the interim blue tokens — as normative.
+This file records the **ADR-0015 Warm Den target** (accepted direction). Issue #189 lands the palette, accent, numeric face, fewer-boxes surfaces, and wide desktop Tracker; polish tickets treat this document as normative.
 
 **Key Characteristics:**
 - Warm near-black surfaces; ember (`#f59e0b`) as the single brand/live accent
@@ -140,7 +140,7 @@ A warm dark ledger palette: ember is rare and means live; neutrals carry the res
 
 ## Typography
 
-**Display / Numeric Font:** Self-hosted tabular display face (name chosen in #189; until then a tabular monospace stack is acceptable interim). Not a system display costume (Impact, Arial Black).
+**Display / Numeric Font:** IBM Plex Mono (self-hosted woff2, no third-party CDN) — tabular figures for timers, durations, and amounts. Not a system display costume (Impact, Arial Black).
 **Body Font:** Inter (with system-ui fallbacks) — incumbent UI sans until a deliberate type pairing replaces it.
 
 **Character:** Quiet operator UI. Numbers carry the drama; labels stay medium-weight and short.

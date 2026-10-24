@@ -481,8 +481,49 @@ export default function TrackerPage() {
         })
       : [];
 
+  const renderDayEntries = (day: (typeof monthGroups)[number]["days"][number]) => (
+    <ul className={listPanelClass}>
+      {day.entries
+        .filter((entry) => !entry.isRunning)
+        .map((entry) => (
+          <TrackerEntryRow
+            key={entry.id}
+            entry={entry}
+            projectName={
+              entry.projectId
+                ? (projectNameById.get(entry.projectId) ?? null)
+                : null
+            }
+            projectGroups={projectGroups}
+            isMobile={isMobile}
+            formatDurationMinutes={formatDurationMinutes}
+            formatCurrency={formatCurrency}
+            formatDateTime={(iso) => formatEntryTime(iso, locale)}
+            saving={saving}
+            onPatch={async (patch) => {
+              await patchEntry(entry.id, patch);
+            }}
+            onDelete={() => openDeleteDialog(entry)}
+            onMobileEdit={() => openMobileEdit(entry)}
+          />
+        ))}
+    </ul>
+  );
+
+  const renderDayHeader = (day: (typeof monthGroups)[number]["days"][number]) => (
+    <div
+      className="mb-1 flex items-baseline justify-between gap-4 border-b border-divider px-1 py-2"
+      data-day-ribbon={day.date}
+    >
+      <h3 className="text-sm font-medium text-content">{day.dayLabel}</h3>
+      <p className={numericMetaValueClass}>
+        {t("tracker.dayTotal")}: {formatDurationMinutes(day.totalDurationMinutes)}
+      </p>
+    </div>
+  );
+
   return (
-    <PageMain variant="flex">
+    <PageMain variant="flex" width="wide">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className={pageTitleLargeClass}>{t("tracker.title")}</h1>
@@ -537,9 +578,12 @@ export default function TrackerPage() {
       ) : (
         <div
           className={`space-y-6${isDeleteDialogOpen ? " pointer-events-none" : ""}`}
+          {...(!isMobile
+            ? { role: "region", "aria-label": t("tracker.dayTimeline") }
+            : {})}
         >
           {monthGroups.map((month) => (
-            <section key={month.monthKey}>
+            <section key={month.monthKey} aria-label={month.monthLabel}>
               <div className="mb-2 flex items-baseline justify-between gap-4 px-1">
                 <h2 className="text-sm font-semibold text-content">{month.monthLabel}</h2>
                 <p className={numericMetaValueClass}>
@@ -550,39 +594,8 @@ export default function TrackerPage() {
               <div className="space-y-4">
                 {month.days.map((day) => (
                   <div key={day.date}>
-                    <div className="mb-1 flex items-baseline justify-between gap-4 border-b border-divider px-4 py-2">
-                      <h3 className="text-sm font-medium text-content">{day.dayLabel}</h3>
-                      <p className={numericMetaValueClass}>
-                        {t("tracker.dayTotal")}: {formatDurationMinutes(day.totalDurationMinutes)}
-                      </p>
-                    </div>
-
-                    <ul className={listPanelClass}>
-                      {day.entries
-                        .filter((entry) => !entry.isRunning)
-                        .map((entry) => (
-                        <TrackerEntryRow
-                          key={entry.id}
-                          entry={entry}
-                          projectName={
-                            entry.projectId
-                              ? (projectNameById.get(entry.projectId) ?? null)
-                              : null
-                          }
-                          projectGroups={projectGroups}
-                          isMobile={isMobile}
-                          formatDurationMinutes={formatDurationMinutes}
-                          formatCurrency={formatCurrency}
-                          formatDateTime={(iso) => formatEntryTime(iso, locale)}
-                          saving={saving}
-                          onPatch={async (patch) => {
-                            await patchEntry(entry.id, patch);
-                          }}
-                          onDelete={() => openDeleteDialog(entry)}
-                          onMobileEdit={() => openMobileEdit(entry)}
-                        />
-                      ))}
-                    </ul>
+                    {renderDayHeader(day)}
+                    {renderDayEntries(day)}
                   </div>
                 ))}
               </div>

@@ -208,6 +208,7 @@
     "startTimer": "Timer starten",
     "stopTimer": "Timer stoppen",
     "timerBar": "Timer-Leiste",
+    "dayTimeline": "Tageszeitlinie",
     "timerRunning": "Timer läuft — {{duration}}",
     "addDescriptionWhenDone": "(Beschreibung nach Abschluss ergänzen)",
     "loading": "Einträge werden geladen…",
