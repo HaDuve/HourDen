@@ -328,6 +328,7 @@ export default function ClientsPage() {
       {editing && (
         <ResponsiveOverlay
           ariaLabel={editing === "new" ? t("clients.newClient") : t("clients.editClient")}
+          onClose={closeForm}
         >
           <form onSubmit={saveClient} className="w-full">
             <h2 className="text-lg font-semibold">
@@ -506,6 +507,7 @@ export default function ClientsPage() {
         <ResponsiveOverlay
           ariaLabel={t("common.delete")}
           labelledBy="delete-client-title"
+          onClose={closeDeleteDialog}
           onBackdropClick={closeDeleteDialog}
         >
           <h2 id="delete-client-title" className="text-lg font-semibold">

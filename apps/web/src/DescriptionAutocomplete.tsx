@@ -40,6 +40,10 @@ async function fetchDescriptionSuggestions(
   return data.suggestions;
 }
 
+function optionId(listboxId: string, index: number): string {
+  return `${listboxId}-option-${index}`;
+}
+
 export function DescriptionAutocomplete({
   label,
   value,
@@ -59,6 +63,7 @@ export function DescriptionAutocomplete({
   const [suggestions, setSuggestions] = useState<DescriptionSuggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [focused, setFocused] = useState(autoFocus);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const skipBlurCallbackRef = useRef(false);
   const suppressOpenRef = useRef(false);
   const valueRef = useRef(value);
@@ -67,6 +72,7 @@ export function DescriptionAutocomplete({
   useEffect(() => {
     if (!focused) {
       setOpen(false);
+      setActiveIndex(null);
       return;
     }
 
@@ -81,6 +87,7 @@ export function DescriptionAutocomplete({
         setSuggestions(loaded);
         if (suppressOpenRef.current) {
           setOpen(false);
+          setActiveIndex(null);
           return;
         }
         // Ignore stale responses when the Operator has already typed further.
@@ -88,11 +95,13 @@ export function DescriptionAutocomplete({
           return;
         }
         setOpen(loaded.length > 0);
+        setActiveIndex(null);
       })
       .catch(() => {
         if (!cancelled) {
           setSuggestions([]);
           setOpen(false);
+          setActiveIndex(null);
         }
       });
 
@@ -105,6 +114,7 @@ export function DescriptionAutocomplete({
     const handlePointerDown = (event: MouseEvent) => {
       if (!containerRef.current?.contains(event.target as Node)) {
         setOpen(false);
+        setActiveIndex(null);
       }
     };
 
@@ -120,21 +130,70 @@ export function DescriptionAutocomplete({
     onChange(suggestion.description);
     onSuggestionSelect(suggestion);
     setOpen(false);
+    setActiveIndex(null);
   };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (open && suggestions.length > 0) {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setActiveIndex((current) => {
+          if (current === null) {
+            return 0;
+          }
+          return Math.min(current + 1, suggestions.length - 1);
+        });
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setActiveIndex((current) => {
+          if (current === null) {
+            return suggestions.length - 1;
+          }
+          return Math.max(current - 1, 0);
+        });
+        return;
+      }
+      if (event.key === "Enter" && activeIndex !== null) {
+        event.preventDefault();
+        const suggestion = suggestions[activeIndex];
+        if (suggestion) {
+          handleSelect(suggestion);
+        }
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        setOpen(false);
+        setActiveIndex(null);
+        return;
+      }
+    }
+
+    onKeyDown?.(event);
+  };
+
+  const activeDescendant =
+    open && activeIndex !== null ? optionId(listboxId, activeIndex) : undefined;
 
   const input = (
     <input
       required={required}
+      role="combobox"
       aria-label={hideLabel ? label : undefined}
       placeholder={hideLabel ? (placeholder ?? label) : placeholder}
       aria-autocomplete="list"
       aria-controls={open ? listboxId : undefined}
       aria-expanded={open}
+      aria-activedescendant={activeDescendant}
       value={value}
       autoFocus={autoFocus}
       onChange={(event) => {
         suppressOpenRef.current = false;
         setFocused(true);
+        setActiveIndex(null);
         onChange(event.target.value);
         if (event.target.value.trim()) {
           setOpen(true);
@@ -154,7 +213,7 @@ export function DescriptionAutocomplete({
         }
         onBlur?.();
       }}
-      onKeyDown={onKeyDown}
+      onKeyDown={handleKeyDown}
       className={`w-full ${inputClassName}`}
     />
   );
@@ -166,21 +225,28 @@ export function DescriptionAutocomplete({
         role="listbox"
         className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border border-divider bg-surface py-1 shadow-lg"
       >
-        {suggestions.map((suggestion) => (
-          <li key={suggestion.description} role="presentation">
-            <button
-              type="button"
-              role="option"
-              className="block w-full px-3 py-2 text-left text-sm text-content hover:bg-surface-hover"
-              onMouseDown={(event) => {
-                event.preventDefault();
-              }}
-              onClick={() => handleSelect(suggestion)}
-            >
-              {suggestion.description}
-            </button>
-          </li>
-        ))}
+        {suggestions.map((suggestion, index) => {
+          const isActive = index === activeIndex;
+          return (
+            <li key={suggestion.description} role="presentation">
+              <div
+                id={optionId(listboxId, index)}
+                role="option"
+                aria-selected={isActive}
+                className={`block w-full cursor-pointer px-3 py-2 text-left text-sm text-content ${
+                  isActive ? "bg-surface-hover" : "hover:bg-surface-hover"
+                }`}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                }}
+                onMouseEnter={() => setActiveIndex(index)}
+                onClick={() => handleSelect(suggestion)}
+              >
+                {suggestion.description}
+              </div>
+            </li>
+          );
+        })}
       </ul>
     ) : null;
 

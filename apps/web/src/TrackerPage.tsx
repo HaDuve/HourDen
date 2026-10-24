@@ -625,7 +625,10 @@ export default function TrackerPage() {
       </div>
 
       {editing && isMobile && (
-        <ResponsiveOverlay ariaLabel={t("tracker.editEntry")}>
+        <ResponsiveOverlay
+          ariaLabel={t("tracker.editEntry")}
+          onClose={() => setEditing(null)}
+        >
           <TrackerEntryEditForm
             form={editForm}
             durationMinutes={durationFromEditForm(editForm)}
@@ -643,6 +646,7 @@ export default function TrackerPage() {
         <ResponsiveOverlay
           ariaLabel={t("common.delete")}
           labelledBy="delete-entry-title"
+          onClose={closeDeleteDialog}
           onBackdropClick={closeDeleteDialog}
         >
           <h2 id="delete-entry-title" className="text-lg font-semibold text-content">

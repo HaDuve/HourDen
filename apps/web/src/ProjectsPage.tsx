@@ -328,6 +328,7 @@ export default function ProjectsPage() {
           ariaLabel={
             editing === "new" ? t("projects.newProject") : t("projects.editProject")
           }
+          onClose={closeForm}
         >
           <form onSubmit={saveProject} className="w-full">
             <h2 className="text-lg font-semibold">
@@ -392,6 +393,7 @@ export default function ProjectsPage() {
         <ResponsiveOverlay
           ariaLabel={t("common.delete")}
           labelledBy="delete-project-title"
+          onClose={closeDeleteDialog}
           onBackdropClick={closeDeleteDialog}
         >
           <h2 id="delete-project-title" className="text-lg font-semibold">

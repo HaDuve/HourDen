@@ -418,4 +418,111 @@ describe("DescriptionAutocomplete", () => {
       ).toBeInTheDocument();
     });
   });
+
+  it("moves aria-activedescendant with ArrowDown/ArrowUp and selects with Enter", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/time-entries/suggestions?q=") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ suggestions: [] }),
+        });
+      }
+      if (url === "/api/time-entries/suggestions?q=rev") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [
+              { description: "Code review", projectId: "p1" },
+              { description: "Design review", projectId: "p2" },
+            ],
+          }),
+        });
+      }
+      if (url === "/api/time-entries/suggestions?q=Design%20review") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [{ description: "Design review", projectId: "p2" }],
+          }),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const onSuggestionSelect = vi.fn();
+    render(<ControlledAutocomplete onSuggestionSelect={onSuggestionSelect} />);
+
+    const input = screen.getByLabelText(/^description$/i);
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "rev" } });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Code review" })).toBeInTheDocument();
+    });
+
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    const firstOption = screen.getByRole("option", { name: "Code review" });
+    expect(input).toHaveAttribute("aria-activedescendant", firstOption.id);
+
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    const secondOption = screen.getByRole("option", { name: "Design review" });
+    expect(input).toHaveAttribute("aria-activedescendant", secondOption.id);
+
+    fireEvent.keyDown(input, { key: "ArrowUp" });
+    expect(input).toHaveAttribute("aria-activedescendant", firstOption.id);
+
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(input).toHaveValue("Code review");
+    expect(onSuggestionSelect).toHaveBeenCalledWith({
+      description: "Code review",
+      projectId: "p1",
+    });
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
+  it("closes the list on Escape without clearing typed text", async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/time-entries/suggestions?q=") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ suggestions: [] }),
+        });
+      }
+      if (url === "/api/time-entries/suggestions?q=rev") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            suggestions: [{ description: "Code review", projectId: "p1" }],
+          }),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<ControlledAutocomplete onSuggestionSelect={vi.fn()} />);
+
+    const input = screen.getByLabelText(/^description$/i);
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "rev" } });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Code review" })).toBeInTheDocument();
+    });
+
+    fireEvent.keyDown(input, { key: "Escape" });
+
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(input).toHaveValue("rev");
+  });
 });
