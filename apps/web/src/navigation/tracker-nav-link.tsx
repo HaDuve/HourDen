@@ -50,7 +50,7 @@ export function TrackerNavLink({ compact = false }: TrackerNavLinkProps) {
         <span
           className={
             compact
-              ? `text-[10px] font-medium leading-tight${isRunning ? " font-numeric tabular-nums text-primary" : ""}`
+              ? `text-xs font-medium leading-tight${isRunning ? " font-numeric tabular-nums text-primary" : ""}`
               : isRunning
                 ? "font-numeric tabular-nums text-primary"
                 : undefined
@@ -107,7 +107,7 @@ export function NavDestinationLink({
           aria-hidden
           className="shrink-0"
         />
-        <span className={compact ? "text-[10px] font-medium leading-tight" : undefined}>
+        <span className={compact ? "text-xs font-medium leading-tight" : undefined}>
           {label}
         </span>
       </span>

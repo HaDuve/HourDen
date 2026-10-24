@@ -52,6 +52,7 @@
       "title": { "displayName": "Title", "purpose": "Page titles across primary screens." },
       "title-large": { "displayName": "Title Large", "purpose": "Optional large title; prefer one size after #186." },
       "label": { "displayName": "Label", "purpose": "Field labels and button text." },
+      "label-compact": { "displayName": "Label Compact", "purpose": "Mobile bottom-nav labels under icons (text-xs)." },
       "numeric": { "displayName": "Numeric", "purpose": "Timers, durations, amounts — IBM Plex Mono tabular, self-hosted." }
     },
     "shadows": [],

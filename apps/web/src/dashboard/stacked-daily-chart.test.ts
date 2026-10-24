@@ -38,7 +38,7 @@ describe("buildStackedDailyChart", () => {
       ],
       (date) => date,
       "Unassigned",
-      "#64748b",
+      "#3b82f6",
     );
 
     expect(series).toEqual([
@@ -79,11 +79,11 @@ describe("buildStackedDailyChart", () => {
       ],
       (date) => date,
       "Unassigned",
-      "#64748b",
+      "#3b82f6",
     );
 
     expect(series).toEqual([
-      { key: "__unassigned__", name: "Unassigned", color: "#64748b" },
+      { key: "__unassigned__", name: "Unassigned", color: "#3b82f6" },
     ]);
     expect(rows[0]).toMatchObject({ __unassigned__: 15 });
   });

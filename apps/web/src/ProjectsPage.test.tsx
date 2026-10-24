@@ -148,13 +148,13 @@ describe("ProjectsPage", () => {
         json: async () => ({
           ...project,
           name: "Ondojo v2",
-          color: "#ef4444",
+          color: "#f472b6",
         }),
       })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          projects: [{ ...project, name: "Ondojo v2", color: "#ef4444" }],
+          projects: [{ ...project, name: "Ondojo v2", color: "#f472b6" }],
         }),
       });
     vi.stubGlobal("fetch", fetchMock);

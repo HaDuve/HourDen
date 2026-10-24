@@ -218,7 +218,7 @@ function MobileNavigation({ onLogout }: Pick<AppNavigationProps, "onLogout">) {
                 aria-hidden
                 className="shrink-0"
               />
-              <span className="text-[10px] font-medium leading-tight">{t("nav.more")}</span>
+              <span className="text-xs font-medium leading-tight">{t("nav.more")}</span>
             </button>
           </div>
         </div>

@@ -53,6 +53,11 @@ typography:
     fontSize: "0.875rem"
     fontWeight: 500
     lineHeight: 1.25
+  label-compact:
+    fontFamily: "Inter, system-ui, sans-serif"
+    fontSize: "0.75rem"
+    fontWeight: 500
+    lineHeight: 1.25
   numeric:
     fontFamily: IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace
     fontSize: "0.875rem"
@@ -148,6 +153,7 @@ A warm dark ledger palette: ember is rare and means live; neutrals carry the res
 ### Hierarchy
 - **Title** (600, 1.875rem, tight tracking): Page titles on primary screens (one size — #186)
 - **Body / Label** (400–500, 0.875rem): Controls, lists, forms
+- **Label compact** (500, 0.75rem / `text-xs`): Mobile bottom-nav labels under icons
 - **Numeric** (tabular, mono or display face): timers, durations, amounts — `tabular-nums`, no layout shift on tick
 
 ### Named Rules
