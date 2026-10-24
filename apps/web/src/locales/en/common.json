@@ -210,6 +210,8 @@
     "stopTimer": "Stop timer",
     "timerBar": "Timer bar",
     "dayTimeline": "Day timeline",
+    "dayRibbon": "Day ribbon for {{date}}",
+    "dayRibbonBlock": "{{description}}, {{project}}, {{start}}–{{end}}",
     "timerRunning": "Timer running — {{duration}}",
     "liveCounterWithEarnings": "{{duration}} · {{amount}}",
     "unbilledThisMonth": "Unbilled this month",

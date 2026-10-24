@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 export type LiveCounter = {
   text: string;
   elapsedSeconds: number;
+  /** Wall clock used for Live Counter / Day Ribbon running block. */
+  now: Date;
 };
 
 export function useLiveCounter(startedAt: string | null): LiveCounter {
@@ -24,12 +26,13 @@ export function useLiveCounter(startedAt: string | null): LiveCounter {
   }, [startedAt]);
 
   if (!startedAt) {
-    return { text: formatElapsedHMMSS(0), elapsedSeconds: 0 };
+    return { text: formatElapsedHMMSS(0), elapsedSeconds: 0, now };
   }
 
   const elapsedSeconds = elapsedSecondsSince(startedAt, now);
   return {
     text: formatElapsedHMMSS(elapsedSeconds),
     elapsedSeconds,
+    now,
   };
 }

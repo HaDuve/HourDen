@@ -1227,7 +1227,12 @@ describe("TrackerPage", () => {
       expect(screen.queryByRole("button", { name: /^edit$/i })).not.toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /morning work/i }));
+    const morningRow = document.querySelector(
+      `[data-entry-id="${morningEntry.id}"]`,
+    ) as HTMLElement;
+    fireEvent.click(
+      within(morningRow).getByRole("button", { name: /morning work/i }),
+    );
     const input = screen.getByDisplayValue("Morning work");
     fireEvent.change(input, { target: { value: "Revised work" } });
     fireEvent.blur(input);
@@ -1314,7 +1319,12 @@ describe("TrackerPage", () => {
       expect(screen.getByText("Morning work")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /morning work/i }));
+    const morningRow = document.querySelector(
+      `[data-entry-id="${morningEntry.id}"]`,
+    ) as HTMLElement;
+    fireEvent.click(
+      within(morningRow).getByRole("button", { name: /morning work/i }),
+    );
     const input = screen.getByDisplayValue("Morning work");
     fireEvent.change(input, { target: { value: "Blocked edit" } });
     fireEvent.blur(input);
@@ -1383,7 +1393,12 @@ describe("TrackerPage", () => {
       expect(screen.getByText("Morning work")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /morning work/i }));
+    const morningRow = document.querySelector(
+      `[data-entry-id="${morningEntry.id}"]`,
+    ) as HTMLElement;
+    fireEvent.click(
+      within(morningRow).getByRole("button", { name: /morning work/i }),
+    );
     const input = screen.getByDisplayValue("Morning work");
     fireEvent.change(input, { target: { value: "Missing entry" } });
     fireEvent.blur(input);

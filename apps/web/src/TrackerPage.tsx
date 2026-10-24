@@ -8,7 +8,7 @@ import {
 } from "@hourden/domain";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageMain } from "./layout/PageMain.js";
 import { ResponsiveOverlay } from "./layout/ResponsiveOverlay.js";
 import {
@@ -31,6 +31,7 @@ import {
   storeTrackerEntryLimit,
   type TrackerEntryLimit,
 } from "./tracker-entry-limit.js";
+import { DayRibbon } from "./tracker/DayRibbon.js";
 import { formatEntryTime } from "./tracker/formatEntryTime.js";
 import { groupProjectsByClient } from "./tracker/groupProjectsByClient.js";
 import {
@@ -48,6 +49,8 @@ import { localDatetimeValue } from "./tracker/localDatetimeValue.js";
 import { todayDateInTimeZone } from "./today-date.js";
 import { useRunningTimer } from "./running-timer/RunningTimerContext.js";
 import { useWorkspaceEvents } from "./useWorkspaceEvents.js";
+
+const DAY_RIBBON_HIGHLIGHT_MS = 2000;
 
 type UnbilledThisMonth = {
   from: string;
@@ -178,8 +181,35 @@ export default function TrackerPage() {
   });
   const [barForm, setBarForm] = useState<BarFormData>(emptyBarForm);
   const [unbilled, setUnbilled] = useState<UnbilledThisMonth | null>(null);
+  const [highlightedEntryId, setHighlightedEntryId] = useState<string | null>(
+    null,
+  );
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const liveCounter = useLiveCounter(running?.startedAt ?? null);
+
+  const selectEntryFromRibbon = useCallback((entryId: string) => {
+    const row = document.querySelector<HTMLElement>(
+      `[data-entry-id="${entryId}"]`,
+    );
+    row?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+    }
+    setHighlightedEntryId(entryId);
+    highlightTimeoutRef.current = setTimeout(() => {
+      setHighlightedEntryId(null);
+      highlightTimeoutRef.current = null;
+    }, DAY_RIBBON_HIGHLIGHT_MS);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, []);
   const projectGroups = useMemo(
     () => groupProjectsByClient(projects, clients),
     [projects, clients],
@@ -597,6 +627,7 @@ export default function TrackerPage() {
             formatCurrency={formatCurrency}
             formatDateTime={(iso) => formatEntryTime(iso, locale)}
             liveDuration={entry.isRunning ? liveCounter.text : null}
+            highlighted={highlightedEntryId === entry.id}
             saving={saving}
             onPatch={async (patch) => {
               await patchEntry(entry.id, patch);
@@ -611,10 +642,7 @@ export default function TrackerPage() {
   const renderDayHeader = (day: (typeof monthGroups)[number]["days"][number]) => {
     const dayAmount = sumEntryAmounts(day.entries);
     return (
-      <div
-        className="mb-1 border-b border-divider px-1 py-2"
-        data-day-ribbon={day.date}
-      >
+      <div className="mb-1 border-b border-divider px-1 py-2">
         <h3 className="text-sm font-medium text-content">{day.dayLabel}</h3>
         <p className={`mt-0.5 ${numericMetaValueClass} text-left`}>
           {formatDurationMinutes(day.totalDurationMinutes)}
@@ -624,6 +652,27 @@ export default function TrackerPage() {
             </span>
           )}
         </p>
+        {calendarTimezone && (
+          <DayRibbon
+            dateKey={day.date}
+            timeZone={calendarTimezone}
+            now={liveCounter.now}
+            entries={day.entries.map((entry) => ({
+              id: entry.id,
+              startedAt: entry.startedAt,
+              endedAt: entry.endedAt,
+              description: entry.description,
+              projectName: entry.projectId
+                ? (projectNameById.get(entry.projectId) ?? null)
+                : null,
+              projectColor: entry.projectId
+                ? (projectColorById.get(entry.projectId) ?? null)
+                : null,
+            }))}
+            formatTime={(iso) => formatEntryTime(iso, locale)}
+            onSelectEntry={selectEntryFromRibbon}
+          />
+        )}
       </div>
     );
   };
