@@ -419,5 +419,26 @@
     "loadFailed": "Could not load projects for Quick Log",
     "commitFailed": "Could not complete Quick Log",
     "noRunningTimer": "No Running Timer to stop"
+  },
+  "closeTheMonth": {
+    "title": "Close the Month",
+    "subtitle": "Per-Client invoice readiness for the Billing Period — fix blockers, then preview.",
+    "loading": "Loading readiness…",
+    "loadFailed": "Failed to load month readiness",
+    "empty": "No Client time in this Billing Period.",
+    "monthClosed": "Month closed — every Client with billable time has an issued or Sent Invoice.",
+    "readinessCount": "{{complete}} of {{total}} Billable Complete",
+    "noInvoice": "No invoice yet",
+    "invoiceIssued": "Invoice issued",
+    "invoiceSent": "Invoice sent",
+    "missingDescription": "Missing description",
+    "descriptionForEntry": "Description for incomplete entry",
+    "saveDescriptionFailed": "Failed to save description",
+    "missingRecipient": "Missing Recipient details.",
+    "fixRecipient": "Fix on Clients",
+    "missingSender": "Invoice Sender is not configured.",
+    "fixInvoiceSender": "Set up Invoice Sender",
+    "previewInvoice": "Preview invoice",
+    "openFromInvoices": "Close the Month"
   }
 }

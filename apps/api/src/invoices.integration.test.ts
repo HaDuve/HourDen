@@ -3139,4 +3139,102 @@ describeWithAuthenticatedWorkspace("Invoice API", (getWorkspace) => {
       invoiceEmailBody: "Workspace body",
     });
   });
+
+  it("summarizes per-Client month readiness with incomplete entries and blockers", async () => {
+    const { app } = getWorkspace();
+    const bandao = await createClient(app, {
+      name: "Bandao",
+      legalName: "BANDAO Guidance GmbH",
+      addressLine1: "Schloßbergstraße 1",
+      addressLine2: "82319 Starnberg",
+    });
+    const hannah = await createClient(app, {
+      name: "Hannah",
+    });
+    const ondojo = await createProject(app, bandao.id, "Ondojo");
+    const coaching = await createProject(app, hannah.id, "Coaching");
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "App Development",
+        startedAt: "2026-10-05T10:00:00.000Z",
+        endedAt: "2026-10-05T11:00:00.000Z",
+      }),
+    });
+    const incompleteRes = await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: ondojo.id,
+        description: "",
+        startedAt: "2026-10-06T10:00:00.000Z",
+        endedAt: "2026-10-06T11:00:00.000Z",
+      }),
+    });
+    expect(incompleteRes.status).toBe(201);
+    const incomplete = (await incompleteRes.json()) as { id: string };
+
+    await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: coaching.id,
+        description: "Session",
+        startedAt: "2026-10-07T10:00:00.000Z",
+        endedAt: "2026-10-07T12:00:00.000Z",
+      }),
+    });
+
+    const res = await app.request(
+      "/api/invoices/month-readiness?from=2026-10-01&to=2026-10-31",
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      from: string;
+      to: string;
+      monthClosed: boolean;
+      invoiceSenderConfigured: boolean;
+      clients: Array<{
+        clientId: string;
+        clientName: string;
+        billableCompleteCount: number;
+        stoppedEntryCount: number;
+        unbilledAmount: number;
+        invoiceStatus: string;
+        missingRecipient: boolean;
+        incompleteEntries: Array<{ id: string }>;
+      }>;
+    };
+
+    expect(body.from).toBe("2026-10-01");
+    expect(body.to).toBe("2026-10-31");
+    expect(body.monthClosed).toBe(false);
+    expect(body.invoiceSenderConfigured).toBe(true);
+    expect(body.clients.map((c) => c.clientName)).toEqual(["Bandao", "Hannah"]);
+
+    const bandaoRow = body.clients[0]!;
+    expect(bandaoRow).toMatchObject({
+      clientId: bandao.id,
+      billableCompleteCount: 1,
+      stoppedEntryCount: 2,
+      missingRecipient: false,
+      invoiceStatus: "none",
+    });
+    expect(bandaoRow.incompleteEntries).toEqual([
+      expect.objectContaining({ id: incomplete.id }),
+    ]);
+    expect(bandaoRow.unbilledAmount).toBeGreaterThan(0);
+
+    expect(body.clients[1]).toMatchObject({
+      clientId: hannah.id,
+      billableCompleteCount: 1,
+      stoppedEntryCount: 1,
+      missingRecipient: true,
+      invoiceStatus: "none",
+      incompleteEntries: [],
+    });
+  });
 });

@@ -3,6 +3,20 @@ export type DateRange = {
   to: string;
 };
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Billing Period from `from`/`to` search params, or null when missing/invalid. */
+export function billingPeriodFromSearchParams(
+  searchParams: URLSearchParams,
+): DateRange | null {
+  const from = searchParams.get("from");
+  const to = searchParams.get("to");
+  if (!from || !to || !ISO_DATE.test(from) || !ISO_DATE.test(to) || from > to) {
+    return null;
+  }
+  return { from, to };
+}
+
 function formatDateInput(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;

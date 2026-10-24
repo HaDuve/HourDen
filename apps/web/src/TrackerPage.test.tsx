@@ -222,7 +222,7 @@ describe("TrackerPage", () => {
     });
   });
 
-  it("shows an Unbilled this month chip that links to Invoices for the period", async () => {
+  it("shows an Unbilled this month chip that links to Close the Month for the period", async () => {
     vi.stubGlobal("fetch", createFetchMock([morningEntry, afternoonEntry]));
 
     renderTrackerPage();
@@ -230,7 +230,10 @@ describe("TrackerPage", () => {
     const chip = await screen.findByRole("link", {
       name: /unbilled this month/i,
     });
-    expect(chip).toHaveAttribute("href", "/invoices?from=2026-07-01&to=2026-07-31");
+    expect(chip).toHaveAttribute(
+      "href",
+      "/close-the-month?from=2026-07-01&to=2026-07-31",
+    );
     expect(chip.className).not.toMatch(/text-primary/);
     expect(within(chip).getByText(/€120\.00/)).toBeInTheDocument();
   });

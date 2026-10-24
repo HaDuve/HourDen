@@ -2,10 +2,13 @@ import type { Client, InvoiceNumberingStrategy } from "@hourden/domain";
 import { deriveDefaultInvoicePrefix, isValidAnyInvoiceNumber } from "@hourden/domain";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useLocaleFormat } from "./locale/use-locale-format.js";
 import { DateRangeFilter } from "./DateRangeFilter.js";
-import { currentMonthRange, type DateRange } from "./date-range.js";
+import {
+  billingPeriodFromSearchParams,
+  currentMonthRange,
+} from "./date-range.js";
 import { InvoicePreviewPane } from "./invoices/InvoicePreviewPane.js";
 import type { InvoiceAlert } from "./invoices/invoice-alert.js";
 import { InvoiceAlertBanner } from "./invoices/InvoiceAlertBanner.js";
@@ -203,17 +206,15 @@ function previewIframeSrc(blobUrl: string): string {
   return `${blobUrl}#toolbar=0`;
 }
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function billingPeriodFromSearchParams(
-  searchParams: URLSearchParams,
-): DateRange | null {
-  const from = searchParams.get("from");
-  const to = searchParams.get("to");
-  if (!from || !to || !ISO_DATE.test(from) || !ISO_DATE.test(to) || from > to) {
+function clientIdFromSearchParams(searchParams: URLSearchParams): string | null {
+  const clientId = searchParams.get("clientId");
+  if (!clientId || !UUID_RE.test(clientId)) {
     return null;
   }
-  return { from, to };
+  return clientId;
 }
 
 export default function InvoicesPage() {
@@ -224,8 +225,9 @@ export default function InvoicesPage() {
     `${formatIsoDate(periodStart)} – ${formatIsoDate(periodEnd)}`;
   const initialRange =
     billingPeriodFromSearchParams(searchParams) ?? currentMonthRange();
+  const initialClientId = clientIdFromSearchParams(searchParams) ?? "";
   const [clients, setClients] = useState<Client[]>([]);
-  const [clientId, setClientId] = useState("");
+  const [clientId, setClientId] = useState(initialClientId);
   const [from, setFrom] = useState(initialRange.from);
   const [to, setTo] = useState(initialRange.to);
   const [loading, setLoading] = useState(true);
@@ -387,7 +389,12 @@ export default function InvoicesPage() {
       const loaded = await fetchClients();
       setClients(loaded);
       if (loaded.length > 0) {
-        setClientId((current) => current || loaded[0]!.id);
+        setClientId((current) => {
+          if (current && loaded.some((client) => client.id === current)) {
+            return current;
+          }
+          return loaded[0]!.id;
+        });
       } else {
         setPreviewAlert({ kind: "blocker", code: "NO_CLIENTS" });
       }
@@ -473,6 +480,12 @@ export default function InvoicesPage() {
       setLoadingSender(false);
     }
   }, [t]);
+
+  useEffect(() => {
+    if (searchParams.get("editSender") === "1") {
+      void openSenderEditor();
+    }
+  }, [searchParams, openSenderEditor]);
 
   const requestPreview = useCallback(
     async (options?: {
@@ -1059,9 +1072,15 @@ export default function InvoicesPage() {
     <PageMain>
       <div
         data-testid="invoices-page-header"
-        className="mb-8"
+        className="mb-8 flex flex-wrap items-baseline justify-between gap-4"
       >
         <h1 className={pageTitleClass}>{t("invoices.title")}</h1>
+        <Link
+          to={`/close-the-month?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`}
+          className={`${pageSubtitleClass} underline underline-offset-2`}
+        >
+          {t("closeTheMonth.openFromInvoices")}
+        </Link>
       </div>
 
       <div className={`mb-8 flex flex-wrap gap-6 ${panelClass}`}>

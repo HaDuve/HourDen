@@ -108,6 +108,15 @@ export {
   type UnbilledMonthSummary,
 } from "./money-clock.js";
 export {
+  summarizeMonthReadiness,
+  type ClientMonthReadiness,
+  type IncompleteReadinessEntry,
+  type MonthReadinessClient,
+  type MonthReadinessEntry,
+  type MonthReadinessInvoice,
+  type MonthReadinessSummary,
+} from "./month-readiness.js";
+export {
   parseQuickLog,
   type QuickLogMissing,
   type QuickLogNavigateDestination,

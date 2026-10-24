@@ -639,6 +639,21 @@ describe("InvoicesPage", () => {
     expect(screen.getByLabelText(/^to$/i)).toHaveValue("2026-05-31");
   });
 
+  it("preselects the Client from clientId search params", async () => {
+    vi.stubGlobal(
+      "fetch",
+      createInvoicesPageFetchMock([bandaoClient, clientWithoutRecipient]),
+    );
+
+    renderInvoicesPage(
+      `/invoices?clientId=${clientWithoutRecipient.id}&from=2026-05-01&to=2026-05-31`,
+    );
+
+    await waitForClientReady("Hannah", clientWithoutRecipient.id);
+    expect(screen.getByLabelText(/^from$/i)).toHaveValue("2026-05-01");
+    expect(screen.getByLabelText(/^to$/i)).toHaveValue("2026-05-31");
+  });
+
   it("re-previews with plain numbering when Use prefix is turned off", async () => {
     const fetchMock = createInvoicesPageFetchMock([bandaoClient], (url, init) => {
       if (url === "/api/invoices/preview" && init?.method === "POST") {
@@ -737,7 +752,7 @@ describe("InvoicesPage", () => {
         within(previewRegion()).getByText(/something went wrong/i),
       ).toBeInTheDocument();
     });
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(within(previewRegion()).queryByRole("link")).not.toBeInTheDocument();
   });
 
   it("links to the Clients page when preview fails because Recipient fields are missing", async () => {
@@ -2290,7 +2305,7 @@ describe("InvoicesPage", () => {
   });
 
   describe("Invoices page layout", () => {
-    it("keeps the page header title-only without Issue Invoice", async () => {
+    it("keeps Issue Invoice out of the header and links to Close the Month", async () => {
       vi.stubGlobal("fetch", createInvoicesPageFetchMock([bandaoClient]));
 
       renderInvoicesPage();
@@ -2303,6 +2318,9 @@ describe("InvoicesPage", () => {
       expect(
         within(header).queryByRole("button", { name: /^issue invoice$/i }),
       ).not.toBeInTheDocument();
+      expect(
+        within(header).getByRole("link", { name: /close the month/i }),
+      ).toHaveAttribute("href", expect.stringMatching(/^\/close-the-month\?/));
     });
 
     it("places Issue Invoice directly under the preview region", async () => {
