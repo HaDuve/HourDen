@@ -35,6 +35,9 @@ type TrackerEntryRowProps = {
   liveDuration?: string | null;
   /** Brief Day Ribbon selection highlight. */
   highlighted?: boolean;
+  /** Paired hover with the Day Ribbon block (quieter than click highlight). */
+  hovered?: boolean;
+  onHoverChange?: (entryId: string | null) => void;
   saving: boolean;
   onPatch: (patch: UpdateTimeEntryInput) => Promise<void>;
   onDelete: () => void;
@@ -70,6 +73,8 @@ export function TrackerEntryRow({
   formatDateTime,
   liveDuration = null,
   highlighted = false,
+  hovered = false,
+  onHoverChange,
   saving,
   onPatch,
   onDelete,
@@ -229,9 +234,18 @@ export function TrackerEntryRow({
     <li
       data-entry-id={entry.id}
       data-highlighted={highlighted ? "true" : undefined}
+      data-hovered={hovered ? "true" : undefined}
+      onPointerEnter={() => onHoverChange?.(entry.id)}
+      onPointerLeave={() => onHoverChange?.(null)}
       className={`group flex items-start justify-between gap-3 px-4 py-4 transition-colors${
         entry.isRunning ? " bg-accent-muted" : ""
-      }${highlighted ? " bg-surface-hover ring-1 ring-inset ring-focus" : ""}`}
+      }${
+        highlighted
+          ? " bg-surface-hover ring-1 ring-inset ring-focus"
+          : hovered
+            ? " ring-1 ring-inset ring-secondary-border"
+            : ""
+      }`}
     >
       <div className="min-w-0 flex-1" title={lockedReadOnlyHelp}>
         {isMobile && !frozen ? (
