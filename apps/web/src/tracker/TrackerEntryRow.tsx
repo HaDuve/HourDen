@@ -33,6 +33,8 @@ type TrackerEntryRowProps = {
   formatDateTime: (iso: string) => string;
   /** Live Counter digits when this row is the Running Timer. */
   liveDuration?: string | null;
+  /** Brief Day Ribbon selection highlight. */
+  highlighted?: boolean;
   saving: boolean;
   onPatch: (patch: UpdateTimeEntryInput) => Promise<void>;
   onDelete: () => void;
@@ -67,6 +69,7 @@ export function TrackerEntryRow({
   formatCurrency,
   formatDateTime,
   liveDuration = null,
+  highlighted = false,
   saving,
   onPatch,
   onDelete,
@@ -224,9 +227,11 @@ export function TrackerEntryRow({
 
   return (
     <li
-      className={`group flex items-start justify-between gap-3 px-4 py-4${
+      data-entry-id={entry.id}
+      data-highlighted={highlighted ? "true" : undefined}
+      className={`group flex items-start justify-between gap-3 px-4 py-4 transition-colors${
         entry.isRunning ? " bg-accent-muted" : ""
-      }`}
+      }${highlighted ? " bg-surface-hover ring-1 ring-inset ring-focus" : ""}`}
     >
       <div className="min-w-0 flex-1" title={lockedReadOnlyHelp}>
         {isMobile && !frozen ? (

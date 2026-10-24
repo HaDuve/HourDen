@@ -92,6 +92,16 @@ export {
 } from "./clockify-csv.js";
 export { elapsedSecondsSince, formatElapsedHMMSS } from "./elapsed.js";
 export {
+  layoutDayRibbon,
+  DAY_RIBBON_DEFAULT_WINDOW,
+  instantAtLocal,
+  addCalendarDays,
+  type DayRibbonEntryInput,
+  type DayRibbonBlock,
+  type DayRibbonLayout,
+  type DayRibbonDefaultWindow,
+} from "./day-ribbon.js";
+export {
   computeLiveEarnings,
   summarizeUnbilledMonth,
   type UnbilledMonthEntry,

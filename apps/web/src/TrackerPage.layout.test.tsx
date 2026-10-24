@@ -1,9 +1,10 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import i18n from "./i18n/i18n.js";
 import TrackerPage from "./TrackerPage.js";
 import { renderWithRunningTimer } from "./test/render-with-running-timer.js";
 import { mockDesktopViewport, mockMobileViewport } from "./test/viewport.js";
+
 
 vi.mock("./today-date.js", () => ({
   todayDateInTimeZone: () => "2026-07-02",
@@ -61,6 +62,11 @@ function createFetchMock(entries: unknown[]) {
 describe("TrackerPage Warm Den layout", () => {
   beforeEach(async () => {
     await i18n.changeLanguage("en");
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("uses a wide desktop container with the day timeline region below the timer bar", async () => {
@@ -98,5 +104,29 @@ describe("TrackerPage Warm Den layout", () => {
 
     expect(screen.getByRole("main")).toHaveAttribute("data-width", "wide");
     expect(screen.queryByRole("region", { name: /day timeline/i })).not.toBeInTheDocument();
+    expect(document.querySelector("[data-day-ribbon]")).not.toBeNull();
+  });
+
+  it("scrolls to and highlights the entry row when a ribbon block is activated", async () => {
+    mockDesktopViewport();
+    vi.stubGlobal("fetch", createFetchMock([morningEntry]));
+
+    renderWithRunningTimer(<TrackerPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Morning work")).toBeInTheDocument();
+    });
+
+    const block = screen.getByRole("button", {
+      name: /Morning work, No project/,
+    });
+    fireEvent.click(block);
+
+    const row = document.querySelector(
+      `[data-entry-id="${morningEntry.id}"]`,
+    );
+    expect(row).not.toBeNull();
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+    expect(row).toHaveAttribute("data-highlighted", "true");
   });
 });

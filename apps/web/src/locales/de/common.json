@@ -210,6 +210,8 @@
     "stopTimer": "Timer stoppen",
     "timerBar": "Timer-Leiste",
     "dayTimeline": "Tageszeitlinie",
+    "dayRibbon": "Tagesband für {{date}}",
+    "dayRibbonBlock": "{{description}}, {{project}}, {{start}}–{{end}}",
     "timerRunning": "Timer läuft — {{duration}}",
     "liveCounterWithEarnings": "{{duration}} · {{amount}}",
     "unbilledThisMonth": "Unabgerechnet diesen Monat",
