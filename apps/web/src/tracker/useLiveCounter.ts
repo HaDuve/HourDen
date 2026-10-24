@@ -1,7 +1,12 @@
 import { elapsedSecondsSince, formatElapsedHMMSS } from "@hourden/domain";
 import { useEffect, useState } from "react";
 
-export function useLiveCounter(startedAt: string | null): string {
+export type LiveCounter = {
+  text: string;
+  elapsedSeconds: number;
+};
+
+export function useLiveCounter(startedAt: string | null): LiveCounter {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -19,8 +24,12 @@ export function useLiveCounter(startedAt: string | null): string {
   }, [startedAt]);
 
   if (!startedAt) {
-    return formatElapsedHMMSS(0);
+    return { text: formatElapsedHMMSS(0), elapsedSeconds: 0 };
   }
 
-  return formatElapsedHMMSS(elapsedSecondsSince(startedAt, now));
+  const elapsedSeconds = elapsedSecondsSince(startedAt, now);
+  return {
+    text: formatElapsedHMMSS(elapsedSeconds),
+    elapsedSeconds,
+  };
 }

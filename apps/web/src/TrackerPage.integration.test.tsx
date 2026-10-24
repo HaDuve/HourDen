@@ -132,13 +132,13 @@ describeWithAuthenticatedWorkspace(
     await waitFor(
       () => {
         expect(screen.queryByText(/^running$/i)).not.toBeInTheDocument();
-        expect(screen.getByText(/incomplete/i)).toBeInTheDocument();
+        expect(screen.getByText(/^incomplete$/i)).toBeInTheDocument();
         expect(screen.getByRole("button", { name: /start timer/i })).toBeInTheDocument();
       },
       { timeout: 10_000 },
     );
 
-    const incompleteRow = screen.getByText(/incomplete/i).closest("li");
+    const incompleteRow = screen.getByText(/^incomplete$/i).closest("li");
     expect(incompleteRow).not.toBeNull();
     fireEvent.click(
       within(incompleteRow!).getByRole("button", {
@@ -159,7 +159,7 @@ describeWithAuthenticatedWorkspace(
 
     await waitFor(() => {
       expect(screen.getByText("Wrapped up design review")).toBeInTheDocument();
-      expect(screen.queryByText(/incomplete/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/^incomplete$/i)).not.toBeInTheDocument();
     });
   });
 

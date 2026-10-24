@@ -26,6 +26,8 @@ import {
 type TrackerTimerBarProps = {
   running: TimeEntry | null;
   liveCounter: string;
+  /** Formatted live earnings beside the Live Counter; omit when no Project/Client rate. */
+  liveEarnings?: string | null;
   description: string;
   projectId: string;
   projectGroups: ProjectClientGroup[];
@@ -77,6 +79,7 @@ function datetimesFromSchedule(
 export function TrackerTimerBar({
   running,
   liveCounter,
+  liveEarnings = null,
   description,
   projectId,
   projectGroups,
@@ -134,8 +137,9 @@ export function TrackerTimerBar({
   const runningSelectClass = isRunning ? accentInputClass : selectClass;
   const barSurfaceClass = isRunning ? runningTimerBarClass : `${panelClass} shadow-sm`;
   const counterClass = isRunning
-    ? `min-w-[5.5rem] ${liveCounterClass}`
-    : `min-w-[5.5rem] ${numericValueClass} text-lg`;
+    ? liveCounterClass
+    : `${numericValueClass} text-lg`;
+  const showLiveEarnings = isRunning && liveEarnings != null && liveEarnings !== "";
 
   return (
     <section
@@ -176,8 +180,33 @@ export function TrackerTimerBar({
         </label>
 
         <div className="flex shrink-0 items-center gap-3">
-          <p aria-live="polite" className={counterClass}>
-            {liveCounter}
+          <p
+            aria-live="polite"
+            aria-label={
+              showLiveEarnings
+                ? t("tracker.liveCounterWithEarnings", {
+                    duration: liveCounter,
+                    amount: liveEarnings,
+                  })
+                : undefined
+            }
+            className="flex min-w-[5.5rem] items-baseline justify-end"
+          >
+            <span className={`inline-block min-w-[5.5rem] text-right ${counterClass}`}>
+              {liveCounter}
+            </span>
+            {showLiveEarnings ? (
+              <>
+                <span className="mx-1.5 text-muted" aria-hidden>
+                  ·
+                </span>
+                <span
+                  className={`inline-block min-w-[4.5rem] text-right ${liveCounterClass}`}
+                >
+                  {liveEarnings}
+                </span>
+              </>
+            ) : null}
           </p>
 
           {isRunning ? (

@@ -23,9 +23,9 @@ export function TrackerNavLink({ compact = false }: TrackerNavLinkProps) {
   const isTrackerPath = useMatch({ path: "/tracker", end: true }) !== null;
 
   const ariaLabel = isRunning
-    ? t("tracker.timerRunning", { duration: liveCounter })
+    ? t("tracker.timerRunning", { duration: liveCounter.text })
     : t("nav.tracker");
-  const visibleLabel = isRunning ? liveCounter : t("nav.tracker");
+  const visibleLabel = isRunning ? liveCounter.text : t("nav.tracker");
 
   return (
     <NavLink

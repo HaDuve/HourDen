@@ -471,6 +471,39 @@ export async function listTimeEntriesForDate(
   return result.rows.map((row) => rowToTimeEntry(row));
 }
 
+export async function listTimeEntriesForDateRange(
+  pool: Pool,
+  workspaceId: string,
+  from: string,
+  to: string,
+  timeZone: string,
+): Promise<TimeEntry[]> {
+  const result = await pool.query<TimeEntryRow>(
+    `
+      SELECT
+        te.id,
+        te.project_id,
+        te.started_at,
+        te.ended_at,
+        te.description,
+        te.tags,
+        te.billable,
+        te.amount,
+        te.invoice_id,
+        i.status AS invoice_status
+      FROM time_entries te
+      LEFT JOIN invoices i ON i.id = te.invoice_id
+      WHERE te.workspace_id = $1
+        AND ((te.started_at AT TIME ZONE $4)::date >= $2::date)
+        AND ((te.started_at AT TIME ZONE $4)::date <= $3::date)
+      ORDER BY te.started_at ASC
+    `,
+    [workspaceId, from, to, timeZone],
+  );
+
+  return result.rows.map((row) => rowToTimeEntry(row));
+}
+
 const DESCRIPTION_SUGGESTION_LIMIT = 10;
 const RECENT_DESCRIPTION_SUGGESTION_LIMIT = 3;
 

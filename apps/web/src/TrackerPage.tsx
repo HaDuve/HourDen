@@ -1,5 +1,13 @@
-import { groupTrackerEntriesByMonth, type Client, type Project, type TimeEntry, type UpdateTimeEntryInput } from "@hourden/domain";
+import {
+  computeLiveEarnings,
+  groupTrackerEntriesByMonth,
+  type Client,
+  type Project,
+  type TimeEntry,
+  type UpdateTimeEntryInput,
+} from "@hourden/domain";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageMain } from "./layout/PageMain.js";
 import { ResponsiveOverlay } from "./layout/ResponsiveOverlay.js";
@@ -40,6 +48,13 @@ import { localDatetimeValue } from "./tracker/localDatetimeValue.js";
 import { todayDateInTimeZone } from "./today-date.js";
 import { useRunningTimer } from "./running-timer/RunningTimerContext.js";
 import { useWorkspaceEvents } from "./useWorkspaceEvents.js";
+
+type UnbilledThisMonth = {
+  from: string;
+  to: string;
+  totalAmount: number;
+  incompleteCount: number;
+};
 
 function sumEntryAmounts(entries: TimeEntry[]): number | null {
   let total = 0;
@@ -116,6 +131,30 @@ async function fetchClients(): Promise<Client[]> {
   return data.clients;
 }
 
+async function fetchUnbilledThisMonth(): Promise<UnbilledThisMonth> {
+  const res = await fetch("/api/time-entries/unbilled-this-month");
+  if (!res.ok) {
+    throw new Error(`Failed to load unbilled summary (${res.status})`);
+  }
+  return res.json() as Promise<UnbilledThisMonth>;
+}
+
+function billableRateForProject(
+  projectId: string | null | undefined,
+  projects: Project[],
+  clients: Client[],
+): number | null {
+  if (!projectId) {
+    return null;
+  }
+  const project = projects.find((entry) => entry.id === projectId);
+  if (!project) {
+    return null;
+  }
+  const client = clients.find((entry) => entry.id === project.clientId);
+  return client?.defaultRate ?? null;
+}
+
 export default function TrackerPage() {
   const { t } = useTranslation();
   const { locale, formatCurrency, formatDurationMinutes } = useLocaleFormat();
@@ -138,12 +177,25 @@ export default function TrackerPage() {
     endedAt: "",
   });
   const [barForm, setBarForm] = useState<BarFormData>(emptyBarForm);
+  const [unbilled, setUnbilled] = useState<UnbilledThisMonth | null>(null);
 
   const liveCounter = useLiveCounter(running?.startedAt ?? null);
   const projectGroups = useMemo(
     () => groupProjectsByClient(projects, clients),
     [projects, clients],
   );
+  const runningBillableRate = useMemo(
+    () => billableRateForProject(barForm.projectId || running?.projectId, projects, clients),
+    [barForm.projectId, running?.projectId, projects, clients],
+  );
+  const liveEarningsLabel = useMemo(() => {
+    if (!running || runningBillableRate === null) {
+      return null;
+    }
+    return formatCurrency(
+      computeLiveEarnings(liveCounter.elapsedSeconds, runningBillableRate),
+    );
+  }, [running, runningBillableRate, liveCounter.elapsedSeconds, formatCurrency]);
   const projectNameById = useMemo(
     () => new Map(projects.map((project) => [project.id, project.name])),
     [projects],
@@ -182,14 +234,19 @@ export default function TrackerPage() {
     setLoading(true);
     setError(null);
     try {
-      const [loadedEntries, loadedProjects, loadedClients] = await Promise.all([
+      const [loadedEntries, loadedProjects, loadedClients, loadedUnbilled] =
+        await Promise.all([
           fetchTrackerEntries(entryLimit),
           fetchProjects(),
           fetchClients(),
+          fetchUnbilledThisMonth().catch(() => null),
         ]);
       setEntries(loadedEntries);
       setProjects(loadedProjects);
       setClients(loadedClients);
+      if (loadedUnbilled) {
+        setUnbilled(loadedUnbilled);
+      }
     } catch {
       setError(t("tracker.loadFailed"));
     } finally {
@@ -197,14 +254,25 @@ export default function TrackerPage() {
     }
   }, [calendarTimezone, entryLimit, t]);
 
+  const refreshUnbilled = useCallback(async () => {
+    try {
+      setUnbilled(await fetchUnbilledThisMonth());
+    } catch {
+      // Keep last known chip; list load errors surface via tracker.loadFailed.
+    }
+  }, []);
+
   const refreshEntries = useCallback(async () => {
     try {
-      const loadedEntries = await fetchTrackerEntries(entryLimit);
+      const [loadedEntries] = await Promise.all([
+        fetchTrackerEntries(entryLimit),
+        refreshUnbilled(),
+      ]);
       setEntries(loadedEntries);
     } catch {
       setError(t("tracker.loadFailed"));
     }
-  }, [entryLimit, t]);
+  }, [entryLimit, refreshUnbilled, t]);
 
   useWorkspaceEvents({
     "timer-changed": () => {
@@ -255,6 +323,7 @@ export default function TrackerPage() {
     }
     const updated = (await res.json()) as TimeEntry;
     setEntries((current) => current.map((entry) => (entry.id === updated.id ? updated : entry)));
+    void refreshUnbilled();
     return updated;
   };
 
@@ -527,7 +596,7 @@ export default function TrackerPage() {
             formatDurationMinutes={formatDurationMinutes}
             formatCurrency={formatCurrency}
             formatDateTime={(iso) => formatEntryTime(iso, locale)}
-            liveDuration={entry.isRunning ? liveCounter : null}
+            liveDuration={entry.isRunning ? liveCounter.text : null}
             saving={saving}
             onPatch={async (patch) => {
               await patchEntry(entry.id, patch);
@@ -566,11 +635,33 @@ export default function TrackerPage() {
           <h1 className={pageTitleLargeClass}>{t("tracker.title")}</h1>
           <p className={pageSubtitleClass}>{t("tracker.subtitle")}</p>
         </div>
+        {unbilled && (
+          <Link
+            to={`/invoices?from=${encodeURIComponent(unbilled.from)}&to=${encodeURIComponent(unbilled.to)}`}
+            className="rounded-md border border-divider px-3 py-2 text-sm text-content no-underline hover:bg-surface-hover"
+            aria-label={t("tracker.unbilledThisMonthAria", {
+              amount: formatCurrency(unbilled.totalAmount),
+            })}
+          >
+            <span className={metaTextClass}>{t("tracker.unbilledThisMonth")}</span>
+            <span className={`ml-2 ${numericValueClass} text-sm`}>
+              {formatCurrency(unbilled.totalAmount)}
+            </span>
+            {unbilled.incompleteCount > 0 ? (
+              <span className={`ml-2 ${metaTextClass}`}>
+                {t("tracker.unbilledIncomplete", {
+                  count: unbilled.incompleteCount,
+                })}
+              </span>
+            ) : null}
+          </Link>
+        )}
       </header>
 
       <TrackerTimerBar
         running={running}
-        liveCounter={liveCounter}
+        liveCounter={liveCounter.text}
+        liveEarnings={liveEarningsLabel}
         description={barForm.description}
         projectId={barForm.projectId}
         projectGroups={projectGroups}

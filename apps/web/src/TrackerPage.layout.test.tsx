@@ -34,6 +34,17 @@ function createFetchMock(entries: unknown[]) {
     if (url === "/api/time-entries/running") {
       return { ok: true, json: async () => ({ entry: null }) };
     }
+    if (url === "/api/time-entries/unbilled-this-month") {
+      return {
+        ok: true,
+        json: async () => ({
+          from: "2026-07-01",
+          to: "2026-07-31",
+          totalAmount: 60,
+          incompleteCount: 0,
+        }),
+      };
+    }
     if (url.startsWith("/api/time-entries")) {
       return { ok: true, json: async () => ({ entries }) };
     }

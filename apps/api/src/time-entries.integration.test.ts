@@ -1,9 +1,10 @@
-import { DEFAULT_WORKSPACE_ID } from "@hourden/domain";
+import { DEFAULT_WORKSPACE_ID, toLocalDateKey } from "@hourden/domain";
 import { expect, it } from "vitest";
 import { createApp } from "./app.js";
 import { withSessionCookie } from "./test/auth-helper.js";
 import { describeWithAuthenticatedWorkspace } from "./test/describe-with-live-api.js";
 import { readNextSseEvent } from "./test/sse-helper.js";
+import { getWorkspaceCalendarTimezone } from "./db/workspaces.js";
 
 async function createClient(
   app: ReturnType<typeof createApp>,
@@ -728,5 +729,52 @@ describeWithAuthenticatedWorkspace("Time Entry API", (getWorkspace) => {
 
     const { suggestions } = (await res.json()) as { suggestions: unknown[] };
     expect(suggestions).toHaveLength(10);
+  });
+
+  it("summarizes unbilled Billable Complete amounts for the current calendar month", async () => {
+    const { app, pool } = getWorkspace();
+    const timeZone = await getWorkspaceCalendarTimezone(pool, DEFAULT_WORKSPACE_ID);
+    const today = toLocalDateKey(new Date(), timeZone);
+    const client = await createClient(app, "Unbilled Client", 60);
+    const project = await createProject(app, client.id, "Unbilled Project");
+
+    const completeRes = await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: project.id,
+        description: "Billable work",
+        startedAt: `${today}T12:00:00.000Z`,
+        endedAt: `${today}T13:00:00.000Z`,
+      }),
+    });
+    expect(completeRes.status).toBe(201);
+    const complete = (await completeRes.json()) as { amount: number };
+
+    const incompleteRes = await app.request("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId: project.id,
+        description: "",
+        startedAt: `${today}T14:00:00.000Z`,
+        endedAt: `${today}T15:00:00.000Z`,
+      }),
+    });
+    expect(incompleteRes.status).toBe(201);
+
+    const res = await app.request("/api/time-entries/unbilled-this-month");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      from: string;
+      to: string;
+      totalAmount: number;
+      incompleteCount: number;
+    };
+
+    expect(body.from).toBe(`${today.slice(0, 7)}-01`);
+    expect(body.to.startsWith(today.slice(0, 7))).toBe(true);
+    expect(body.totalAmount).toBe(complete.amount);
+    expect(body.incompleteCount).toBe(1);
   });
 });
