@@ -16,6 +16,7 @@ import ProjectsPage from "./ProjectsPage.js";
 import DashboardPage from "./DashboardPage.js";
 import ReportPage from "./ReportPage.js";
 import TrackerPage from "./TrackerPage.js";
+import CloseTheMonthPage from "./CloseTheMonthPage.js";
 
 export const appLayoutChildren: RouteObject[] = [
   { index: true, element: <TrackerPage /> },
@@ -26,6 +27,7 @@ export const appLayoutChildren: RouteObject[] = [
   { path: "dashboard", element: <DashboardPage /> },
   { path: "report", element: <ReportPage /> },
   { path: "invoices", element: <InvoicesPage /> },
+  { path: "close-the-month", element: <CloseTheMonthPage /> },
   { path: "import", element: <ImportPage /> },
   { path: "*", element: <Navigate to="/" replace /> },
 ];

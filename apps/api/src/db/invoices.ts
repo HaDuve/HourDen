@@ -495,6 +495,35 @@ export async function findInvoiceForPeriod(
   return result.rows[0] ?? null;
 }
 
+export type BillingMonthInvoiceStatus = {
+  clientId: string;
+  status: "issued" | "sent";
+};
+
+export async function listInvoicesForBillingMonth(
+  pool: Pool,
+  workspaceId: string,
+  periodEnd: string,
+): Promise<BillingMonthInvoiceStatus[]> {
+  const { year, month } = billingMonthKey(periodEnd);
+  const result = await pool.query<{ client_id: string; status: string }>(
+    `
+      SELECT client_id, status
+      FROM invoices
+      WHERE workspace_id = $1
+        AND EXTRACT(YEAR FROM period_end) = $2
+        AND EXTRACT(MONTH FROM period_end) = $3
+        AND status IN ('issued', 'sent')
+    `,
+    [workspaceId, year, month],
+  );
+
+  return result.rows.map((row) => ({
+    clientId: row.client_id,
+    status: row.status as "issued" | "sent",
+  }));
+}
+
 export async function findInvoiceForBillingMonth(
   pool: Pool,
   clientId: string,

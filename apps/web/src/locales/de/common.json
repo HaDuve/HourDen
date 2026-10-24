@@ -419,5 +419,26 @@
     "loadFailed": "Projekte für Schnellbuchung konnten nicht geladen werden",
     "commitFailed": "Schnellbuchung fehlgeschlagen",
     "noRunningTimer": "Kein laufender Timer zum Stoppen"
+  },
+  "closeTheMonth": {
+    "title": "Monat abschließen",
+    "subtitle": "Rechnungsbereitschaft je Client für den Abrechnungszeitraum — Blocker beheben, dann Vorschau.",
+    "loading": "Bereitschaft wird geladen…",
+    "loadFailed": "Monatsbereitschaft konnte nicht geladen werden",
+    "empty": "Keine Client-Zeit in diesem Abrechnungszeitraum.",
+    "monthClosed": "Monat abgeschlossen — jeder Client mit abrechenbarer Zeit hat eine ausgestellte oder gesendete Rechnung.",
+    "readinessCount": "{{complete}} von {{total}} Billable Complete",
+    "noInvoice": "Noch keine Rechnung",
+    "invoiceIssued": "Rechnung ausgestellt",
+    "invoiceSent": "Rechnung gesendet",
+    "missingDescription": "Beschreibung fehlt",
+    "descriptionForEntry": "Beschreibung für unvollständigen Eintrag",
+    "saveDescriptionFailed": "Beschreibung konnte nicht gespeichert werden",
+    "missingRecipient": "Empfängerangaben fehlen.",
+    "fixRecipient": "Auf Clients korrigieren",
+    "missingSender": "Rechnungsabsender ist nicht eingerichtet.",
+    "fixInvoiceSender": "Rechnungsabsender einrichten",
+    "previewInvoice": "Rechnungvorschau",
+    "openFromInvoices": "Monat abschließen"
   }
 }

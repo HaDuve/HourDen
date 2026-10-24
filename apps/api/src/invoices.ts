@@ -10,6 +10,7 @@ import {
   isValidPrefixedInvoiceNumber,
   isValidAnyInvoiceNumber,
   normalizeInvoicePrefix,
+  summarizeMonthReadiness,
 } from "@hourden/domain";
 import { Hono } from "hono";
 import type { Pool } from "pg";
@@ -21,6 +22,7 @@ import {
   getInvoiceNumberingPreview,
   invoiceNumberExistsInWorkspace,
   listInvoiceableEntriesForClient,
+  listInvoicesForBillingMonth,
   listIssuedInvoiceDetails,
   listIssuedInvoices,
   hasStoppedEntriesWithoutProjectInPeriod,
@@ -38,7 +40,13 @@ import {
 } from "./db/invoice-writes.js";
 import { buildIssuedInvoicesZip } from "./invoice-export.js";
 import { invoiceFilename } from "./invoice-path.js";
-import { getWorkspaceCalendarTimezone, getWorkspaceInvoiceOperator } from "./db/workspaces.js";
+import { listClients } from "./db/clients.js";
+import { listMonthReadinessEntriesForRange } from "./db/time-entries.js";
+import {
+  getWorkspaceCalendarTimezone,
+  getWorkspaceInvoiceOperator,
+  getWorkspaceInvoiceSenderStatus,
+} from "./db/workspaces.js";
 import { getCurrentWorkspaceId } from "./workspace.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -532,6 +540,53 @@ export function createInvoicesRouter(pool: Pool) {
     c.header("Content-Type", "application/zip");
     c.header("Content-Disposition", 'attachment; filename="Outgoing.zip"');
     return c.body(new Uint8Array(zip), 200);
+  });
+
+  router.get("/month-readiness", async (c) => {
+    const range = parseDateRange(c.req.query("from"), c.req.query("to"));
+    if (range === "invalid") {
+      return c.json(
+        {
+          error:
+            "from and to query parameters are required (YYYY-MM-DD), with from <= to",
+        },
+        400,
+      );
+    }
+
+    const workspaceId = getCurrentWorkspaceId();
+    const timeZone = await getWorkspaceCalendarTimezone(pool, workspaceId);
+    const monthKey = range.to.slice(0, 7);
+    const [entries, clients, invoices, senderStatus] = await Promise.all([
+      listMonthReadinessEntriesForRange(
+        pool,
+        workspaceId,
+        range.from,
+        range.to,
+        timeZone,
+      ),
+      listClients(pool, workspaceId),
+      listInvoicesForBillingMonth(pool, workspaceId, range.to),
+      getWorkspaceInvoiceSenderStatus(pool, workspaceId),
+    ]);
+
+    const summary = summarizeMonthReadiness(
+      {
+        entries,
+        clients: clients.map((client) => ({
+          id: client.id,
+          name: client.name,
+          hasRecipient: Boolean(
+            client.legalName && client.addressLine1 && client.addressLine2,
+          ),
+        })),
+        invoices,
+        invoiceSenderConfigured: senderStatus.configured,
+      },
+      { monthKey, timeZone, from: range.from, to: range.to },
+    );
+
+    return c.json(summary);
   });
 
   router.get("/", async (c) => {

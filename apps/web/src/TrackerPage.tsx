@@ -686,7 +686,7 @@ export default function TrackerPage() {
         </div>
         {unbilled && (
           <Link
-            to={`/invoices?from=${encodeURIComponent(unbilled.from)}&to=${encodeURIComponent(unbilled.to)}`}
+            to={`/close-the-month?from=${encodeURIComponent(unbilled.from)}&to=${encodeURIComponent(unbilled.to)}`}
             className="rounded-md border border-divider px-3 py-2 text-sm text-content no-underline hover:bg-surface-hover"
             aria-label={t("tracker.unbilledThisMonthAria", {
               amount: formatCurrency(unbilled.totalAmount),

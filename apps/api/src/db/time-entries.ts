@@ -504,6 +504,68 @@ export async function listTimeEntriesForDateRange(
   return result.rows.map((row) => rowToTimeEntry(row));
 }
 
+type MonthReadinessEntryRow = TimeEntryRow & {
+  client_id: string | null;
+};
+
+export type MonthReadinessEntryRecord = {
+  id: string;
+  clientId: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  amount: number | null;
+  billableComplete: boolean;
+  invoiced: boolean;
+  description: string | null;
+};
+
+export async function listMonthReadinessEntriesForRange(
+  pool: Pool,
+  workspaceId: string,
+  from: string,
+  to: string,
+  timeZone: string,
+): Promise<MonthReadinessEntryRecord[]> {
+  const result = await pool.query<MonthReadinessEntryRow>(
+    `
+      SELECT
+        te.id,
+        te.project_id,
+        p.client_id,
+        te.started_at,
+        te.ended_at,
+        te.description,
+        te.tags,
+        te.billable,
+        te.amount,
+        te.invoice_id,
+        i.status AS invoice_status
+      FROM time_entries te
+      LEFT JOIN projects p ON p.id = te.project_id
+      LEFT JOIN invoices i ON i.id = te.invoice_id
+      WHERE te.workspace_id = $1
+        AND ((te.started_at AT TIME ZONE $4)::date >= $2::date)
+        AND ((te.started_at AT TIME ZONE $4)::date <= $3::date)
+      ORDER BY te.started_at ASC
+    `,
+    [workspaceId, from, to, timeZone],
+  );
+
+  return result.rows.map((row) => {
+    const entry = rowToTimeEntry(row);
+    return {
+      id: entry.id,
+      clientId: row.client_id,
+      startedAt: entry.startedAt,
+      endedAt: entry.endedAt,
+      amount: entry.amount,
+      billableComplete: entry.billableComplete,
+      invoiced: entry.invoiced,
+      description: entry.description,
+    };
+  });
+}
+
 const DESCRIPTION_SUGGESTION_LIMIT = 10;
 const RECENT_DESCRIPTION_SUGGESTION_LIMIT = 3;
 

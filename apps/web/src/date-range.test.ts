@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  billingPeriodFromSearchParams,
   calendarMonthRange,
   currentMonthRange,
   isFullCalendarMonth,
@@ -8,6 +9,25 @@ import {
   lastMonthRange,
   shiftMonthRange,
 } from "./date-range.js";
+
+describe("billingPeriodFromSearchParams", () => {
+  it("returns from/to when both are valid ISO dates in order", () => {
+    expect(
+      billingPeriodFromSearchParams(
+        new URLSearchParams("from=2026-10-01&to=2026-10-31"),
+      ),
+    ).toEqual({ from: "2026-10-01", to: "2026-10-31" });
+  });
+
+  it("returns null when params are missing or invalid", () => {
+    expect(billingPeriodFromSearchParams(new URLSearchParams())).toBeNull();
+    expect(
+      billingPeriodFromSearchParams(
+        new URLSearchParams("from=2026-10-31&to=2026-10-01"),
+      ),
+    ).toBeNull();
+  });
+});
 
 describe("calendarMonthRange", () => {
   it("returns the first and last day of the given month", () => {
