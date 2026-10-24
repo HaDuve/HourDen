@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { layoutDayRibbon } from "./day-ribbon.js";
+import {
+  layoutDayRibbon,
+  layoutDayRibbonGaps,
+  normalizeDragRange,
+  nudgeInstantMs,
+  ribbonFractionToMs,
+  snapInstantMs,
+} from "./day-ribbon.js";
 
 describe("layoutDayRibbon", () => {
   it("places blocks proportional to start/end within the auto-fitted window", () => {
@@ -173,5 +180,86 @@ describe("layoutDayRibbon", () => {
     expect(layout.blocks).toHaveLength(0);
     expect(layout.windowStartMs).toBe(Date.parse("2026-07-02T08:00:00.000Z"));
     expect(layout.windowEndMs).toBe(Date.parse("2026-07-02T18:00:00.000Z"));
+  });
+});
+
+describe("ribbon time mapping", () => {
+  const windowStart = Date.parse("2026-07-02T08:00:00.000Z");
+  const windowEnd = Date.parse("2026-07-02T18:00:00.000Z");
+
+  it("maps a ribbon fraction to an instant within the window", () => {
+    expect(ribbonFractionToMs(0, windowStart, windowEnd)).toBe(windowStart);
+    expect(ribbonFractionToMs(1, windowStart, windowEnd)).toBe(windowEnd);
+    expect(ribbonFractionToMs(0.2, windowStart, windowEnd)).toBe(
+      Date.parse("2026-07-02T10:00:00.000Z"),
+    );
+  });
+
+  it("clamps fractions outside 0–1", () => {
+    expect(ribbonFractionToMs(-0.5, windowStart, windowEnd)).toBe(windowStart);
+    expect(ribbonFractionToMs(1.5, windowStart, windowEnd)).toBe(windowEnd);
+  });
+
+  it("snaps to 5-minute boundaries by default", () => {
+    expect(snapInstantMs(Date.parse("2026-07-02T10:02:00.000Z"))).toBe(
+      Date.parse("2026-07-02T10:00:00.000Z"),
+    );
+    expect(snapInstantMs(Date.parse("2026-07-02T10:03:00.000Z"))).toBe(
+      Date.parse("2026-07-02T10:05:00.000Z"),
+    );
+  });
+
+  it("skips snap when disabled (Alt)", () => {
+    const raw = Date.parse("2026-07-02T10:02:17.000Z");
+    expect(snapInstantMs(raw, { snap: false })).toBe(raw);
+  });
+
+  it("normalizes a drag so start is before end", () => {
+    expect(
+      normalizeDragRange(
+        Date.parse("2026-07-02T12:00:00.000Z"),
+        Date.parse("2026-07-02T10:00:00.000Z"),
+      ),
+    ).toEqual({
+      startMs: Date.parse("2026-07-02T10:00:00.000Z"),
+      endMs: Date.parse("2026-07-02T12:00:00.000Z"),
+    });
+  });
+
+  it("nudges an instant by the snap step", () => {
+    expect(
+      nudgeInstantMs(Date.parse("2026-07-02T10:00:00.000Z"), 1),
+    ).toBe(Date.parse("2026-07-02T10:05:00.000Z"));
+    expect(
+      nudgeInstantMs(Date.parse("2026-07-02T10:00:00.000Z"), -1),
+    ).toBe(Date.parse("2026-07-02T09:55:00.000Z"));
+  });
+});
+
+describe("layoutDayRibbonGaps", () => {
+  it("returns focusable gaps between blocks and at the window edges", () => {
+    const layout = layoutDayRibbon(
+      "2026-07-02",
+      [
+        {
+          id: "a",
+          startedAt: "2026-07-02T10:00:00.000Z",
+          endedAt: "2026-07-02T12:00:00.000Z",
+        },
+        {
+          id: "b",
+          startedAt: "2026-07-02T14:00:00.000Z",
+          endedAt: "2026-07-02T15:00:00.000Z",
+        },
+      ],
+      { timeZone: "UTC" },
+    );
+
+    const gaps = layoutDayRibbonGaps(layout);
+    expect(gaps.map((g) => ({ leftPct: g.leftPct, widthPct: g.widthPct }))).toEqual([
+      { leftPct: 0, widthPct: 20 },
+      { leftPct: 40, widthPct: 20 },
+      { leftPct: 70, widthPct: 30 },
+    ]);
   });
 });

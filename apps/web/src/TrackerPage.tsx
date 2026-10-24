@@ -31,7 +31,11 @@ import {
   storeTrackerEntryLimit,
   type TrackerEntryLimit,
 } from "./tracker-entry-limit.js";
-import { DayRibbon } from "./tracker/DayRibbon.js";
+import {
+  DayRibbon,
+  type DayRibbonCreateInput,
+  type DayRibbonResizeInput,
+} from "./tracker/DayRibbon.js";
 import { formatEntryTime } from "./tracker/formatEntryTime.js";
 import { groupProjectsByClient } from "./tracker/groupProjectsByClient.js";
 import {
@@ -357,6 +361,36 @@ export default function TrackerPage() {
     return updated;
   };
 
+  const createEntryFromRibbon = async (input: DayRibbonCreateInput) => {
+    setError(null);
+    const res = await fetch("/api/time-entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        description: input.description,
+        startedAt: input.startedAt,
+        endedAt: input.endedAt,
+        projectId: input.projectId,
+      }),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      const message = body?.error ?? t("tracker.saveFailed");
+      setError(message);
+      throw new Error(message);
+    }
+    await load();
+  };
+
+  const resizeEntryFromRibbon = async (input: DayRibbonResizeInput) => {
+    const patch: UpdateTimeEntryInput = {};
+    if (input.startedAt !== undefined) patch.startedAt = input.startedAt;
+    if (input.endedAt !== undefined) patch.endedAt = input.endedAt;
+    await patchEntry(input.entryId, patch);
+  };
+
   const patchRunningEntry = async (patch: {
     description?: string;
     projectId?: string | null;
@@ -668,9 +702,13 @@ export default function TrackerPage() {
               projectColor: entry.projectId
                 ? (projectColorById.get(entry.projectId) ?? null)
                 : null,
+              locked: entry.locked,
             }))}
             formatTime={(iso) => formatEntryTime(iso, locale)}
             onSelectEntry={selectEntryFromRibbon}
+            projectGroups={projectGroups}
+            onCreateEntry={createEntryFromRibbon}
+            onResizeEntry={resizeEntryFromRibbon}
           />
         )}
       </div>

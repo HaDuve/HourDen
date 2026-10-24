@@ -50,8 +50,9 @@ describe("DayRibbon", () => {
     });
     expect(morningBlock).toHaveAttribute("tabindex", "0");
     expect(morningBlock).toHaveStyle({ backgroundColor: "#3b82f6" });
-    expect(morningBlock.style.left).toBe("20%");
-    expect(morningBlock.style.width).toBe("20%");
+    const morningShell = morningBlock.parentElement as HTMLElement;
+    expect(morningShell.style.left).toBe("20%");
+    expect(morningShell.style.width).toBe("20%");
 
     expect(
       screen.getByRole("button", { name: /Afternoon, No project, 14:00–15:00/ }),
@@ -82,7 +83,7 @@ describe("DayRibbon", () => {
     const block = screen.getByRole("button", { name: /Live task/ });
     expect(block).toHaveAttribute("data-running", "true");
     expect(block.className).toMatch(/bg-primary/);
-    expect(block.style.width).toBe("15%");
+    expect((block.parentElement as HTMLElement).style.width).toBe("15%");
   });
 
   it("calls onSelectEntry on click and Enter", () => {
