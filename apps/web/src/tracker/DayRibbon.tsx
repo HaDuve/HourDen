@@ -728,7 +728,7 @@ export function DayRibbon({
         <div
           aria-live="polite"
           data-day-ribbon-time-preview=""
-          className="pointer-events-none absolute z-10 top-full mt-1 max-w-[min(100%,12rem)] -translate-x-1/2"
+          className="pointer-events-none absolute z-10 bottom-full mb-1.5 max-w-[min(100%,12rem)] -translate-x-1/2"
           style={{ left: `${pct(timePreview.anchorMs)}%` }}
         >
           <span className="inline-block truncate rounded-sm border border-secondary-border bg-surface px-1.5 py-0.5 text-xs font-numeric tabular-nums text-content">
