@@ -395,5 +395,29 @@
   },
   "guard": {
     "loadFailed": "Could not load workspace setup status."
+  },
+  "quickLog": {
+    "title": "Quick Log",
+    "inputLabel": "Quick Log command",
+    "placeholder": "2h ondojo api refactor yesterday",
+    "hint": "Log time, start or stop the timer, or go to a page.",
+    "enterHint": "Press Enter to confirm",
+    "previewStop": "Stop the Running Timer",
+    "previewStart": "Start timer · {{project}} · {{description}}",
+    "previewNavigate": "Go to {{destination}}",
+    "previewManual": "{{date}} · {{start}}–{{end}} ({{duration}}) · {{project}} · {{description}} · {{amount}}",
+    "noProject": "No project",
+    "noDescription": "No description",
+    "noAmount": "—",
+    "projectChoices": "Matching projects",
+    "missing": "Missing: {{fields}}",
+    "missingFields": {
+      "duration_or_range": "duration or time range",
+      "description": "description",
+      "project": "project"
+    },
+    "loadFailed": "Could not load projects for Quick Log",
+    "commitFailed": "Could not complete Quick Log",
+    "noRunningTimer": "No Running Timer to stop"
   }
 }

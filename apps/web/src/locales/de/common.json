@@ -395,5 +395,29 @@
   },
   "guard": {
     "loadFailed": "Workspace-Einrichtungsstatus konnte nicht geladen werden."
+  },
+  "quickLog": {
+    "title": "Schnellbuchung",
+    "inputLabel": "Schnellbuchungsbefehl",
+    "placeholder": "2std ondojo api refactor gestern",
+    "hint": "Zeit buchen, Timer starten oder stoppen, oder eine Seite öffnen.",
+    "enterHint": "Enter zum Bestätigen",
+    "previewStop": "Laufenden Timer stoppen",
+    "previewStart": "Timer starten · {{project}} · {{description}}",
+    "previewNavigate": "Gehe zu {{destination}}",
+    "previewManual": "{{date}} · {{start}}–{{end}} ({{duration}}) · {{project}} · {{description}} · {{amount}}",
+    "noProject": "Kein Projekt",
+    "noDescription": "Keine Beschreibung",
+    "noAmount": "—",
+    "projectChoices": "Passende Projekte",
+    "missing": "Fehlt: {{fields}}",
+    "missingFields": {
+      "duration_or_range": "Dauer oder Zeitraum",
+      "description": "Beschreibung",
+      "project": "Projekt"
+    },
+    "loadFailed": "Projekte für Schnellbuchung konnten nicht geladen werden",
+    "commitFailed": "Schnellbuchung fehlgeschlagen",
+    "noRunningTimer": "Kein laufender Timer zum Stoppen"
   }
 }

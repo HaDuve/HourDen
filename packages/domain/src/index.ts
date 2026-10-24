@@ -107,6 +107,14 @@ export {
   type UnbilledMonthEntry,
   type UnbilledMonthSummary,
 } from "./money-clock.js";
+export {
+  parseQuickLog,
+  type QuickLogMissing,
+  type QuickLogNavigateDestination,
+  type QuickLogParseContext,
+  type QuickLogProjectCandidate,
+  type QuickLogResult,
+} from "./quick-log.js";
 export type { ClockifyHeader } from "./clockify-csv.js";
 export type {
   ClockifyParsedRow,
