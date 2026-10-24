@@ -4,17 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageMain } from "./layout/PageMain.js";
 import { ResponsiveOverlay } from "./layout/ResponsiveOverlay.js";
 import {
-  mobileActionButtonClass,
-} from "./layout/tap-targets.js";
-import {
-  destructiveButtonClass,
   emptyStateClass,
   errorBannerClass,
   listPanelClass,
   metaTextClass,
   numericMetaValueClass,
+  numericValueClass,
   pageSubtitleClass,
   pageTitleLargeClass,
+  primaryButtonClass,
   selectClass,
 } from "./layout/ui-classes.js";
 import { useIsMobile } from "./layout/use-is-mobile.js";
@@ -34,13 +32,26 @@ import {
   type TrackerEntryEditFormData,
 } from "./tracker/TrackerEntryEditForm.js";
 import { TrackerEntryRow } from "./tracker/TrackerEntryRow.js";
+import { TrackerListSkeleton } from "./tracker/TrackerListSkeleton.js";
 import { TrackerTimerBar } from "./tracker/TrackerTimerBar.js";
 import { useLiveCounter } from "./tracker/useLiveCounter.js";
+import { useUndoableDelete } from "./tracker/useUndoableDelete.js";
 import { localDatetimeValue } from "./tracker/localDatetimeValue.js";
 import { todayDateInTimeZone } from "./today-date.js";
-import { useDeleteDialog } from "./useDeleteDialog.js";
 import { useRunningTimer } from "./running-timer/RunningTimerContext.js";
 import { useWorkspaceEvents } from "./useWorkspaceEvents.js";
+
+function sumEntryAmounts(entries: TimeEntry[]): number | null {
+  let total = 0;
+  let hasAmount = false;
+  for (const entry of entries) {
+    if (entry.amount !== null) {
+      total += entry.amount;
+      hasAmount = true;
+    }
+  }
+  return hasAmount ? total : null;
+}
 
 type EditFormData = TrackerEntryEditFormData;
 
@@ -119,13 +130,6 @@ export default function TrackerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const {
-    pendingDelete,
-    isDeleteDialogOpen,
-    openDeleteDialog,
-    closeDeleteDialog,
-    getDeleteTargetId,
-  } = useDeleteDialog<TimeEntry>();
   const [editing, setEditing] = useState<TimeEntry | null>(null);
   const [editForm, setEditForm] = useState<EditFormData>({
     description: "",
@@ -142,6 +146,10 @@ export default function TrackerPage() {
   );
   const projectNameById = useMemo(
     () => new Map(projects.map((project) => [project.id, project.name])),
+    [projects],
+  );
+  const projectColorById = useMemo(
+    () => new Map(projects.map((project) => [project.id, project.color])),
     [projects],
   );
 
@@ -448,30 +456,47 @@ export default function TrackerPage() {
     }
   };
 
-  const confirmDelete = async () => {
-    const id = getDeleteTargetId();
-    if (!id) return;
-
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/time-entries/${id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        throw new Error(`Delete failed (${res.status})`);
-      }
-      closeDeleteDialog();
-      await load();
-    } catch {
-      setError(t("tracker.deleteFailed"));
-    } finally {
-      setSaving(false);
+  const commitDelete = useCallback(async (entry: TimeEntry) => {
+    const res = await fetch(`/api/time-entries/${entry.id}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      throw new Error(`Delete failed (${res.status})`);
     }
+  }, []);
+
+  const {
+    pendingDelete,
+    requestDelete,
+    undo: undoDelete,
+  } = useUndoableDelete<TimeEntry>({
+    onCommit: commitDelete,
+    onCommitError: (entry) => {
+      setEntries((current) =>
+        current.some((item) => item.id === entry.id)
+          ? current
+          : [...current, entry],
+      );
+      setError(t("tracker.deleteFailed"));
+    },
+  });
+
+  const handleDelete = (entry: TimeEntry) => {
+    setEntries((current) => current.filter((item) => item.id !== entry.id));
+    requestDelete(entry);
+  };
+
+  const handleUndoDelete = () => {
+    const restored = undoDelete();
+    if (!restored) return;
+    setEntries((current) =>
+      current.some((item) => item.id === restored.id)
+        ? current
+        : [...current, restored],
+    );
   };
 
   const isMobile = useIsMobile();
-  const actionButtonClass = mobileActionButtonClass(isMobile);
   const monthGroups =
     calendarTimezone && today
       ? groupTrackerEntriesByMonth(entries, {
@@ -483,9 +508,7 @@ export default function TrackerPage() {
 
   const renderDayEntries = (day: (typeof monthGroups)[number]["days"][number]) => (
     <ul className={listPanelClass}>
-      {day.entries
-        .filter((entry) => !entry.isRunning)
-        .map((entry) => (
+      {day.entries.map((entry) => (
           <TrackerEntryRow
             key={entry.id}
             entry={entry}
@@ -494,33 +517,47 @@ export default function TrackerPage() {
                 ? (projectNameById.get(entry.projectId) ?? null)
                 : null
             }
+            projectColor={
+              entry.projectId
+                ? (projectColorById.get(entry.projectId) ?? null)
+                : null
+            }
             projectGroups={projectGroups}
             isMobile={isMobile}
             formatDurationMinutes={formatDurationMinutes}
             formatCurrency={formatCurrency}
             formatDateTime={(iso) => formatEntryTime(iso, locale)}
+            liveDuration={entry.isRunning ? liveCounter : null}
             saving={saving}
             onPatch={async (patch) => {
               await patchEntry(entry.id, patch);
             }}
-            onDelete={() => openDeleteDialog(entry)}
+            onDelete={() => handleDelete(entry)}
             onMobileEdit={() => openMobileEdit(entry)}
           />
         ))}
     </ul>
   );
 
-  const renderDayHeader = (day: (typeof monthGroups)[number]["days"][number]) => (
-    <div
-      className="mb-1 flex items-baseline justify-between gap-4 border-b border-divider px-1 py-2"
-      data-day-ribbon={day.date}
-    >
-      <h3 className="text-sm font-medium text-content">{day.dayLabel}</h3>
-      <p className={numericMetaValueClass}>
-        {t("tracker.dayTotal")}: {formatDurationMinutes(day.totalDurationMinutes)}
-      </p>
-    </div>
-  );
+  const renderDayHeader = (day: (typeof monthGroups)[number]["days"][number]) => {
+    const dayAmount = sumEntryAmounts(day.entries);
+    return (
+      <div
+        className="mb-1 border-b border-divider px-1 py-2"
+        data-day-ribbon={day.date}
+      >
+        <h3 className="text-sm font-medium text-content">{day.dayLabel}</h3>
+        <p className={`mt-0.5 ${numericMetaValueClass} text-left`}>
+          {formatDurationMinutes(day.totalDurationMinutes)}
+          {dayAmount !== null && (
+            <span className={`ml-2 ${numericValueClass} text-sm`}>
+              {formatCurrency(dayAmount)}
+            </span>
+          )}
+        </p>
+      </div>
+    );
+  };
 
   return (
     <PageMain variant="flex" width="wide">
@@ -572,37 +609,68 @@ export default function TrackerPage() {
       {error && <p className={errorBannerClass}>{error}</p>}
 
       {loading ? (
-        <p className={metaTextClass}>{t("tracker.loading")}</p>
+        <TrackerListSkeleton label={t("tracker.loading")} />
       ) : entries.length === 0 ? (
         <p className={emptyStateClass}>{t("tracker.empty")}</p>
       ) : (
         <div
-          className={`space-y-6${isDeleteDialogOpen ? " pointer-events-none" : ""}`}
+          className="space-y-6"
           {...(!isMobile
             ? { role: "region", "aria-label": t("tracker.dayTimeline") }
             : {})}
         >
-          {monthGroups.map((month) => (
-            <section key={month.monthKey} aria-label={month.monthLabel}>
-              <div className="mb-2 flex items-baseline justify-between gap-4 px-1">
-                <h2 className="text-sm font-semibold text-content">{month.monthLabel}</h2>
-                <p className={numericMetaValueClass}>
-                  {t("tracker.monthTotal")}: {formatDurationMinutes(month.totalDurationMinutes)}
-                </p>
-              </div>
+          {monthGroups.map((month) => {
+            const monthAmount = sumEntryAmounts(
+              month.days.flatMap((day) => day.entries),
+            );
+            return (
+              <section key={month.monthKey} aria-label={month.monthLabel}>
+                <div className="mb-2 px-1">
+                  <h2 className="text-sm font-semibold text-content">
+                    {month.monthLabel}
+                  </h2>
+                  <p className={`mt-0.5 ${numericMetaValueClass} text-left`}>
+                    {formatDurationMinutes(month.totalDurationMinutes)}
+                    {monthAmount !== null && (
+                      <span className={`ml-2 ${numericValueClass} text-sm`}>
+                        {formatCurrency(monthAmount)}
+                      </span>
+                    )}
+                  </p>
+                </div>
 
-              <div className="space-y-4">
-                {month.days.map((day) => (
-                  <div key={day.date}>
-                    {renderDayHeader(day)}
-                    {renderDayEntries(day)}
-                  </div>
-                ))}
-              </div>
-            </section>
-          ))}
+                <div className="space-y-4">
+                  {month.days.map((day) => (
+                    <div key={day.date}>
+                      {renderDayHeader(day)}
+                      {renderDayEntries(day)}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
         </div>
       )}
+
+      <div
+        role="status"
+        aria-live="polite"
+        className="pointer-events-none fixed inset-x-0 bottom-20 z-40 flex justify-center px-4 md:bottom-6"
+      >
+        {pendingDelete && (
+          <div className="pointer-events-auto flex items-center gap-3 rounded-lg border border-divider bg-surface px-4 py-3 text-sm text-content shadow-lg">
+            <span>{t("tracker.entryDeleted")}</span>
+            <button
+              type="button"
+              onClick={handleUndoDelete}
+              className={`${primaryButtonClass} px-3 py-1.5`}
+            >
+              {t("common.undo")}
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className="flex items-center justify-end gap-2 pt-2">
         <label className={`flex items-center gap-2 ${metaTextClass}`}>
@@ -642,36 +710,6 @@ export default function TrackerPage() {
         </ResponsiveOverlay>
       )}
 
-      {pendingDelete && (
-        <ResponsiveOverlay
-          ariaLabel={t("common.delete")}
-          labelledBy="delete-entry-title"
-          onClose={closeDeleteDialog}
-          onBackdropClick={closeDeleteDialog}
-        >
-          <h2 id="delete-entry-title" className="text-lg font-semibold text-content">
-            {t("tracker.deleteEntryTitle")}
-          </h2>
-          <p className={`mt-2 ${metaTextClass}`}>{t("tracker.deleteEntryBody")}</p>
-          <div className="mt-6 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={closeDeleteDialog}
-              className={actionButtonClass}
-            >
-              {t("common.cancel")}
-            </button>
-            <button
-              type="button"
-              onClick={() => void confirmDelete()}
-              disabled={saving}
-              className={destructiveButtonClass}
-            >
-              {saving ? t("common.deleting") : t("common.confirmDelete")}
-            </button>
-          </div>
-        </ResponsiveOverlay>
-      )}
     </PageMain>
   );
 }

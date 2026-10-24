@@ -331,7 +331,7 @@ describe("TrackerEntryRow", () => {
 
     expect(
       screen.queryByRole("button", {
-        name: /morning work no project · 08:00 – 08:00/i,
+        name: /morning work.*no project.*08:00/i,
       }),
     ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^invoiced$/i })).toBeDisabled();
@@ -358,10 +358,51 @@ describe("TrackerEntryRow", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: /morning work no project · 08:00 – 08:00/i,
+        name: /morning work.*no project.*08:00/i,
       }),
     );
 
     expect(onMobileEdit).toHaveBeenCalled();
+  });
+
+  it("shows a project color swatch before the project name, not a colored row border", () => {
+    renderRow({
+      entry: { ...stoppedEntry, projectId: project.id },
+      projectName: project.name,
+      projectColor: "#3b82f6",
+    });
+
+    const swatch = screen.getByTestId("project-color-swatch");
+    expect(swatch).toHaveStyle({ backgroundColor: "rgb(59, 130, 246)" });
+    expect(swatch.className).toMatch(/rounded-full/);
+    expect(swatch.className).not.toMatch(/border-l-/);
+
+    const row = screen.getByText("Morning work").closest("li");
+    expect(row?.className ?? "").not.toMatch(/border-l-/);
+    expect(row?.getAttribute("style") ?? "").not.toMatch(/border/i);
+  });
+
+  it("shows a neutral marker when the entry has no project", () => {
+    renderRow();
+
+    const swatch = screen.getByTestId("project-color-swatch");
+    expect(swatch).toHaveAttribute("data-neutral", "true");
+  });
+
+  it("hides the resting Delete button behind a quiet row action on desktop", () => {
+    renderRow();
+
+    const deleteButton = screen.getByRole("button", { name: /^delete$/i });
+    expect(deleteButton.className).toMatch(/opacity-0/);
+    expect(deleteButton.className).not.toMatch(/border-destructive/);
+  });
+
+  it("keeps a quiet overflow delete control visible on mobile", () => {
+    renderRow({ isMobile: true });
+
+    const deleteButton = screen.getByRole("button", { name: /^delete$/i });
+    expect(deleteButton).toHaveTextContent("…");
+    expect(deleteButton.className).not.toMatch(/opacity-0/);
+    expect(deleteButton.className).not.toMatch(/border-destructive/);
   });
 });

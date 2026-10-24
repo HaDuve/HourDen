@@ -4,14 +4,15 @@ import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { DescriptionAutocomplete } from "../DescriptionAutocomplete.js";
 import {
-  destructiveOutlineButtonClass,
   inputClass,
+  liveCounterClass,
   metaTextClass,
   mutedOutlineButtonClass,
   numericValueClass,
   selectClass,
 } from "../layout/ui-classes.js";
 import type { ProjectClientGroup } from "./groupProjectsByClient.js";
+import { ProjectColorSwatch } from "./ProjectColorSwatch.js";
 import {
   localDateAndTimeToIso,
   localDateValue,
@@ -24,11 +25,14 @@ type EditableField = "description" | "project" | "start" | "end" | "date";
 type TrackerEntryRowProps = {
   entry: TimeEntry;
   projectName: string | null;
+  projectColor?: string | null;
   projectGroups: ProjectClientGroup[];
   isMobile: boolean;
   formatDurationMinutes: (minutes: number) => string;
   formatCurrency: (amount: number) => string;
   formatDateTime: (iso: string) => string;
+  /** Live Counter digits when this row is the Running Timer. */
+  liveDuration?: string | null;
   saving: boolean;
   onPatch: (patch: UpdateTimeEntryInput) => Promise<void>;
   onDelete: () => void;
@@ -38,14 +42,31 @@ type TrackerEntryRowProps = {
 const CALENDAR_ICON_SIZE = 14;
 const CALENDAR_ICON_STROKE = 1.75;
 
+function ProjectLabel({
+  name,
+  color,
+}: {
+  name: string;
+  color: string | null;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <ProjectColorSwatch color={color} />
+      <span>{name}</span>
+    </span>
+  );
+}
+
 export function TrackerEntryRow({
   entry,
   projectName,
+  projectColor = null,
   projectGroups,
   isMobile,
   formatDurationMinutes,
   formatCurrency,
   formatDateTime,
+  liveDuration = null,
   saving,
   onPatch,
   onDelete,
@@ -53,6 +74,12 @@ export function TrackerEntryRow({
 }: TrackerEntryRowProps) {
   const { t } = useTranslation();
   const frozen = entry.locked || entry.isRunning;
+  const durationDisplay = entry.isRunning && liveDuration
+    ? liveDuration
+    : formatDurationMinutes(entry.durationMinutes);
+  const durationClass = entry.isRunning
+    ? `${liveCounterClass} text-sm`
+    : `${numericValueClass} text-sm`;
   const editable = !frozen && !isMobile;
   const lockedReadOnlyHelp = entry.locked
     ? t("tracker.invoicedReadOnlyHelp")
@@ -188,8 +215,19 @@ export function TrackerEntryRow({
     .filter(Boolean)
     .join(", ");
 
+  const projectLabel = (
+    <ProjectLabel
+      name={projectName ?? t("tracker.noProject")}
+      color={projectColor}
+    />
+  );
+
   return (
-    <li className="flex items-start justify-between gap-4 px-4 py-4">
+    <li
+      className={`group flex items-start justify-between gap-3 px-4 py-4${
+        entry.isRunning ? " bg-accent-muted" : ""
+      }`}
+    >
       <div className="min-w-0 flex-1" title={lockedReadOnlyHelp}>
         {isMobile && !frozen ? (
           <button
@@ -198,11 +236,13 @@ export function TrackerEntryRow({
             className="w-full text-left"
           >
             <p className="font-medium text-content">{descriptionDisplay}</p>
-            <p className={`mt-1 ${metaTextClass}`}>
-              {projectName ?? t("tracker.noProject")}
-              {" · "}
-              {formatDateTime(entry.startedAt)}
-              {entry.endedAt && ` – ${formatDateTime(entry.endedAt)}`}
+            <p className={`mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 ${metaTextClass}`}>
+              {projectLabel}
+              <span aria-hidden="true">·</span>
+              <span>
+                {formatDateTime(entry.startedAt)}
+                {entry.endedAt && ` – ${formatDateTime(entry.endedAt)}`}
+              </span>
             </p>
           </button>
         ) : (
@@ -282,12 +322,12 @@ export function TrackerEntryRow({
                     setProjectDraft(entry.projectId ?? "");
                     setActiveField("project");
                   }}
-                  className="hover:underline"
+                  className="inline-flex items-center hover:underline"
                 >
-                  {projectName ?? t("tracker.noProject")}
+                  {projectLabel}
                 </button>
               ) : (
-                <span>{projectName ?? t("tracker.noProject")}</span>
+                projectLabel
               )}
 
               <span aria-hidden="true">·</span>
@@ -407,26 +447,28 @@ export function TrackerEntryRow({
           </>
         )}
 
-        {(entry.amount !== null || (!entry.billableComplete && !entry.isRunning)) && (
-          <p className={`mt-1 ${metaTextClass}`}>
-            {entry.amount !== null && formatCurrency(entry.amount)}
-            {!entry.billableComplete &&
-              !entry.isRunning &&
-              `${entry.amount !== null ? " · " : ""}${t("tracker.incomplete")}`}
-          </p>
+        {!entry.billableComplete && !entry.isRunning && (
+          <p className={`mt-1 ${metaTextClass}`}>{t("tracker.incomplete")}</p>
         )}
       </div>
 
-      <div className="flex shrink-0 items-start gap-3">
-        <p
-          aria-label={`${t("tracker.duration")}: ${formatDurationMinutes(entry.durationMinutes)}`}
-          className={`${numericValueClass} text-sm`}
-        >
-          {formatDurationMinutes(entry.durationMinutes)}
+      <div className="flex shrink-0 items-start gap-2">
+        <div className="text-right">
+          <p
+            aria-label={`${t("tracker.duration")}: ${durationDisplay}`}
+            className={durationClass}
+          >
+            {durationDisplay}
+            {entry.amount !== null && (
+              <span className={`ml-2 ${numericValueClass} text-sm`}>
+                {formatCurrency(entry.amount)}
+              </span>
+            )}
+          </p>
           {entry.isRunning && (
             <span className={`block ${metaTextClass}`}>{t("tracker.running")}</span>
           )}
-        </p>
+        </div>
         {entry.locked ? (
           <button
             type="button"
@@ -442,9 +484,14 @@ export function TrackerEntryRow({
             type="button"
             onClick={onDelete}
             disabled={saving}
-            className={`${destructiveOutlineButtonClass} px-3 py-1.5 text-sm`}
+            aria-label={t("common.delete")}
+            className={
+              isMobile
+                ? "rounded-md px-2 py-1.5 text-sm text-muted hover:bg-surface-hover hover:text-danger"
+                : "rounded-md px-2 py-1.5 text-sm text-muted opacity-0 hover:bg-surface-hover hover:text-danger focus:opacity-100 focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
+            }
           >
-            {t("common.delete")}
+            {isMobile ? "…" : t("common.delete")}
           </button>
         ) : null}
       </div>
