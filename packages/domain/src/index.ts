@@ -93,11 +93,18 @@ export {
 export { elapsedSecondsSince, formatElapsedHMMSS } from "./elapsed.js";
 export {
   layoutDayRibbon,
+  layoutDayRibbonGaps,
+  ribbonFractionToMs,
+  snapInstantMs,
+  normalizeDragRange,
+  nudgeInstantMs,
   DAY_RIBBON_DEFAULT_WINDOW,
+  DAY_RIBBON_SNAP_MINUTES,
   instantAtLocal,
   addCalendarDays,
   type DayRibbonEntryInput,
   type DayRibbonBlock,
+  type DayRibbonGap,
   type DayRibbonLayout,
   type DayRibbonDefaultWindow,
 } from "./day-ribbon.js";

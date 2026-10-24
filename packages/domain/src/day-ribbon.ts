@@ -23,11 +23,23 @@ export type DayRibbonLayout = {
   blocks: DayRibbonBlock[];
 };
 
+export type DayRibbonGap = {
+  /** Stable key within a layout: `gap-{index}` */
+  id: string;
+  leftPct: number;
+  widthPct: number;
+  startMs: number;
+  endMs: number;
+};
+
 /** Sensible default working-hours window (local clock). */
 export const DAY_RIBBON_DEFAULT_WINDOW = {
   startHour: 8,
   endHour: 18,
 } as const;
+
+/** Default snap step when painting or resizing on the Day Ribbon. */
+export const DAY_RIBBON_SNAP_MINUTES = 5;
 
 export type DayRibbonDefaultWindow = {
   startHour: number;
@@ -101,6 +113,84 @@ export function layoutDayRibbon(
   }));
 
   return { windowStartMs, windowEndMs, blocks };
+}
+
+/** Empty stretches between blocks (and window edges), for keyboard focus. */
+export function layoutDayRibbonGaps(layout: DayRibbonLayout): DayRibbonGap[] {
+  const span = layout.windowEndMs - layout.windowStartMs;
+  if (span <= 0) return [];
+
+  const sorted = [...layout.blocks].sort(
+    (a, b) => a.clippedStartMs - b.clippedStartMs,
+  );
+  const gaps: DayRibbonGap[] = [];
+  let cursor = layout.windowStartMs;
+
+  for (const block of sorted) {
+    if (block.clippedStartMs > cursor) {
+      const startMs = cursor;
+      const endMs = block.clippedStartMs;
+      gaps.push({
+        id: `gap-${gaps.length}`,
+        leftPct: ((startMs - layout.windowStartMs) / span) * 100,
+        widthPct: ((endMs - startMs) / span) * 100,
+        startMs,
+        endMs,
+      });
+    }
+    cursor = Math.max(cursor, block.clippedEndMs);
+  }
+
+  if (cursor < layout.windowEndMs) {
+    const startMs = cursor;
+    const endMs = layout.windowEndMs;
+    gaps.push({
+      id: `gap-${gaps.length}`,
+      leftPct: ((startMs - layout.windowStartMs) / span) * 100,
+      widthPct: ((endMs - startMs) / span) * 100,
+      startMs,
+      endMs,
+    });
+  }
+
+  return gaps;
+}
+
+export function ribbonFractionToMs(
+  fraction: number,
+  windowStartMs: number,
+  windowEndMs: number,
+): number {
+  const clamped = Math.min(1, Math.max(0, fraction));
+  return windowStartMs + clamped * (windowEndMs - windowStartMs);
+}
+
+export function snapInstantMs(
+  ms: number,
+  options: { snapMinutes?: number; snap?: boolean } = {},
+): number {
+  if (options.snap === false) return ms;
+  const snapMinutes = options.snapMinutes ?? DAY_RIBBON_SNAP_MINUTES;
+  const snapMs = snapMinutes * 60_000;
+  return Math.round(ms / snapMs) * snapMs;
+}
+
+export function normalizeDragRange(
+  aMs: number,
+  bMs: number,
+): { startMs: number; endMs: number } {
+  return aMs <= bMs
+    ? { startMs: aMs, endMs: bMs }
+    : { startMs: bMs, endMs: aMs };
+}
+
+export function nudgeInstantMs(
+  ms: number,
+  direction: 1 | -1,
+  options: { stepMinutes?: number } = {},
+): number {
+  const stepMinutes = options.stepMinutes ?? DAY_RIBBON_SNAP_MINUTES;
+  return ms + direction * stepMinutes * 60_000;
 }
 
 export function addCalendarDays(dateKey: string, days: number): string {
